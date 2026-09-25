@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/api/apepdcl/(.*)", "destination": "https://epccbopn.apeasternpower.com/$1" },
+    { "source": "/api/meta/(.*)", "destination": "https://graph.facebook.com/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

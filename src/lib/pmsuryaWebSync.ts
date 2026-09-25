@@ -130,6 +130,12 @@ export async function runWebPMSuryaSync(
     percent: 35,
   });
 
+  if (html.includes('id="root"') || (!html.includes('<tr') && !html.includes('<table'))) {
+    throw new Error(
+      'APEPDCL Live Sync cannot connect directly across domains in production. Please use the "Upload .html File" button (or PM Surya Ghar JSON Import) to load records.'
+    );
+  }
+
   const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
   let trMatch;
   let headerParsed = false;
