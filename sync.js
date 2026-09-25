@@ -51,7 +51,9 @@ const filesToSync = [
   'supabase/migrations/20260924100000_create_whatsapp_inbox_tables.sql',
   'supabase/migrations/20260925014000_add_lost_at_to_customers.sql',
   'supabase/functions/whatsapp-webhook/index.ts',
-  'WHATSAPP_SETUP_GUIDE.md'
+  'WHATSAPP_SETUP_GUIDE.md',
+  'public/_redirects',
+  'vercel.json'
 ];
 
 async function syncFile(file, index, total) {
