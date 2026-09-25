@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "Admins can insert role assignments" ON user_roles;
+CREATE POLICY "Admins can insert role assignments" ON user_roles FOR INSERT TO authenticated WITH CHECK (current_user_is_admin());

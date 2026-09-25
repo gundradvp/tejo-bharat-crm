@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "Admins insert profiles in tenant" ON profiles;
+CREATE POLICY "Admins can insert profiles in tenant" ON profiles FOR INSERT TO authenticated WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND (p.role = 'admin' OR EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = auth.uid() AND r.name = 'admin'))));

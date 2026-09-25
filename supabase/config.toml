@@ -1,0 +1,24 @@
+[functions.create-jsp-admin]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = false
+
+[functions.init-storage-bucket]
+verify_jwt = false
+
+[functions.reset-user-password]
+verify_jwt = false
+
+[functions.send-task-notification]
+verify_jwt = false
+
+[functions.send-reminders]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+

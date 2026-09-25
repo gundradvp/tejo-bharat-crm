@@ -1,0 +1,1 @@
+CREATE POLICY "Super admins can manage all usage" ON tenant_usage FOR ALL TO authenticated USING (is_super_admin(auth.uid())) WITH CHECK (is_super_admin(auth.uid()));

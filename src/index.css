@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prevent flickering on iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Fix iOS input zoom */
+input,
+select,
+textarea {
+  font-size: 16px !important;
+}
+
+/* Smooth scrolling for iOS */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   Theme System - CSS Custom Properties
+   Applied via data-theme attribute on <html> element.
+   Fallback values match the default teal theme.
+   ============================================================ */
+:root {
+  --color-primary: #0d9488;
+  --color-primary-hover: #0f766e;
+  --color-primary-light: #ccfbf1;
+  --color-primary-dark: #134e4a;
+  --color-accent: #f59e0b;
+  --color-accent-light: #fef3c7;
+  --color-header-bg: #ffffff;
+  --color-header-text: #1f2937;
+  --color-page-bg: #f8fafc;
+  --color-card-bg: #ffffff;
+  --color-card-border: #e2e8f0;
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #9ca3af;
+  --color-input-bg: #ffffff;
+  --color-input-border: #d1d5db;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+  --color-badge-bg: #f1f5f9;
+  --color-badge-text: #475569;
+}
+
+/* ============================================================
+   Theme Utility Classes
+   Components use these instead of hardcoded Tailwind colors
+   so the active theme flows through the whole app.
+   ============================================================ */
+@layer utilities {
+  .theme-page-bg { background-color: var(--color-page-bg); }
+  .theme-card { background-color: var(--color-card-bg); border-color: var(--color-card-border); }
+  .theme-card-border { border-color: var(--color-card-border); }
+  .theme-text-primary { color: var(--color-text-primary); }
+  .theme-text-secondary { color: var(--color-text-secondary); }
+  .theme-text-muted { color: var(--color-text-muted); }
+  .theme-header-bg { background-color: var(--color-header-bg); }
+  .theme-header-text { color: var(--color-header-text); }
+  .theme-input-bg { background-color: var(--color-input-bg); }
+  .theme-input-border { border-color: var(--color-input-border); }
+  .theme-primary { color: var(--color-primary); }
+  .theme-primary-bg { background-color: var(--color-primary); }
+  .theme-primary-hover-bg { background-color: var(--color-primary-hover); }
+  .theme-primary-light-bg { background-color: var(--color-primary-light); }
+  .theme-primary-border { border-color: var(--color-primary); }
+  .theme-badge-bg { background-color: var(--color-badge-bg); }
+  .theme-badge-text { color: var(--color-badge-text); }
+
+  .btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+    transition: background-color 0.2s ease;
+  }
+  .btn-primary:hover {
+    background-color: var(--color-primary-hover);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+  }
+
+  .focus-ring-primary:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary);
+    border-color: var(--color-primary);
+  }
+}
+
+/* PWA safe area for iOS notch */
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* PWA Install Prompt Animation */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Print styles for documentation PDF */
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  body { background: white !important; color: black !important; }
+  .print-page-break { page-break-before: always; }
+  .print-avoid-break { page-break-inside: avoid; }
+}
+
+.print-only { display: none; }

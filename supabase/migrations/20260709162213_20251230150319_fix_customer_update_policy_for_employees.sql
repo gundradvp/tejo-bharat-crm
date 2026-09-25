@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "Users update customers in tenant" ON customers;
+CREATE POLICY "Users update customers in tenant" ON customers FOR UPDATE TO authenticated USING (tenant_id = get_user_tenant_id(auth.uid()) AND (agent_id = auth.uid() OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'lead_generator', 'employee')))) WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()));
