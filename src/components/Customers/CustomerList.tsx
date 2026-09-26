@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase, Customer, canImportSuryaGharLeads, isNagarjunaUser, type Profile } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { Search, Plus, Phone, Mail, MapPin, CreditCard as Edit2, Loader2, Printer, Grid3x3, List, MessageCircle, Settings, Paperclip, Copy, Check, Download, Hash, Zap, Sun, ClipboardCopy, IndianRupee, Bookmark, RotateCcw, AlertCircle, Upload, Clock, Flame, TrendingUp, FolderOpen, UserX } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, CreditCard as Edit2, Loader2, Printer, Grid3x3, List, MessageCircle, Settings, Paperclip, Copy, Check, Download, Hash, Zap, Sun, ClipboardCopy, IndianRupee, Bookmark, RotateCcw, AlertCircle, Upload, Clock, Flame, TrendingUp, FolderOpen, UserX, X } from 'lucide-react';
+import * as XLSX from 'xlsx/xlsx.mjs';
 import { useNavigate } from 'react-router-dom';
 import CustomerForm from './CustomerForm';
 import CustomerTechnicalDetailsModal from './CustomerTechnicalDetailsModal';
@@ -424,6 +425,9 @@ export default function CustomerList() {
 
   const [exporting, setExporting] = useState(false);
   const [copiedJSON, setCopiedJSON] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportType, setExportType] = useState<'excel' | 'scOnly'>('excel');
+  const [exportScope, setExportScope] = useState<'filtered' | 'all'>('filtered');
 
   const handleExportJSON = async () => {
     try {
@@ -668,6 +672,102 @@ export default function CustomerList() {
     return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true);
+      const targetList = exportScope === 'filtered' ? sortedCustomers : customers;
+
+      if (targetList.length === 0) {
+        alert('No customers found to export with the selected criteria.');
+        return;
+      }
+
+      const dateStr = new Date().toISOString().split('T')[0];
+
+      if (exportType === 'scOnly') {
+        const scNumbers = targetList
+          .map((c: any) => c.consumer_number)
+          .filter(Boolean);
+
+        if (scNumbers.length === 0) {
+          alert('No Consumer / SC numbers found in the selected customers.');
+          return;
+        }
+
+        const csvContent = 'Consumer / SC Number\n' + scNumbers.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `customer_sc_numbers_${dateStr}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+        setShowExportModal(false);
+        return;
+      }
+
+      const rows = targetList.map((c: any, index: number) => {
+        const bs = billSummaries[c.id];
+        const disburse = disbursementData[c.id];
+        const stepDate = c.portal_current_step_date;
+        const daysInStage = stepDate
+          ? Math.floor((Date.now() - new Date(stepDate).getTime()) / (1000 * 60 * 60 * 24))
+          : '';
+
+        return {
+          'S.No': index + 1,
+          'Customer Name': c.customer_name || '',
+          'Mobile Number': c.phone || '',
+          'Email': c.email || '',
+          'Consumer / SC Number': c.consumer_number || '',
+          'Application Ref No': c.application_ref_no || '',
+          'DISCOM': c.discom_name || '',
+          'Address': c.address || '',
+          'District': c.district_name || '',
+          'Overall Status': c.overall_status ? (statusLabels[c.overall_status as keyof typeof statusLabels] || c.overall_status) : '',
+          'Workflow Stage': c.current_workflow_stage || '',
+          'Portal Stage': c.portal_current_step_name || '',
+          'Portal Stage Date': stepDate ? new Date(stepDate).toLocaleDateString('en-IN') : '',
+          'Days In Stage': daysInStage,
+          'Document Status': c.document_status || '',
+          'Installation Status': c.installation_status || '',
+          'Loan Status': formatLoanStatus(c.current_loan_status || c.loan_status || ''),
+          'Subsidy Status': c.subsidy_status || '',
+          'Lifecycle Status': c.customer_lifecycle_status || 'active',
+          'Lost Date': formatLostDate(c.lost_at || null),
+          'Assigned Agent': c.assigned_agent?.full_name || '',
+          'Import Source': c.import_source || '',
+          'Latest Billed Units': bs?.billedUnits != null ? bs.billedUnits : '',
+          'Latest Bill Amount (₹)': bs?.billAmount != null ? bs.billAmount : '',
+          'Latest Bill Month': bs?.billMonth || '',
+          'High Usage (>500)': bs?.isHighUsage ? 'Yes' : 'No',
+          'Total Disbursement (₹)': disburse?.total != null ? disburse.total : '',
+          'Pending Disbursement (₹)': disburse?.pending != null ? disburse.pending : '',
+          'Remarks': c.remarks || '',
+          'Created At': c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : '',
+        };
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+
+      // Auto-fit column widths
+      const colWidths = Object.keys(rows[0] || {}).map((key) => ({
+        wch: Math.max(key.length + 3, 12),
+      }));
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+      XLSX.writeFile(wb, `customers_export_${dateStr}.xlsx`);
+      setShowExportModal(false);
+    } catch (err: any) {
+      console.error('Export to Excel failed:', err);
+      alert('Export to Excel failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
     setShowForm(true);
@@ -796,13 +896,21 @@ export default function CustomerList() {
                 <span className="hidden sm:inline text-sm">Detailed Import</span>
               </button>
               <button
+                onClick={() => setShowExportModal(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium shadow-sm cursor-pointer"
+                title="Export customers list to Excel (.xlsx)"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm">Export Excel</span>
+              </button>
+              <button
                 onClick={handleExportJSON}
                 disabled={exporting}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Download customers as JSON file"
               >
                 {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                <span className="hidden sm:inline text-sm">Export</span>
+                <span className="hidden sm:inline text-sm">Export JSON</span>
               </button>
               <button
                 onClick={handleCopyJSON}
@@ -1474,6 +1582,145 @@ export default function CustomerList() {
           onNotesCountChange={handleNotesCountChange}
           onDocumentsCountChange={handleDocumentsCountChange}
         />
+      )}
+
+      {/* Export to Excel Modal */}
+      {showExportModal && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowExportModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-green-100 text-green-700 flex items-center justify-center">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Export Customers to Excel</h3>
+                  <p className="text-xs text-gray-500">Download formatted customer spreadsheet</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-3 mb-4 text-xs text-gray-600 space-y-1 border border-gray-200/70">
+              <div className="flex justify-between">
+                <span>Matching current active filters:</span>
+                <strong className="text-gray-900">{sortedCustomers.length.toLocaleString('en-IN')} customers</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Total customers in system:</span>
+                <strong className="text-gray-900">{customers.length.toLocaleString('en-IN')} customers</strong>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-5">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                  1. Which customers to export?
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input
+                      type="radio"
+                      name="exportScope"
+                      checked={exportScope === 'filtered'}
+                      onChange={() => setExportScope('filtered')}
+                      className="w-4 h-4 text-green-600 focus:ring-green-500 mt-0.5"
+                    />
+                    <div className="text-xs">
+                      <span className="font-semibold text-gray-800">Filtered List Only ({sortedCustomers.length})</span>
+                      <span className="text-gray-500 block">
+                        Exports the {sortedCustomers.length} customers matching your current active filters
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input
+                      type="radio"
+                      name="exportScope"
+                      checked={exportScope === 'all'}
+                      onChange={() => setExportScope('all')}
+                      className="w-4 h-4 text-green-600 focus:ring-green-500 mt-0.5"
+                    />
+                    <div className="text-xs">
+                      <span className="font-semibold text-gray-800">All Customers ({customers.length})</span>
+                      <span className="text-gray-500 block">
+                        Exports all {customers.length} customer records in the system
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                  2. File Format
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input
+                      type="radio"
+                      name="exportType"
+                      checked={exportType === 'excel'}
+                      onChange={() => setExportType('excel')}
+                      className="w-4 h-4 text-green-600 focus:ring-green-500 mt-0.5"
+                    />
+                    <div className="text-xs">
+                      <span className="font-semibold text-gray-800">Full Excel (.xlsx)</span>
+                      <span className="text-gray-500 block">
+                        All columns: Contact, Status, Stages, Bills, Loan, Subsidy, Financials
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input
+                      type="radio"
+                      name="exportType"
+                      checked={exportType === 'scOnly'}
+                      onChange={() => setExportType('scOnly')}
+                      className="w-4 h-4 text-green-600 focus:ring-green-500 mt-0.5"
+                    />
+                    <div className="text-xs">
+                      <span className="font-semibold text-gray-800">Consumer / SC Numbers Only (.csv)</span>
+                      <span className="text-gray-500 block">Simple list of SC numbers for batch portal sync</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-xs font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                disabled={exporting}
+                className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {exporting ? 'Exporting...' : 'Download Excel File'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
