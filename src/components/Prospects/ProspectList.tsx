@@ -1142,9 +1142,30 @@ export default function ProspectList() {
                     })()}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    {(prospect.mobile_number || prospect.phone) && (
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={`tel:${prospect.mobile_number || prospect.phone}`}
+                          className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                          title="Click to Call"
+                        >
+                          <Phone className="w-4 h-4" />
+                        </a>
+                        <button
+                          onClick={() => copyToClipboard(prospect.mobile_number || prospect.phone!, `${prospect.id}-mobile`)}
+                          className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                          title="Copy mobile number"
+                        >
+                          {copiedField === `${prospect.id}-mobile` ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    )}
                     {prospect.sc_number && (
-                      <button onClick={() => copyToClipboard(prospect.sc_number!, `${prospect.id}-sc`)}
-                        className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors" title="Copy SC Number">
+                      <button
+                        onClick={() => copyToClipboard(prospect.sc_number!, `${prospect.id}-sc`)}
+                        className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                        title="Copy SC Number"
+                      >
                         {copiedField === `${prospect.id}-sc` ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                       </button>
                     )}

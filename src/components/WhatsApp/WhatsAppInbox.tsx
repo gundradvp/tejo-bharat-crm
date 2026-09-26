@@ -130,6 +130,13 @@ export default function WhatsAppInboxView() {
     text: string;
     chatId: string;
   } | null>(null);
+
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(id);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
   const previousLatestMsgRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -1718,6 +1725,20 @@ export default function WhatsAppInboxView() {
                     <span className="text-[10px] font-mono font-normal text-gray-500">
                       (+{activeChat.phoneNumber})
                     </span>
+                    <a
+                      href={`tel:${activeChat.phoneNumber}`}
+                      className="p-1 rounded-md hover:bg-green-50 text-green-600 transition-colors"
+                      title="Click to Call"
+                    >
+                      <Phone className="w-3 h-3" />
+                    </a>
+                    <button
+                      onClick={() => copyToClipboard(activeChat.phoneNumber, 'header-phone')}
+                      className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+                      title="Copy Phone Number"
+                    >
+                      {copiedField === 'header-phone' ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                    </button>
                     {activeChat.lastMessageDirection === 'inbound' && (
                       <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.2 rounded-full flex items-center gap-1">
                         <Sparkles className="w-2.5 h-2.5 text-amber-600" />
@@ -2148,12 +2169,28 @@ export default function WhatsAppInboxView() {
         {/* RIGHT COLUMN: PM Surya Ghar Customer Context Panel */}
         {activeChat && (
           <div className="hidden lg:flex w-72 xl:w-80 border-l border-gray-200 bg-white flex-col p-5 overflow-y-auto space-y-5 flex-shrink-0">
-            <div>
+            <div className="text-center">
               <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-lg shadow-sm mx-auto mb-2">
                 {activeChat.customerName.charAt(0)}
               </div>
-              <h4 className="text-center font-bold text-sm text-gray-900">{activeChat.customerName}</h4>
-              <p className="text-center text-xs text-gray-500 font-mono">+{activeChat.phoneNumber}</p>
+              <h4 className="font-bold text-sm text-gray-900">{activeChat.customerName}</h4>
+              <div className="flex items-center justify-center gap-1.5 mt-1">
+                <span className="text-xs text-gray-600 font-mono">+{activeChat.phoneNumber}</span>
+                <a
+                  href={`tel:${activeChat.phoneNumber}`}
+                  className="p-1 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                  title="Click to Call"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                </a>
+                <button
+                  onClick={() => copyToClipboard(activeChat.phoneNumber, 'chat-phone')}
+                  className="p-1 rounded-md bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors"
+                  title="Copy Phone Number"
+                >
+                  {copiedField === 'chat-phone' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
             </div>
 
             {/* PM Surya Ghar Details Card with Integrated Bill History */}
@@ -2170,7 +2207,18 @@ export default function WhatsAppInboxView() {
 
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">Service No:</span>
-                <span className="font-bold font-mono text-gray-900">{activeChat.scNumber || '-'}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold font-mono text-gray-900">{activeChat.scNumber || '-'}</span>
+                  {activeChat.scNumber && (
+                    <button
+                      onClick={() => copyToClipboard(activeChat.scNumber!, 'chat-sc')}
+                      className="p-1 rounded-md bg-amber-100/70 text-amber-800 hover:bg-amber-200 transition-colors"
+                      title="Copy Service Number"
+                    >
+                      {copiedField === 'chat-sc' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center justify-between">
