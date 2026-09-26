@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase, Customer, canImportSuryaGharLeads, isNagarjunaUser, type Profile } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { Search, Plus, Phone, Mail, MapPin, CreditCard as Edit2, Loader2, Printer, Grid3x3, List, MessageCircle, Settings, Paperclip, Copy, Check, Download, Hash, Zap, Sun, ClipboardCopy, IndianRupee, Bookmark, RotateCcw, AlertCircle, Upload, Clock, Flame, TrendingUp, FolderOpen, UserX, X } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, CreditCard as Edit2, Loader2, Printer, Grid3x3, List, MessageCircle, Settings, Paperclip, Copy, Check, Download, Hash, Zap, Sun, ClipboardCopy, IndianRupee, Bookmark, RotateCcw, AlertCircle, Upload, Clock, Flame, TrendingUp, FolderOpen, UserX, X, MessageSquare, PhoneCall, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx/xlsx.mjs';
 import { useNavigate } from 'react-router-dom';
 import CustomerForm from './CustomerForm';
@@ -62,6 +62,7 @@ export default function CustomerList() {
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
   const [copiedConsumer, setCopiedConsumer] = useState<string | null>(null);
   const [copiedCustomerJSON, setCopiedCustomerJSON] = useState<string | null>(null);
+  const [copiedWA, setCopiedWA] = useState<string | null>(null);
   const [showLocationFilter, setShowLocationFilter] = useState(false);
   const [locationFilter, setLocationFilter] = useState<{
     stateId?: number;
@@ -853,6 +854,32 @@ export default function CustomerList() {
     }
   };
 
+  const handleCopyWA = async (customer: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const bill = billSummaries[customer.id];
+      const statusLabel = statusLabels[customer.overall_status as keyof typeof statusLabels] || customer.overall_status;
+      const lines: string[] = [];
+      lines.push(`*${customer.customer_name}*`);
+      if (customer.phone) lines.push(`📞 ${customer.phone}`);
+      if (customer.consumer_number) lines.push(`🔢 SC: ${customer.consumer_number}`);
+      if (customer.address) lines.push(`📍 ${customer.address}`);
+      lines.push(`📋 Status: ${statusLabel}`);
+      if (customer.current_workflow_stage) lines.push(`🔄 Stage: ${customer.current_workflow_stage}`);
+      if (customer.portal_current_step_name) lines.push(`🏛️ Portal: ${customer.portal_current_step_name}`);
+      const loanStatus = customer.current_loan_status || customer.loan_status;
+      if (loanStatus && loanStatus !== 'not_applicable') lines.push(`💰 Loan: ${formatLoanStatus(loanStatus)}`);
+      if (bill) {
+        lines.push(`⚡ ${bill.billedUnits} units | ₹${bill.billAmount.toLocaleString('en-IN')} (${bill.billMonth})`);
+      }
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopiedWA(customer.id);
+      setTimeout(() => setCopiedWA(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy WA message:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -936,6 +963,39 @@ export default function CustomerList() {
         </div>
       </div>
 
+      {/* Quick Stats Bar */}
+      {!loading && customers.length > 0 && (() => {
+        const total = filteredCustomers.length;
+        const completed = filteredCustomers.filter((c: any) => c.overall_status === 'completed').length;
+        const inProgress = filteredCustomers.filter((c: any) => c.overall_status === 'in_progress').length;
+        const pendingDocs = filteredCustomers.filter((c: any) => c.overall_status === 'pending_docs').length;
+        const onHold = filteredCustomers.filter((c: any) => c.overall_status === 'on_hold').length;
+        const highUsage = Object.values(billSummaries).filter((b) => b.isHighUsage).length;
+        const lost = filteredCustomers.filter((c: any) => (c as any).customer_lifecycle_status === 'lost').length;
+        const chips = [
+          { label: 'Total', value: total, color: 'bg-gray-100 text-gray-700 hover:bg-gray-200', filter: () => { setStatusFilter('all'); setLifecycleFilter('all'); } },
+          { label: '✅ Done', value: completed, color: 'bg-green-100 text-green-700 hover:bg-green-200', filter: () => { setStatusFilter('completed'); setLifecycleFilter('all'); } },
+          { label: '🔄 In Progress', value: inProgress, color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200', filter: () => { setStatusFilter('in_progress'); setLifecycleFilter('all'); } },
+          { label: '📄 Pending Docs', value: pendingDocs, color: 'bg-orange-100 text-orange-700 hover:bg-orange-200', filter: () => { setStatusFilter('pending_docs'); setLifecycleFilter('all'); } },
+          { label: '⏸ On Hold', value: onHold, color: 'bg-gray-100 text-gray-600 hover:bg-gray-200', filter: () => { setStatusFilter('on_hold'); setLifecycleFilter('all'); } },
+          { label: '🔥 High Usage', value: highUsage, color: 'bg-red-100 text-red-700 hover:bg-red-200', filter: () => { setHighUsageFilter('high'); } },
+          { label: '❌ Lost', value: lost, color: 'bg-red-50 text-red-600 hover:bg-red-100', filter: () => { setLifecycleFilter('lost'); } },
+        ];
+        return (
+          <div className="flex flex-wrap gap-2">
+            {chips.map((chip) => (
+              <button
+                key={chip.label}
+                onClick={chip.filter}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${chip.color}`}
+                title={`Filter by ${chip.label}`}
+              >
+                {chip.label} <span className="font-bold ml-1">{chip.value}</span>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
 
       <div className="bg-white rounded-xl border border-gray-200 p-3">
         {/* Search row */}
@@ -1330,7 +1390,19 @@ export default function CustomerList() {
           return (
             <div
               key={customer.id}
-              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
+              className={`bg-white rounded-xl border border-l-4 p-4 hover:shadow-md transition-shadow cursor-pointer ${
+                (customer as any).customer_lifecycle_status === 'lost'
+                  ? 'border-red-200 border-l-red-400'
+                  : customer.overall_status === 'completed'
+                  ? 'border-green-200 border-l-green-500'
+                  : customer.overall_status === 'in_progress'
+                  ? 'border-yellow-200 border-l-yellow-400'
+                  : customer.overall_status === 'pending_docs'
+                  ? 'border-orange-200 border-l-orange-400'
+                  : customer.overall_status === 'on_hold'
+                  ? 'border-gray-200 border-l-gray-400'
+                  : 'border-blue-200 border-l-blue-400'
+              }`}
               onClick={() => navigate(`/customers/${customer.id}`)}
             >
               <div className="flex items-start justify-between mb-3">
@@ -1370,11 +1442,16 @@ export default function CustomerList() {
                     )}
                     {(customer as any).portal_current_step_date && (() => {
                       const days = Math.floor((Date.now() - new Date((customer as any).portal_current_step_date).getTime()) / (1000 * 60 * 60 * 24));
-                      return days > 0 ? (
-                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 flex items-center gap-0.5">
-                          <Clock className="w-2.5 h-2.5" />{days}d
+                      if (days <= 0) return null;
+                      const isStale = days >= 30;
+                      return (
+                        <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs font-medium ${
+                          isStale ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-gray-100 text-gray-600'
+                        }`} title={isStale ? `Stuck in this stage for ${days} days!` : `${days} days in current stage`}>
+                          {isStale ? <AlertTriangle className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
+                          {days}d{isStale ? ' ⚠️' : ''}
                         </span>
-                      ) : null;
+                      );
                     })()}
                     {(() => {
                       const loanStatus = (customer as any).current_loan_status || (customer as any).loan_status;
@@ -1424,6 +1501,15 @@ export default function CustomerList() {
                         <FolderOpen className="w-3 h-3" />
                       </button>
                     )}
+                    {/* WA Copy button */}
+                    <button
+                      onClick={(e) => handleCopyWA(customer, e)}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors border border-green-200"
+                      title="Copy for WhatsApp"
+                    >
+                      {copiedWA === customer.id ? <Check className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
+                      {copiedWA === customer.id ? 'Copied!' : 'WA'}
+                    </button>
                   </div>
                 </div>
                 <div className="flex gap-0.5 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1469,6 +1555,14 @@ export default function CustomerList() {
                 <div className="flex items-center gap-1.5 text-gray-600 group">
                   <Phone className="w-3.5 h-3.5 flex-shrink-0" />
                   <span>{customer.phone}</span>
+                  <a
+                    href={`tel:${customer.phone}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-green-100 text-green-600 rounded p-0.5"
+                    title="Call"
+                  >
+                    <PhoneCall className="w-3 h-3" />
+                  </a>
                   <button
                     onClick={(e) => handleCopyPhone(customer.phone, e)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-100 rounded p-0.5 ml-auto"
