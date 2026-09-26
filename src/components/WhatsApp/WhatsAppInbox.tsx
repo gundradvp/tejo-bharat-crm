@@ -36,6 +36,8 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
+  MessageCircle,
+  ClipboardList,
 } from 'lucide-react';
 import { WhatsAppChat, WhatsAppMessage, WhatsAppCampaign } from '../../types/whatsapp';
 import {
@@ -59,7 +61,7 @@ import {
   sendWhatsAppTemplateMessage,
   markWhatsAppMessageAsRead,
 } from '../../lib/whatsappApi';
-import { fetchBillsByScNumber } from '../../lib/ebApi';
+import { fetchBillsByScNumber, extractAreaCode } from '../../lib/ebApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -776,6 +778,110 @@ export default function WhatsAppInboxView() {
       recommendedSolarKw,
     };
   }, [customerBills]);
+
+  const maxBilledUnits = useMemo(() => {
+    if (!customerBills || customerBills.length === 0) return 0;
+    return Math.max(...customerBills.map((b) => (b.billed_units != null ? Number(b.billed_units) : 0)));
+  }, [customerBills]);
+
+  // Converts English uppercase letters to Blue Unicode regional indicator letters (BlueWords / Stylish Text style)
+  const toBlueLetters = (str: string): string => {
+    return str.split('').map((char) => {
+      const code = char.toUpperCase().charCodeAt(0);
+      if (code >= 65 && code <= 90) {
+        return String.fromCodePoint(0x1F1E6 + (code - 65)) + '\u200B';
+      }
+      return char;
+    }).join('');
+  };
+
+  // Converts digits to math bold unicode characters (𝟏 𝟐 𝟑...)
+  const toMathBoldDigits = (str: string): string => {
+    return str.split('').map((char) => {
+      const code = char.charCodeAt(0);
+      if (code >= 48 && code <= 57) {
+        return String.fromCodePoint(0x1D7CE + (code - 48));
+      }
+      return char;
+    }).join('');
+  };
+
+  const handleCopyWhatsApp = (targetChat?: WhatsAppChat) => {
+    const chat = targetChat || activeChat;
+    if (!chat) return;
+    const areaCode = chat.scNumber ? extractAreaCode(chat.scNumber) : null;
+    const parts = [
+      `👤 *Customer:* ${chat.customerName || '-'}`,
+      `⚡ *SC Number:* ${chat.scNumber || '-'}`,
+      areaCode ? `🏢 *Area Code:* ${areaCode}` : null,
+      `📱 *Mobile:* +${chat.phoneNumber || '-'}`,
+      chat.appliedLoadKw ? `🔌 *Sanctioned Load:* ${chat.appliedLoadKw} KW` : null,
+      chat.circleName || chat.mandalName
+        ? `📍 *Location:* ${[chat.circleName, chat.mandalName].filter(Boolean).join(', ')}`
+        : null,
+    ].filter(Boolean);
+
+    const billsToUse = chat.id === activeChat?.id ? customerBills : (chat.scNumber ? loadLocalBillsForSc(chat.scNumber) : []);
+    const billLines = billsToUse.map((b) => {
+      const month = b.bill_month || '-';
+      const rawUnits = b.billed_units != null ? Number(b.billed_units) : null;
+      const isMax = rawUnits != null && rawUnits > 0 && rawUnits === maxBilledUnits;
+      const amount = b.bill_amount != null ? `₹${Number(b.bill_amount).toLocaleString('en-IN')}` : null;
+      if (isMax) {
+        const blueMaxBadge = toBlueLetters('MAX UNITS');
+        const boldUnits = toMathBoldDigits(rawUnits.toLocaleString('en-IN'));
+        const parts = [`🔥 🔵 *[${blueMaxBadge}] ${month}* - *${boldUnits} units*`];
+        if (amount) parts.push(`*${amount}* ⚡`);
+        return parts.join(' - ');
+      }
+      const p = [`• ${month}`];
+      if (rawUnits != null) p.push(`${rawUnits.toLocaleString('en-IN')} units`);
+      if (amount) p.push(amount);
+      return p.join(' - ');
+    });
+
+    if (billLines.length > 0) {
+      parts.push('', '📊 *BILL HISTORY:*', ...billLines);
+    }
+
+    navigator.clipboard.writeText(parts.join('\n'));
+    setCopiedField(`whatsapp-full-${chat.id}`);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handleCopyAll = (targetChat?: WhatsAppChat) => {
+    const chat = targetChat || activeChat;
+    if (!chat) return;
+    const areaCode = chat.scNumber ? extractAreaCode(chat.scNumber) : null;
+    const parts = [
+      `Name: ${chat.customerName || '-'}`,
+      `SC Number: ${chat.scNumber || '-'}`,
+      areaCode ? `Area Code: ${areaCode}` : null,
+      `Mobile: +${chat.phoneNumber || '-'}`,
+      chat.circleName || chat.mandalName
+        ? `Location: ${[chat.circleName, chat.mandalName].filter(Boolean).join(', ')}`
+        : null,
+    ].filter(Boolean);
+
+    const billsToUse = chat.id === activeChat?.id ? customerBills : (chat.scNumber ? loadLocalBillsForSc(chat.scNumber) : []);
+    const billLines = billsToUse.map((b) => {
+      const month = b.bill_month || '-';
+      const rawUnits = b.billed_units != null ? `${Number(b.billed_units).toLocaleString('en-IN')} units` : null;
+      const amount = b.bill_amount != null ? `₹${Number(b.bill_amount).toLocaleString('en-IN')}` : null;
+      const p = [month];
+      if (rawUnits) p.push(rawUnits);
+      if (amount) p.push(amount);
+      return p.join(' - ');
+    });
+
+    if (billLines.length > 0) {
+      parts.push('Bill History:', ...billLines);
+    }
+
+    navigator.clipboard.writeText(parts.join('\n'));
+    setCopiedField(`all-full-${chat.id}`);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   // Handle saving new bill
   const handleSaveNewBill = async () => {
@@ -1588,10 +1694,12 @@ export default function WhatsAppInboxView() {
                 const chatCamp = getChatCampaign(chat);
 
                 return (
-                  <button
+                  <div
                     key={chat.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedChatId(chat.id)}
-                    className={`w-full text-left p-3.5 flex items-start gap-3 transition-colors relative ${
+                    className={`w-full text-left p-3.5 flex items-start gap-3 transition-colors relative cursor-pointer ${
                       isSelected
                         ? 'bg-emerald-50/70 border-l-4 border-emerald-600'
                         : isCustomerLatest
@@ -1702,8 +1810,47 @@ export default function WhatsAppInboxView() {
                           </span>
                         )}
                       </div>
+
+                      {/* Copy options for WhatsApp & plain text on the left card */}
+                      <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyWhatsApp(chat)}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                            copiedField === `whatsapp-full-${chat.id}`
+                              ? 'bg-green-100 text-green-700 font-bold'
+                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60'
+                          }`}
+                          title="Copy for WhatsApp (formatted with bill history)"
+                        >
+                          {copiedField === `whatsapp-full-${chat.id}` ? (
+                            <Check className="w-3 h-3 text-green-600" />
+                          ) : (
+                            <MessageCircle className="w-3 h-3 text-emerald-600" />
+                          )}
+                          {copiedField === `whatsapp-full-${chat.id}` ? 'Copied WA!' : 'Copy WA'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAll(chat)}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                            copiedField === `all-full-${chat.id}`
+                              ? 'bg-green-100 text-green-700 font-bold'
+                              : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60'
+                          }`}
+                          title="Copy All (Plain text name, SC, mobile, bills)"
+                        >
+                          {copiedField === `all-full-${chat.id}` ? (
+                            <Check className="w-3 h-3 text-green-600" />
+                          ) : (
+                            <ClipboardList className="w-3 h-3 text-blue-600" />
+                          )}
+                          {copiedField === `all-full-${chat.id}` ? 'Copied All!' : 'Copy All'}
+                        </button>
+                      </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })
             )}
@@ -1773,6 +1920,45 @@ export default function WhatsAppInboxView() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Copy for WhatsApp & Copy All in active chat header */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyWhatsApp(activeChat)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border ${
+                      copiedField === `whatsapp-full-${activeChat.id}`
+                        ? 'bg-green-100 text-green-700 border-green-300'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200'
+                    }`}
+                    title="Copy formatted customer info & bill history ready for WhatsApp"
+                  >
+                    {copiedField === `whatsapp-full-${activeChat.id}` ? (
+                      <Check className="w-3.5 h-3.5 text-green-600" />
+                    ) : (
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                    {copiedField === `whatsapp-full-${activeChat.id}` ? 'Copied for WhatsApp!' : 'Copy for WhatsApp'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCopyAll(activeChat)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border ${
+                      copiedField === `all-full-${activeChat.id}`
+                        ? 'bg-green-100 text-green-700 border-green-300'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
+                    }`}
+                    title="Copy name, SC number, mobile, address and bill history (plain text)"
+                  >
+                    {copiedField === `all-full-${activeChat.id}` ? (
+                      <Check className="w-3.5 h-3.5 text-green-600" />
+                    ) : (
+                      <ClipboardList className="w-3.5 h-3.5 text-blue-600" />
+                    )}
+                    {copiedField === `all-full-${activeChat.id}` ? 'Copied All!' : 'Copy All'}
+                  </button>
+                </div>
+
                 {/* Agent Assignment Selector */}
                 <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs">
                   <Users className="w-3.5 h-3.5 text-gray-500" />
@@ -2189,6 +2375,45 @@ export default function WhatsAppInboxView() {
                   title="Copy Phone Number"
                 >
                   {copiedField === 'chat-phone' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              {/* Copy for WhatsApp and Copy All in Profile panel */}
+              <div className="flex items-center justify-center gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => handleCopyWhatsApp(activeChat)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
+                    copiedField === `whatsapp-full-${activeChat.id}`
+                      ? 'bg-green-100 text-green-700 border-green-300'
+                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200'
+                  }`}
+                  title="Copy formatted customer info & bill history ready for WhatsApp"
+                >
+                  {copiedField === `whatsapp-full-${activeChat.id}` ? (
+                    <Check className="w-3.5 h-3.5 text-green-600" />
+                  ) : (
+                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  )}
+                  {copiedField === `whatsapp-full-${activeChat.id}` ? 'Copied!' : 'WhatsApp'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCopyAll(activeChat)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
+                    copiedField === `all-full-${activeChat.id}`
+                      ? 'bg-green-100 text-green-700 border-green-300'
+                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
+                  }`}
+                  title="Copy name, SC number, mobile, address and bill history (plain text)"
+                >
+                  {copiedField === `all-full-${activeChat.id}` ? (
+                    <Check className="w-3.5 h-3.5 text-green-600" />
+                  ) : (
+                    <ClipboardList className="w-3.5 h-3.5 text-blue-600" />
+                  )}
+                  {copiedField === `all-full-${activeChat.id}` ? 'Copied!' : 'Copy All'}
                 </button>
               </div>
             </div>
