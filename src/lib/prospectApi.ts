@@ -389,17 +389,19 @@ export async function fetchProspects(
     if (!rpcData || rpcData.length === 0) return { prospects: [], total: 0 };
     const result = rpcData[0];
     let rows = (result.rows || []) as LeadProspect[];
-    let total = result.total_count ?? 0;
+    const rpcTotal = Number(result.total_count) || 0;
+    let total = rpcTotal > 0 ? rpcTotal : rows.length;
+
     if (filters.areaCodes && filters.areaCodes.length > 0) {
       rows = rows.filter((p) => {
         const code = extractAreaCode(p.sc_number);
         return code && filters.areaCodes!.includes(code);
       });
-      total = rows.length;
+      if (rpcTotal === 0) total = rows.length;
     }
     if (filters.hideSuryaGhar) {
       rows = rows.filter((p) => !p.is_existing_customer);
-      total = rows.length;
+      if (rpcTotal === 0) total = rows.length;
     }
     if (filters.hideSolarInstalled) {
       rows = rows.filter((p) => {
@@ -408,9 +410,9 @@ export async function fetchProspects(
         if (p.existing_solar_load_kw != null && p.existing_solar_load_kw > 0) return false;
         return true;
       });
-      total = rows.length;
+      if (rpcTotal === 0) total = rows.length;
     }
-    return { prospects: rows, total };
+    return { prospects: rows, total: Math.max(total, rows.length) };
   }
 
   let query = supabase

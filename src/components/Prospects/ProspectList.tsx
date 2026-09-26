@@ -969,7 +969,10 @@ export default function ProspectList() {
         </div>
       )}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-sm text-gray-600">Showing <strong>{displayedProspects.length}</strong> of <strong>{total.toLocaleString('en-IN')}</strong> prospects</p>
+        <p className="text-sm text-gray-600">
+          Showing <strong>{((page - 1) * pageSize + 1).toLocaleString('en-IN')}–{Math.min(page * pageSize, total).toLocaleString('en-IN')}</strong> of <strong>{total.toLocaleString('en-IN')}</strong> prospects
+          {totalPages > 1 && <span className="text-xs text-gray-400 ml-2 font-medium">(Page {page} of {totalPages})</span>}
+        </p>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-gray-500">Sort:</span>

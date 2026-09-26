@@ -392,19 +392,22 @@ export async function fetchEBCustomers(
 
     const { data: rpcData, error: rpcError } = await supabase.rpc('search_eb_customers', rpcParams);
     if (rpcError) throw rpcError;
-    if (!rpcData || rpcData.length === 0) return { customers: [], total: 0 };
     const result = rpcData[0];
     let rows = (result.rows || []) as EBCustomer[];
-    let total = result.total_count ?? 0;
+    const rpcTotal = Number(result.total_count) || 0;
+    let total = rpcTotal > 0 ? rpcTotal : rows.length;
+
     if (filters.areaCodes && filters.areaCodes.length > 0) {
       const allowedCodes = new Set(filters.areaCodes);
       rows = rows.filter((c) => {
         const code = extractAreaCode(c.sc_number);
         return code && allowedCodes.has(code);
       });
-      total = rows.length;
+      if (rpcTotal === 0) {
+        total = rows.length;
+      }
     }
-    return { customers: rows, total };
+    return { customers: rows, total: Math.max(total, rows.length) };
   }
 
   // If sorting by billed units and no search/JSP mobile filters are applied, try querying top bills
