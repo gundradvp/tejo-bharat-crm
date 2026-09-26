@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
-import { Plus, Search, Eye, Edit2, Printer, Trash2, FileText, Calendar, DollarSign, User } from 'lucide-react';
+import { Plus, Search, Eye, Edit2, Printer, Trash2, FileText, Calendar, DollarSign, User, X } from 'lucide-react';
 
 interface Quotation {
   id: string;
@@ -140,8 +140,18 @@ export default function QuotationsList() {
               placeholder="Search by quotation number, customer name, or mobile..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
           <select
             value={statusFilter}

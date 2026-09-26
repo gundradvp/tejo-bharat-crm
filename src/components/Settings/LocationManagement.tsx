@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Upload, Search, ChevronRight, ChevronDown, Plus, CreditCard as Edit2, Trash2 } from 'lucide-react';
+import { MapPin, Upload, Search, ChevronRight, ChevronDown, Plus, CreditCard as Edit2, Trash2, X } from 'lucide-react';
 import { locationApi, State, District, Constituency, Mandal, Village } from '../../lib/locationApi';
 import { useStates } from '../../hooks/useLocations';
 import { useTenant } from '../../contexts/TenantContext';
@@ -170,15 +170,25 @@ Summary:
           {activeTab === 'search' && (
             <div className="space-y-6">
               <div className="flex gap-2">
-                <div className="flex-1">
+                <div className="flex-1 relative">
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                     placeholder="Search locations..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-4 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => { setSearchTerm(''); setSearchResults(null); }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 <button
                   onClick={handleSearch}

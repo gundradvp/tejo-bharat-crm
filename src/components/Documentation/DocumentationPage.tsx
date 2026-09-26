@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Download, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { FileText, Download, ChevronDown, ChevronRight, Search, X } from 'lucide-react';
 
 interface DocSection {
   id: string;
@@ -676,8 +676,18 @@ export default function DocumentationPage() {
             placeholder="Search the guide..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border theme-input-border rounded-lg focus-ring-primary theme-input-bg theme-text-primary"
+            className="w-full pl-10 pr-9 py-2.5 border theme-input-border rounded-lg focus-ring-primary theme-input-bg theme-text-primary"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

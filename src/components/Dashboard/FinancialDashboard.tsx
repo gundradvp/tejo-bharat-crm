@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { TrendingUp, DollarSign, CreditCard, AlertTriangle, Receipt, Wallet, TrendingDown, Loader2, Calendar, Search, ArrowUpDown } from 'lucide-react';
+import { TrendingUp, DollarSign, CreditCard, AlertTriangle, Receipt, Wallet, TrendingDown, Loader2, Calendar, Search, ArrowUpDown, X } from 'lucide-react';
 import StatCard from './StatCard';
 import { useNavigate } from 'react-router-dom';
 
@@ -333,8 +333,18 @@ export default function FinancialDashboard() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search customer..."
-              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
         <div className="overflow-x-auto">

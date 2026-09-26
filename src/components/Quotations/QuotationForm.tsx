@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
-import { ArrowLeft, Plus, Trash2, Printer, Save, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Printer, Save, Search, X } from 'lucide-react';
 import { generateEnhancedQuotationHTML } from '../Customers/EnhancedQuotationGenerator';
 
 interface LineItem {
@@ -753,15 +753,25 @@ export default function QuotationForm() {
           </div>
         )}
 
-        <div className="relative">
+        <div className="relative mb-2">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <input
             type="text"
             value={customerSearch}
             onChange={(e) => setCustomerSearch(e.target.value)}
             placeholder="Search customer by name or phone..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
+            className="w-full pl-10 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          {customerSearch && (
+            <button
+              type="button"
+              onClick={() => setCustomerSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
         <select
           value={selectedCustomerId}

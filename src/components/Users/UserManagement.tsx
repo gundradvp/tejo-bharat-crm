@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { UserPlus, Search, CreditCard as Edit2, Trash2, Users, Mail, Phone, Shield, Loader2, KeyRound, AlertTriangle } from 'lucide-react';
+import { UserPlus, Search, CreditCard as Edit2, Trash2, Users, Mail, Phone, Shield, Loader2, KeyRound, AlertTriangle, X } from 'lucide-react';
 
 const DEFAULT_PASSWORD = 'TejoBharat@2024';
 
@@ -408,8 +408,18 @@ export default function UserManagement() {
               placeholder="Search by name, email, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-11 pr-10 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
           <select
             value={roleFilter}

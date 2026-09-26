@@ -1579,8 +1579,18 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Quick search by Name, Phone, or SC Number..."
                       disabled={isSending}
-                      className="w-full pl-9 pr-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className="w-full pl-9 pr-8 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
+                    {searchQuery && !isSending && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                        title="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 )}
 
