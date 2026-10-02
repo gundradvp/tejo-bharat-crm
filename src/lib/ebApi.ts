@@ -1054,6 +1054,7 @@ export async function fetchProspectSCNumbers(
 
 export interface EBExportRow {
   sc_number: string;
+  sur_name?: string | null;
   customer_name: string | null;
   mobile_number: string | null;
   phone: string | null;
@@ -1158,7 +1159,8 @@ export async function fetchEBCustomersForExport(
     const bills = allBillsMap.get(c.id) || [];
     return {
       sc_number: c.sc_number,
-      customer_name: c.customer_name,
+      sur_name: c.sur_name || null,
+      customer_name: [c.sur_name, c.customer_name].filter(Boolean).join(' ') || c.customer_name || null,
       mobile_number: c.mobile_number,
       phone: c.phone,
       ero_name: c.ero_name,

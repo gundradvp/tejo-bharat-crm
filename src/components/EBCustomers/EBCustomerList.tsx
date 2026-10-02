@@ -398,9 +398,17 @@ export default function EBCustomerList() {
     } else if (sortBy === 'load_asc') {
       result.sort((a, b) => (a.contracted_load ?? 0) - (b.contracted_load ?? 0));
     } else if (sortBy === 'name_asc') {
-      result.sort((a, b) => (a.customer_name || '').localeCompare(b.customer_name || ''));
+      result.sort((a, b) => {
+        const nameA = [a.sur_name, a.customer_name].filter(Boolean).join(' ') || a.customer_name || '';
+        const nameB = [b.sur_name, b.customer_name].filter(Boolean).join(' ') || b.customer_name || '';
+        return nameA.localeCompare(nameB);
+      });
     } else if (sortBy === 'name_desc') {
-      result.sort((a, b) => (b.customer_name || '').localeCompare(a.customer_name || ''));
+      result.sort((a, b) => {
+        const nameA = [a.sur_name, a.customer_name].filter(Boolean).join(' ') || a.customer_name || '';
+        const nameB = [b.sur_name, b.customer_name].filter(Boolean).join(' ') || b.customer_name || '';
+        return nameB.localeCompare(nameA);
+      });
     } else if (sortBy === 'created_at_desc') {
       result.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
     } else if (sortBy === 'created_at_asc') {
@@ -528,7 +536,8 @@ export default function EBCustomerList() {
 
       const mainRows = exportData.map((r) => ({
         'SC Number': r.sc_number,
-        'Customer Name': r.customer_name || '',
+        'Customer Name': [r.sur_name, r.customer_name].filter(Boolean).join(' ') || r.customer_name || '',
+        'Surname': r.sur_name || '',
         'Mobile': r.mobile_number || '',
         'Phone': r.phone || '',
         'ERO': r.ero_name || '',
@@ -565,10 +574,12 @@ export default function EBCustomerList() {
 
       const billRows: Record<string, any>[] = [];
       for (const r of exportData) {
+        const fullCustomerName = [r.sur_name, r.customer_name].filter(Boolean).join(' ') || r.customer_name || '';
         if (r.bills.length === 0) {
           billRows.push({
             'SC Number': r.sc_number,
-            'Customer Name': r.customer_name || '',
+            'Customer Name': fullCustomerName,
+            'Surname': r.sur_name || '',
             'Bill Month': '',
             'Billed Units': '',
             'Bill Amount': '',
@@ -578,7 +589,8 @@ export default function EBCustomerList() {
           for (const b of r.bills) {
             billRows.push({
               'SC Number': r.sc_number,
-              'Customer Name': r.customer_name || '',
+              'Customer Name': fullCustomerName,
+              'Surname': r.sur_name || '',
               'Bill Month': b.bill_month || '',
               'Billed Units': b.billed_units ?? '',
               'Bill Amount': b.bill_amount ?? '',
