@@ -272,7 +272,7 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-900">
-                {customer.customer_name || 'EB Customer'}
+                {[customer.sur_name, customer.customer_name].filter(Boolean).join(' ') || 'EB Customer'}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 <p className="text-xs text-gray-500 font-mono">{customer.sc_number}</p>
@@ -366,6 +366,9 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
                 </div>
               </div>
 
+              {customer.sur_name && (
+                <InfoItem icon={<User className="w-4 h-4" />} label="Surname" value={customer.sur_name} />
+              )}
               {customer.phone && (
                 <InfoItem icon={<Phone className="w-4 h-4" />} label="Phone" value={customer.phone} />
               )}

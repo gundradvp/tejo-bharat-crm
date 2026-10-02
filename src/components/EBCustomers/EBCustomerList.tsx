@@ -1000,7 +1000,11 @@ export default function EBCustomerList() {
                             </button>
                           );
                         })()}
-                        {customer.customer_name && <span className="text-sm font-medium text-gray-700">{customer.customer_name}</span>}
+                        {([customer.sur_name, customer.customer_name].filter(Boolean).join(' ')) && (
+                          <span className="text-sm font-medium text-gray-700">
+                            {[customer.sur_name, customer.customer_name].filter(Boolean).join(' ')}
+                          </span>
+                        )}
                         <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${CALL_STATUS_COLORS[customer.call_status] || 'bg-gray-100 text-gray-600'}`}>
                           {CALL_STATUS_LABELS[customer.call_status] || customer.call_status}
                         </span>

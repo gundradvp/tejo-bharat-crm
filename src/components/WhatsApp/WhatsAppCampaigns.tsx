@@ -895,7 +895,10 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
   };
 
   const handleLaunchCampaign = async () => {
-    if (!canSend) return;
+    if (!canSend) {
+      alert('⚠️ You do not have permission to send campaigns. Admin role required.');
+      return;
+    }
 
     let targets: any[] = [];
     let filterSummary = '';
