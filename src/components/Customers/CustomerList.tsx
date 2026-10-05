@@ -541,10 +541,17 @@ export default function CustomerList() {
   };
 
   const filteredCustomers = customers.filter((customer: any) => {
+    const term = searchTerm.trim().toLowerCase();
     const matchesSearch =
-      customer.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm) ||
-      (customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+      !term ||
+      (customer.customer_name?.toLowerCase().includes(term) ?? false) ||
+      (customer.phone?.includes(term) ?? false) ||
+      (customer.email?.toLowerCase().includes(term) ?? false) ||
+      (customer.consumer_number?.toLowerCase().includes(term) ?? false) ||
+      (customer.application_ref_no?.toLowerCase().includes(term) ?? false) ||
+      (customer.discom_name?.toLowerCase().includes(term) ?? false) ||
+      (customer.district_name?.toLowerCase().includes(term) ?? false) ||
+      (customer.address?.toLowerCase().includes(term) ?? false);
 
     const matchesStatus = statusFilter === 'all' || customer.overall_status === statusFilter;
 
@@ -1004,7 +1011,7 @@ export default function CustomerList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search name, phone, email..."
+              placeholder="Search by name, phone, service / SC number, application no, email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-9 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
