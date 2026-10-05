@@ -11,6 +11,7 @@ const filesToSync = [
   'src/components/Customers/CustomerDetailsForm.tsx',
   'src/components/Customers/CustomerList.tsx',
   'src/components/Customers/CustomerOverview.tsx',
+  'src/components/Dashboard/AgentDashboard.tsx',
   'src/components/Dashboard/EmployeeDashboard.tsx',
   'src/components/EBCustomers/EBCustomerDetailModal.tsx',
   'src/components/EBCustomers/EBCustomerList.tsx',

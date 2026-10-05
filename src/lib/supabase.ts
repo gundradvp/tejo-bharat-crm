@@ -165,7 +165,7 @@ export const canImportSuryaGharLeads = (profile: Profile | null): boolean => {
   if (!profile) return false;
   if (isAdmin(profile)) return true;
   if (isNagarjunaUser(profile)) return true;
-  return hasAnyRole(profile, ['employee', 'lead_generator', 'lead_generator_access']);
+  return isSolarUser(profile);
 };
 
 export interface ProjectFinancialSummary {

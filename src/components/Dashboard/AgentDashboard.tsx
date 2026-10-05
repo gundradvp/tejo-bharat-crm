@@ -3,7 +3,9 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Users, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import StatCard from './StatCard';
+import BulkImport from '../Customers/BulkImport';
 import CustomerList from '../Customers/CustomerList';
+import ProspectFollowupsWidget from '../Prospects/ProspectFollowupsWidget';
 
 export default function AgentDashboard() {
   const { profile } = useAuth();
@@ -72,6 +74,11 @@ export default function AgentDashboard() {
           icon={AlertTriangle}
           color="red"
         />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <BulkImport />
+        <ProspectFollowupsWidget />
       </div>
 
       <CustomerList />

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { supabase, Customer, canImportSuryaGharLeads, isNagarjunaUser, type Profile } from '../../lib/supabase';
+import { supabase, Customer, canImportSuryaGharLeads, isNagarjunaUser, hasAnyRole, type Profile } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { Search, Plus, Phone, Mail, MapPin, CreditCard as Edit2, Loader2, Printer, Grid3x3, List, MessageCircle, Settings, Paperclip, Copy, Check, Download, Hash, Zap, Sun, ClipboardCopy, IndianRupee, Bookmark, RotateCcw, AlertCircle, Upload, Clock, Flame, TrendingUp, FolderOpen, UserX, X, MessageSquare, PhoneCall, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, CreditCard as Edit2, Loader2, Printer, Grid3x3, List, MessageCircle, Settings, Paperclip, Copy, Check, Download, Hash, Zap, Sun, ClipboardCopy, IndianRupee, Bookmark, RotateCcw, AlertCircle, Upload, Clock, Flame, TrendingUp, FolderOpen, UserX, X, MessageSquare, PhoneCall, AlertTriangle, FileJson } from 'lucide-react';
 import * as XLSX from 'xlsx/xlsx.mjs';
 import { useNavigate } from 'react-router-dom';
+import BulkImport from './BulkImport';
 import CustomerForm from './CustomerForm';
 import CustomerTechnicalDetailsModal from './CustomerTechnicalDetailsModal';
 import CustomerQuickViewModal from './CustomerQuickViewModal';
@@ -427,6 +428,7 @@ export default function CustomerList() {
   const [exporting, setExporting] = useState(false);
   const [copiedJSON, setCopiedJSON] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [exportType, setExportType] = useState<'excel' | 'scOnly'>('excel');
   const [exportScope, setExportScope] = useState<'filtered' | 'all'>('filtered');
 
@@ -919,16 +921,28 @@ export default function CustomerList() {
               <List className="w-4 h-4" />
             </button>
           </div>
-          {(profile?.role === 'admin' || isNagarjunaUser(profile as Profile | null)) && (
+          {canImportSuryaGharLeads(profile as Profile | null) && (
             <>
               <button
-                onClick={() => navigate('/customers/import-detailed')}
-                className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
-                title="Import detailed PM Surya Ghar portal export"
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-sm cursor-pointer"
+                title="Upload & import CSV or JSON customer files"
               >
                 <Upload className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm">Import CSV/JSON</span>
+              </button>
+              <button
+                onClick={() => navigate('/customers/import-detailed')}
+                className="flex items-center gap-2 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors font-medium shadow-sm cursor-pointer"
+                title="Import detailed PM Surya Ghar portal export"
+              >
+                <FileJson className="w-4 h-4" />
                 <span className="hidden sm:inline text-sm">Detailed Import</span>
               </button>
+            </>
+          )}
+          {(profile?.role === 'admin' || isNagarjunaUser(profile as Profile | null) || hasAnyRole(profile as Profile | null, ['employee', 'finance'])) && (
+            <>
               <button
                 onClick={() => setShowExportModal(true)}
                 className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium shadow-sm cursor-pointer"
@@ -940,7 +954,7 @@ export default function CustomerList() {
               <button
                 onClick={handleExportJSON}
                 disabled={exporting}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 title="Download customers as JSON file"
               >
                 {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
@@ -948,7 +962,7 @@ export default function CustomerList() {
               </button>
               <button
                 onClick={handleCopyJSON}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium cursor-pointer"
                 title="Copy customers JSON to clipboard"
               >
                 {copiedJSON ? <Check className="w-4 h-4 text-green-600" /> : <ClipboardCopy className="w-4 h-4" />}
@@ -1829,6 +1843,26 @@ export default function CustomerList() {
                 {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 {exporting ? 'Exporting...' : 'Download Excel File'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Import CSV / JSON Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+            <div className="sticky top-0 right-0 p-4 flex justify-end bg-white/90 backdrop-blur z-10 border-b border-gray-100">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 pt-2">
+              <BulkImport />
             </div>
           </div>
         </div>
