@@ -26,7 +26,11 @@ export default function AdminDashboard() {
   const loadStats = async () => {
     try {
       const [customersRes, tasksRes, agentsRes] = await Promise.all([
-        supabase.from('customers').select('id', { count: 'exact', head: true }),
+        supabase
+          .from('customers')
+          .select('id', { count: 'exact', head: true })
+          .in('import_source', ['pm_surya_ghar', 'pm_surya_ghar_detailed', 'native_crm_import'])
+          .neq('customer_lifecycle_status', 'lost'),
         supabase.from('tasks').select('status'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'lead_generator'),
       ]);
@@ -45,7 +49,11 @@ export default function AdminDashboard() {
   const loadWorkflowStats = async () => {
     try {
       const [customersRes, stagesRes] = await Promise.all([
-        supabase.from('customers').select('current_workflow_stage'),
+        supabase
+          .from('customers')
+          .select('current_workflow_stage')
+          .in('import_source', ['pm_surya_ghar', 'pm_surya_ghar_detailed', 'native_crm_import'])
+          .neq('customer_lifecycle_status', 'lost'),
         supabase.from('workflow_stages').select('*').eq('is_active', true).order('stage_order'),
       ]);
 

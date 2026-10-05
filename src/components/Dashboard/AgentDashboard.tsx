@@ -23,7 +23,11 @@ export default function AgentDashboard() {
   const loadStats = async () => {
     try {
       const [customersRes, tasksRes] = await Promise.all([
-        supabase.from('customers').select('id', { count: 'exact', head: true }),
+        supabase
+          .from('customers')
+          .select('id', { count: 'exact', head: true })
+          .in('import_source', ['pm_surya_ghar', 'pm_surya_ghar_detailed', 'native_crm_import'])
+          .neq('customer_lifecycle_status', 'lost'),
         supabase.from('tasks').select('status'),
       ]);
 

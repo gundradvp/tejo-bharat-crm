@@ -38,6 +38,19 @@ const statusLabels = {
   on_hold: 'On Hold',
 };
 
+export const isImportedCustomer = (c: any): boolean => {
+  const src = c?.import_source;
+  return src === 'pm_surya_ghar' || src === 'pm_surya_ghar_detailed' || src === 'native_crm_import';
+};
+
+export const getEffectiveLifecycleStatus = (c: any): 'active' | 'lost' => {
+  if (c?.customer_lifecycle_status === 'lost') return 'lost';
+  if ((!c?.import_source || c?.import_source === 'unknown' || c?.import_source === 'legacy') && c?.consumer_number) {
+    return 'lost';
+  }
+  return c?.customer_lifecycle_status || 'active';
+};
+
 export default function CustomerList() {
   const { profile } = useAuth();
   const { license, usage, canAddCustomer, getCustomersRemaining, getCustomersPercentage } = useTenant();
@@ -293,7 +306,29 @@ export default function CustomerList() {
       }
 
       console.log('Customers loaded:', data?.length || 0);
-      setCustomers(data || []);
+      const normalizedData = (data || []).map((c: any) => {
+        if ((!c.import_source || c.import_source === 'unknown' || c.import_source === 'legacy') && c.consumer_number) {
+          return {
+            ...c,
+            customer_lifecycle_status: 'lost',
+            lost_at: c.lost_at || c.updated_at || c.created_at,
+          };
+        }
+        return c;
+      });
+      setCustomers(normalizedData);
+
+      // In background, sync any legacy rows to lost in database
+      const legacyIds = (data || [])
+        .filter((c: any) => (!c.import_source || c.import_source === 'unknown' || c.import_source === 'legacy') && c.consumer_number && c.customer_lifecycle_status !== 'lost')
+        .map((c: any) => c.id);
+      if (legacyIds.length > 0) {
+        supabase
+          .from('customers')
+          .update({ customer_lifecycle_status: 'lost', lost_at: new Date().toISOString() })
+          .in('id', legacyIds)
+          .then(() => console.log('Synced legacy records to churned:', legacyIds.length));
+      }
     } catch (error) {
       console.error('Error loading customers:', error);
     } finally {
@@ -591,15 +626,17 @@ export default function CustomerList() {
     const matchesWorkflowStage = workflowStageFilter === 'all' || customer.current_workflow_stage === workflowStageFilter;
 
     const matchesImportSource = importSourceFilter === 'all' ||
+      (importSourceFilter === 'imported' && isImportedCustomer(customer)) ||
       (importSourceFilter === 'manual' && (customer as any).import_source === 'manual') ||
       (importSourceFilter === 'pm_surya_ghar' && (customer as any).import_source === 'pm_surya_ghar') ||
       (importSourceFilter === 'pm_surya_ghar_detailed' && (customer as any).import_source === 'pm_surya_ghar_detailed') ||
       (importSourceFilter === 'native_crm_import' && (customer as any).import_source === 'native_crm_import') ||
-      (importSourceFilter === 'unknown' && !(customer as any).import_source);
+      (importSourceFilter === 'unknown' && (!(customer as any).import_source || (customer as any).import_source === 'unknown' || (customer as any).import_source === 'legacy'));
 
+    const effectiveLifecycle = getEffectiveLifecycleStatus(customer);
     const matchesLifecycle = lifecycleFilter === 'all' ||
-      (lifecycleFilter === 'active' && (customer as any).customer_lifecycle_status === 'active') ||
-      (lifecycleFilter === 'lost' && (customer as any).customer_lifecycle_status === 'lost');
+      (lifecycleFilter === 'active' && effectiveLifecycle === 'active') ||
+      (lifecycleFilter === 'lost' && effectiveLifecycle === 'lost');
 
     const matchesPortalStage = portalStageFilter === 'all' ||
       (customer as any).portal_current_step_name === portalStageFilter;
@@ -629,14 +666,16 @@ export default function CustomerList() {
     if (sortBy === 'newest') return 0;
     if (sortBy === 'churn_date_desc') {
       const getLostTime = (c: any) => {
-        const d = c.lost_at || (c.customer_lifecycle_status === 'lost' ? c.updated_at : null);
+        const eff = getEffectiveLifecycleStatus(c);
+        const d = c.lost_at || (eff === 'lost' ? c.updated_at || c.created_at : null);
         return d ? new Date(d).getTime() : 0;
       };
       return getLostTime(b) - getLostTime(a);
     }
     if (sortBy === 'churn_date_asc') {
       const getLostTime = (c: any) => {
-        const d = c.lost_at || (c.customer_lifecycle_status === 'lost' ? c.updated_at : null);
+        const eff = getEffectiveLifecycleStatus(c);
+        const d = c.lost_at || (eff === 'lost' ? c.updated_at || c.created_at : null);
         return d ? new Date(d).getTime() : Infinity;
       };
       return getLostTime(a) - getLostTime(b);
@@ -902,7 +941,9 @@ export default function CustomerList() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Customers</h2>
-          <p className="text-gray-500 text-sm mt-0.5">{sortedCustomers.length} total</p>
+          <p className="text-gray-500 text-sm mt-0.5">
+            <strong className="text-blue-700 font-semibold">{customers.filter(c => isImportedCustomer(c) && getEffectiveLifecycleStatus(c) !== 'lost').length}</strong> imported active • {sortedCustomers.length} in view
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
@@ -986,21 +1027,23 @@ export default function CustomerList() {
 
       {/* Quick Stats Bar */}
       {!loading && customers.length > 0 && (() => {
+        const importedActive = customers.filter((c: any) => isImportedCustomer(c) && getEffectiveLifecycleStatus(c) !== 'lost');
         const total = filteredCustomers.length;
-        const completed = filteredCustomers.filter((c: any) => c.overall_status === 'completed').length;
-        const inProgress = filteredCustomers.filter((c: any) => c.overall_status === 'in_progress').length;
-        const pendingDocs = filteredCustomers.filter((c: any) => c.overall_status === 'pending_docs').length;
-        const onHold = filteredCustomers.filter((c: any) => c.overall_status === 'on_hold').length;
+        const completed = filteredCustomers.filter((c: any) => c.overall_status === 'completed' && getEffectiveLifecycleStatus(c) !== 'lost').length;
+        const inProgress = filteredCustomers.filter((c: any) => c.overall_status === 'in_progress' && getEffectiveLifecycleStatus(c) !== 'lost').length;
+        const pendingDocs = filteredCustomers.filter((c: any) => c.overall_status === 'pending_docs' && getEffectiveLifecycleStatus(c) !== 'lost').length;
+        const onHold = filteredCustomers.filter((c: any) => c.overall_status === 'on_hold' && getEffectiveLifecycleStatus(c) !== 'lost').length;
         const highUsage = Object.values(billSummaries).filter((b) => b.isHighUsage).length;
-        const lost = filteredCustomers.filter((c: any) => (c as any).customer_lifecycle_status === 'lost').length;
+        const lost = filteredCustomers.filter((c: any) => getEffectiveLifecycleStatus(c) === 'lost').length;
         const chips = [
-          { label: 'Total', value: total, color: 'bg-gray-100 text-gray-700 hover:bg-gray-200', filter: () => { setStatusFilter('all'); setLifecycleFilter('all'); } },
-          { label: '✅ Done', value: completed, color: 'bg-green-100 text-green-700 hover:bg-green-200', filter: () => { setStatusFilter('completed'); setLifecycleFilter('all'); } },
-          { label: '🔄 In Progress', value: inProgress, color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200', filter: () => { setStatusFilter('in_progress'); setLifecycleFilter('all'); } },
-          { label: '📄 Pending Docs', value: pendingDocs, color: 'bg-orange-100 text-orange-700 hover:bg-orange-200', filter: () => { setStatusFilter('pending_docs'); setLifecycleFilter('all'); } },
-          { label: '⏸ On Hold', value: onHold, color: 'bg-gray-100 text-gray-600 hover:bg-gray-200', filter: () => { setStatusFilter('on_hold'); setLifecycleFilter('all'); } },
+          { label: 'Imported Active', value: importedActive.length, color: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-200', filter: () => { setStatusFilter('all'); setLifecycleFilter('active'); setImportSourceFilter('imported'); } },
+          { label: 'Total In View', value: total, color: 'bg-gray-100 text-gray-700 hover:bg-gray-200', filter: () => { setStatusFilter('all'); setLifecycleFilter('all'); } },
+          { label: '✅ Done', value: completed, color: 'bg-green-100 text-green-700 hover:bg-green-200', filter: () => { setStatusFilter('completed'); setLifecycleFilter('active'); } },
+          { label: '🔄 In Progress', value: inProgress, color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200', filter: () => { setStatusFilter('in_progress'); setLifecycleFilter('active'); } },
+          { label: '📄 Pending Docs', value: pendingDocs, color: 'bg-orange-100 text-orange-700 hover:bg-orange-200', filter: () => { setStatusFilter('pending_docs'); setLifecycleFilter('active'); } },
+          { label: '⏸ On Hold', value: onHold, color: 'bg-gray-100 text-gray-600 hover:bg-gray-200', filter: () => { setStatusFilter('on_hold'); setLifecycleFilter('active'); } },
           { label: '🔥 High Usage', value: highUsage, color: 'bg-red-100 text-red-700 hover:bg-red-200', filter: () => { setHighUsageFilter('high'); } },
-          { label: '❌ Lost', value: lost, color: 'bg-red-50 text-red-600 hover:bg-red-100', filter: () => { setLifecycleFilter('lost'); } },
+          { label: '❌ Churned', value: lost, color: 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200', filter: () => { setLifecycleFilter('lost'); } },
         ];
         return (
           <div className="flex flex-wrap gap-2">
@@ -1098,11 +1141,12 @@ export default function CustomerList() {
             className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-cyan-50 border-cyan-200"
           >
             <option value="all">All Sources</option>
+            <option value="imported">All Imported</option>
             <option value="pm_surya_ghar">PM Surya Ghar</option>
             <option value="pm_surya_ghar_detailed">PM Surya Ghar (Detailed)</option>
-            <option value="manual">Manually Added</option>
             <option value="native_crm_import">CRM Import</option>
-            <option value="unknown">Legacy/Unknown</option>
+            <option value="manual">Manually Added</option>
+            <option value="unknown">Legacy/Unknown (Churned)</option>
           </select>
           <select
             value={lifecycleFilter}
@@ -1252,7 +1296,7 @@ export default function CustomerList() {
                   <span className={`px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 ${statusColors[customer.overall_status]}`}>
                     {statusLabels[customer.overall_status]}
                   </span>
-                  {(customer as any).customer_lifecycle_status === 'lost' && (
+                  {getEffectiveLifecycleStatus(customer) === 'lost' && (
                     <span
                       className="px-2 py-0.5 rounded text-xs font-semibold flex-shrink-0 bg-red-100 text-red-700 flex items-center gap-1 border border-red-200"
                       title={(customer as any).lost_at ? `Lost / Churned on ${new Date((customer as any).lost_at).toLocaleString('en-IN')}` : `Lost Customer (Updated: ${new Date(customer.updated_at).toLocaleDateString('en-IN')})`}
@@ -1433,7 +1477,7 @@ export default function CustomerList() {
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[customer.overall_status]}`}>
                       {statusLabels[customer.overall_status]}
                     </span>
-                    {(customer as any).customer_lifecycle_status === 'lost' && (
+                    {getEffectiveLifecycleStatus(customer) === 'lost' && (
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 border border-red-200"
                         title={(customer as any).lost_at ? `Lost / Churned on ${new Date((customer as any).lost_at).toLocaleString('en-IN')}` : `Lost Customer (Updated: ${new Date(customer.updated_at).toLocaleDateString('en-IN')})`}

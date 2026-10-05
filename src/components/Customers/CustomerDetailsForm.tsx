@@ -158,6 +158,10 @@ export default function CustomerDetailsForm() {
       const { data, error } = await supabase.from('customers').select('*').eq('id', id).maybeSingle();
       if (error) throw error;
       if (data) {
+        if ((!data.import_source || data.import_source === 'unknown' || data.import_source === 'legacy') && data.consumer_number && data.customer_lifecycle_status !== 'lost') {
+          data.customer_lifecycle_status = 'lost';
+          data.lost_at = data.lost_at || data.updated_at || data.created_at;
+        }
         setCustomer(data);
         if (data.panel_serial_numbers) setPanelSerials(data.panel_serial_numbers.join('\n'));
       }

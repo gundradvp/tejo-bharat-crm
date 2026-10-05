@@ -206,6 +206,12 @@ export default function CustomerOverview() {
         .maybeSingle();
 
       if (error) throw error;
+      if (data) {
+        if ((!data.import_source || data.import_source === 'unknown' || data.import_source === 'legacy') && data.consumer_number && data.customer_lifecycle_status !== 'lost') {
+          data.customer_lifecycle_status = 'lost';
+          data.lost_at = data.lost_at || data.updated_at || data.created_at;
+        }
+      }
       setCustomer(data);
     } catch (err) {
       console.error('Failed to load customer:', err);
