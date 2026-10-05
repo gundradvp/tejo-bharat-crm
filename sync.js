@@ -57,6 +57,7 @@ const filesToSync = [
   'supabase/migrations/20260930123000_fix_search_eb_customers_bills_and_area_codes.sql',
   'supabase/migrations/20261005130000_add_phone_search_to_prospects.sql',
   'supabase/migrations/20261005170000_mark_legacy_unknown_with_consumer_number_as_churned.sql',
+  'supabase/LATEST_MIGRATIONS_BUNDLE.sql',
   'supabase/functions/whatsapp-webhook/index.ts',
   'WHATSAPP_SETUP_GUIDE.md',
   'public/_redirects',
