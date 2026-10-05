@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import { Users, ListTodo, CheckCircle, UsersRound, Settings, GitBranch } from 'lucide-react';
 import StatCard from './StatCard';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +9,7 @@ import ProspectFollowupsWidget from '../Prospects/ProspectFollowupsWidget';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [stats, setStats] = useState({
     totalCustomers: 0,
     totalTasks: 0,
