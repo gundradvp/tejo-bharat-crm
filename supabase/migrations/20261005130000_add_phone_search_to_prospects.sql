@@ -46,9 +46,7 @@ BEGIN
     v_where := v_where || ' AND ('
     || 'lp.sc_number ILIKE ''%' || REPLACE(p_search, '''', '''''') || '%'''
     || ' OR lp.customer_name ILIKE ''%' || REPLACE(p_search, '''', '''''') || '%'''
-    || ' OR lp.sur_name ILIKE ''%' || REPLACE(p_search, '''', '''''') || '%'''
     || ' OR lp.mobile_number ILIKE ''%' || REPLACE(p_search, '''', '''''') || '%'''
-    || ' OR lp.phone ILIKE ''%' || REPLACE(p_search, '''', '''''') || '%'''
     || ' OR lp.email ILIKE ''%' || REPLACE(p_search, '''', '''''') || '%'''
     || ' OR lp.meter_no ILIKE ''%' || REPLACE(p_search, '''', '''''') || '%'''
     || ' OR lp.np_registration_number ILIKE ''%' || REPLACE(p_search, '''', '''''') || '%'''
@@ -106,9 +104,9 @@ BEGIN
       'SELECT coalesce(json_agg(row_to_json(t)), ''[]''::json) FROM (
       SELECT lp.id, lp.tenant_id, lp.serial_number, lp.circle_name, lp.division_name,
       lp.subdiv_name, lp.ero_name, lp.section_name, lp.sc_number,
-      lp.customer_name, lp.sur_name, lp.existing_load_kw, lp.existing_solar_load_kw,
+      lp.customer_name, lp.existing_load_kw, lp.existing_solar_load_kw,
       lp.applied_solar_load_kw, lp.np_registration_number, lp.ep_registration_number,
-      lp.complaint_date, lp.mobile_number, lp.phone, lp.email, lp.national_portal_status,
+      lp.complaint_date, lp.mobile_number, lp.email, lp.national_portal_status,
       lp.epdcl_portal_status, lp.village_name, lp.bill_amount_1, lp.bill_month_1,
       lp.bill_amount_2, lp.bill_month_2, lp.bill_amount_3, lp.bill_month_3,
       lp.is_existing_customer, lp.linked_customer_id, lp.eb_status,
@@ -131,9 +129,9 @@ BEGIN
       'SELECT coalesce(json_agg(row_to_json(t)), ''[]''::json) FROM (
       SELECT lp.id, lp.tenant_id, lp.serial_number, lp.circle_name, lp.division_name,
       lp.subdiv_name, lp.ero_name, lp.section_name, lp.sc_number,
-      lp.customer_name, lp.sur_name, lp.existing_load_kw, lp.existing_solar_load_kw,
+      lp.customer_name, lp.existing_load_kw, lp.existing_solar_load_kw,
       lp.applied_solar_load_kw, lp.np_registration_number, lp.ep_registration_number,
-      lp.complaint_date, lp.mobile_number, lp.phone, lp.email, lp.national_portal_status,
+      lp.complaint_date, lp.mobile_number, lp.email, lp.national_portal_status,
       lp.epdcl_portal_status, lp.village_name, lp.bill_amount_1, lp.bill_month_1,
       lp.bill_amount_2, lp.bill_month_2, lp.bill_amount_3, lp.bill_month_3,
       lp.is_existing_customer, lp.linked_customer_id, lp.eb_status,
