@@ -585,7 +585,7 @@ export default function ProspectList() {
           <div className="relative flex-1">
             <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input type="text" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-              placeholder="Search by SC number, name, meter no, village, registration no..."
+              placeholder="Search by phone, name, SC number, village, meter no, registration no..."
               className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             {searchTerm && (
               <button

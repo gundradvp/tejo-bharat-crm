@@ -438,7 +438,7 @@ export async function fetchProspects(
   if (filters.search) {
     const searchTrimmed = filters.search.trim();
     const matchedAreaCodes = findAreaCodesForQuery(searchTrimmed, 12);
-    let searchCond = `sc_number.ilike.%${searchTrimmed}%,customer_name.ilike.%${searchTrimmed}%,meter_no.ilike.%${searchTrimmed}%,np_registration_number.ilike.%${searchTrimmed}%,ep_registration_number.ilike.%${searchTrimmed}%,village_name.ilike.%${searchTrimmed}%`;
+    let searchCond = `sc_number.ilike.%${searchTrimmed}%,customer_name.ilike.%${searchTrimmed}%,sur_name.ilike.%${searchTrimmed}%,mobile_number.ilike.%${searchTrimmed}%,phone.ilike.%${searchTrimmed}%,meter_no.ilike.%${searchTrimmed}%,np_registration_number.ilike.%${searchTrimmed}%,ep_registration_number.ilike.%${searchTrimmed}%,village_name.ilike.%${searchTrimmed}%,email.ilike.%${searchTrimmed}%`;
     if (matchedAreaCodes.length > 0) {
       const areaConds = matchedAreaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
       searchCond += `,${areaConds}`;
@@ -923,7 +923,7 @@ export async function fetchProspectSCOnlyForExport(
     if (filters.search) {
       const searchTrimmed = filters.search.trim();
       const matchedAreaCodes = findAreaCodesForQuery(searchTrimmed, 12);
-      let searchCond = `sc_number.ilike.%${searchTrimmed}%,customer_name.ilike.%${searchTrimmed}%,meter_no.ilike.%${searchTrimmed}%,np_registration_number.ilike.%${searchTrimmed}%,ep_registration_number.ilike.%${searchTrimmed}%,village_name.ilike.%${searchTrimmed}%`;
+      let searchCond = `sc_number.ilike.%${searchTrimmed}%,customer_name.ilike.%${searchTrimmed}%,sur_name.ilike.%${searchTrimmed}%,mobile_number.ilike.%${searchTrimmed}%,phone.ilike.%${searchTrimmed}%,meter_no.ilike.%${searchTrimmed}%,np_registration_number.ilike.%${searchTrimmed}%,ep_registration_number.ilike.%${searchTrimmed}%,village_name.ilike.%${searchTrimmed}%,email.ilike.%${searchTrimmed}%`;
       if (matchedAreaCodes.length > 0) {
         const areaConds = matchedAreaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
         searchCond += `,${areaConds}`;
