@@ -19,7 +19,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadStats();
     loadWorkflowStats();
-  }, []);
+  }, [profile?.id, profile?.tenant_id]);
 
   const loadStats = async () => {
     try {
