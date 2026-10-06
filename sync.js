@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
+const COMMIT_SHA = '4610bd04751ad566fb31ea327eae5a70467c8167';
+
 const filesToSync = [
   'package.json',
   'vite.config.ts',
@@ -193,9 +195,8 @@ function fetchWithHttps(url, maxRedirects = 5) {
 }
 
 async function syncFile(file, index, total) {
-  const timestamp = Date.now();
-  const cdnUrl = `https://cdn.jsdelivr.net/gh/gundradvp/tejo-bharat-crm@main/${file}?t=${timestamp}`;
-  const rawUrl = `https://raw.githubusercontent.com/gundradvp/tejo-bharat-crm/main/${file}`;
+  const cdnUrl = `https://cdn.jsdelivr.net/gh/gundradvp/tejo-bharat-crm@${COMMIT_SHA}/${file}`;
+  const rawUrl = `https://raw.githubusercontent.com/gundradvp/tejo-bharat-crm/${COMMIT_SHA}/${file}`;
 
   let content = null;
   try {
