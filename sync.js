@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 
 const filesToSync = [
   'package.json',
@@ -64,25 +65,45 @@ const filesToSync = [
   'vercel.json'
 ];
 
+function fetchWithHttps(url, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects < 0) return reject(new Error('Too many redirects'));
+    const req = https.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Bolt-Sync/1.0)',
+        'Accept': '*/*'
+      }
+    }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchWithHttps(res.headers.location, maxRedirects - 1).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`HTTP ${res.statusCode}`));
+      }
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    });
+    req.on('error', reject);
+    req.setTimeout(15000, () => {
+      req.destroy();
+      reject(new Error('Timeout'));
+    });
+  });
+}
+
 async function syncFile(file, index, total) {
-  const primaryUrl = `https://raw.githubusercontent.com/gundradvp/tejo-bharat-crm/main/${file}`;
-  const fallbackUrl = `https://cdn.jsdelivr.net/gh/gundradvp/tejo-bharat-crm@main/${file}`;
+  const cdnUrl = `https://cdn.jsdelivr.net/gh/gundradvp/tejo-bharat-crm@main/${file}`;
+  const rawUrl = `https://raw.githubusercontent.com/gundradvp/tejo-bharat-crm/main/${file}`;
 
   let content = null;
   try {
-    const res = await fetch(primaryUrl);
-    if (res.ok) {
-      content = await res.text();
-    }
-  } catch (e) {}
-
-  if (!content) {
+    content = await fetchWithHttps(cdnUrl);
+  } catch (e) {
     try {
-      const res = await fetch(fallbackUrl);
-      if (res.ok) {
-        content = await res.text();
-      }
-    } catch (e) {}
+      content = await fetchWithHttps(rawUrl);
+    } catch (e2) {}
   }
 
   if (content === null) {
