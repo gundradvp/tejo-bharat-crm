@@ -172,6 +172,7 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
   const [customerLoanStatus, setCustomerLoanStatus] = useState<string>('all');
   const [customerCity, setCustomerCity] = useState<string>('');
   const [customerMinCapacity, setCustomerMinCapacity] = useState<number>(0);
+  const [customerInverterBrand, setCustomerInverterBrand] = useState<string>('all');
 
   // Target preview & launch state
   const [matchingProspects, setMatchingProspects] = useState<any[]>([]);
@@ -714,50 +715,100 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
           }
         }
       } else if (audienceType === 'customers') {
-          let q = supabase
+          const { data, error } = await supabase
             .from('customers')
-            .select('id, customer_name, name, sc_number, consumer_number, phone, mobile_number, status, overall_status, installation_status, subsidy_status, loan_status, current_workflow_stage, system_capacity_kw, sanctioned_load, district, mandal, city')
+            .select('*')
             .limit(5000);
 
-          if (customerOverallStatus !== 'all') {
-            q = q.eq('overall_status', customerOverallStatus);
-          }
-          if (customerInstallStatus !== 'all') {
-            q = q.eq('installation_status', customerInstallStatus);
-          }
-          if (customerSubsidyStatus !== 'all') {
-            q = q.eq('subsidy_status', customerSubsidyStatus);
-          }
-          if (customerLoanStatus !== 'all') {
-            q = q.eq('loan_status', customerLoanStatus);
-          }
-          if (customerMinCapacity > 0) {
-            q = q.gte('system_capacity_kw', customerMinCapacity);
-          }
-          if (customerCity.trim()) {
-            const term = customerCity.trim();
-            q = q.or(`mandal.ilike.%${term}%,city.ilike.%${term}%,district.ilike.%${term}%`);
-          }
-          if (searchQuery.trim()) {
-            const term = searchQuery.trim();
-            q = q.or(`customer_name.ilike.%${term}%,name.ilike.%${term}%,consumer_number.ilike.%${term}%,sc_number.ilike.%${term}%,phone.ilike.%${term}%`);
-          }
+          if (error) {
+            console.error('Error querying CRM customers:', error);
+            if (isMounted) {
+              setMatchingProspects([]);
+              setSelectedTargetIds(new Set());
+              setExcludedAlreadySentCount(0);
+            }
+          } else if (data && isMounted) {
+            let list = data || [];
 
-          const { data, error } = await q;
-          if (!error && data && isMounted) {
-            const rawList = data.map((c: any) => ({
+            // 1. Inverter Make / Brand Filter
+            if (customerInverterBrand !== 'all') {
+              const brandLower = customerInverterBrand.toLowerCase().trim();
+              list = list.filter((c: any) => {
+                const invMake = String(c.inverter_make || c.inverter_brand || c.inverter || '').toLowerCase();
+                const remarks = String(c.remarks || '').toLowerCase();
+                const specs = typeof c.specifications === 'string' ? c.specifications.toLowerCase() : '';
+                return invMake.includes(brandLower) || remarks.includes(brandLower) || specs.includes(brandLower);
+              });
+            }
+
+            // 2. Overall Workflow Status Filter
+            if (customerOverallStatus !== 'all') {
+              list = list.filter((c: any) => (c.overall_status || 'new') === customerOverallStatus);
+            }
+
+            // 3. Installation Status Filter
+            if (customerInstallStatus !== 'all') {
+              list = list.filter((c: any) => (c.installation_status || 'not_started') === customerInstallStatus);
+            }
+
+            // 4. Subsidy Status Filter
+            if (customerSubsidyStatus !== 'all') {
+              list = list.filter((c: any) => (c.subsidy_status || 'not_claimed') === customerSubsidyStatus);
+            }
+
+            // 5. Loan / Finance Status Filter
+            if (customerLoanStatus !== 'all') {
+              list = list.filter((c: any) => (c.loan_status || 'not_applicable') === customerLoanStatus);
+            }
+
+            // 6. Minimum Capacity Filter
+            if (customerMinCapacity > 0) {
+              list = list.filter((c: any) => {
+                const cap = Number(c.inverter_capacity || c.system_capacity || c.total_capacity_kw || 0);
+                return cap >= customerMinCapacity;
+              });
+            }
+
+            // 7. City / Location Filter
+            if (customerCity.trim()) {
+              const cityLower = customerCity.toLowerCase().trim();
+              list = list.filter((c: any) => {
+                const addr = String(c.address || '').toLowerCase();
+                const dist = String(c.district_name || c.city || '').toLowerCase();
+                return addr.includes(cityLower) || dist.includes(cityLower);
+              });
+            }
+
+            // 8. Search Query Filter
+            if (searchQuery.trim()) {
+              const term = searchQuery.toLowerCase().trim();
+              list = list.filter((c: any) => {
+                const name = String(c.customer_name || c.name || '').toLowerCase();
+                const phone = String(c.phone || c.mobile_number || '');
+                const sc = String(c.consumer_number || c.sc_number || '').toLowerCase();
+                const inv = String(c.inverter_make || c.inverter_brand || c.inverter || '').toLowerCase();
+                const sn = String(c.inverter_serial_number || '').toLowerCase();
+                const addr = String(c.address || '').toLowerCase();
+                return name.includes(term) || phone.includes(term) || sc.includes(term) || inv.includes(term) || sn.includes(term) || addr.includes(term);
+              });
+            }
+
+            const rawList = list.map((c: any) => ({
               id: c.id,
               source: 'crm',
               customer_name: c.customer_name || c.name || 'వినియోగదారుని',
               sc_number: c.consumer_number || c.sc_number || '',
               mobile_number: c.phone || c.mobile_number || '',
-              circle_name: c.district || 'APEPDCL',
-              mandal_name: c.mandal || c.city || 'మీ ప్రాంతం',
-              area_name: c.city || '',
+              circle_name: c.district_name || c.city || 'APEPDCL',
+              mandal_name: c.address ? c.address.slice(0, 30) : (c.district_name || 'మీ ప్రాంతం'),
+              area_name: c.district_name || '',
               section_name: '',
-              applied_solar_load_kw: c.system_capacity_kw || c.sanctioned_load || 3,
-              raw_status: c.overall_status || c.status || 'Active',
+              applied_solar_load_kw: c.inverter_capacity || c.system_capacity || c.total_capacity_kw || 3,
+              raw_status: c.overall_status || 'Active',
               phase: '1',
+              inverter_brand: c.inverter_make || c.inverter_brand || '',
+              inverter_capacity: c.inverter_capacity || c.system_capacity || c.total_capacity_kw,
+              inverter_serial_number: c.inverter_serial_number || '',
             }));
 
             let excludedSent = 0;
@@ -827,6 +878,7 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
     customerLoanStatus,
     customerCity,
     customerMinCapacity,
+    customerInverterBrand,
   ]);
 
   const selectedTemplate =
@@ -871,6 +923,7 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
       setCustomerLoanStatus('all');
       setCustomerCity('');
       setCustomerMinCapacity(0);
+      setCustomerInverterBrand('all');
     }
   };
 
@@ -966,6 +1019,7 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
         targetCircle = 'EB_DISCOM';
       } else if (audienceType === 'customers') {
         const parts = ['CRM Clients'];
+        if (customerInverterBrand !== 'all') parts.push(`Inverter: ${customerInverterBrand}`);
         if (customerOverallStatus !== 'all') parts.push(`Status: ${customerOverallStatus}`);
         if (customerInstallStatus !== 'all') parts.push(`Install: ${customerInstallStatus}`);
         if (customerSubsidyStatus !== 'all') parts.push(`Subsidy: ${customerSubsidyStatus}`);
@@ -1354,7 +1408,11 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-gray-200/70 rounded-lg">
                   <button
                     type="button"
-                    onClick={() => setAudienceType('prospects')}
+                    onClick={() => {
+                      setAudienceType('prospects');
+                      setMatchingProspects([]);
+                      setSelectedTargetIds(new Set());
+                    }}
                     disabled={isSending}
                     className={`py-1.5 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                       audienceType === 'prospects'
@@ -1368,7 +1426,11 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
 
                   <button
                     type="button"
-                    onClick={() => setAudienceType('eb_customers')}
+                    onClick={() => {
+                      setAudienceType('eb_customers');
+                      setMatchingProspects([]);
+                      setSelectedTargetIds(new Set());
+                    }}
                     disabled={isSending}
                     className={`py-1.5 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                       audienceType === 'eb_customers'
@@ -1382,7 +1444,11 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
 
                   <button
                     type="button"
-                    onClick={() => setAudienceType('customers')}
+                    onClick={() => {
+                      setAudienceType('customers');
+                      setMatchingProspects([]);
+                      setSelectedTargetIds(new Set());
+                    }}
                     disabled={isSending}
                     className={`py-1.5 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                       audienceType === 'customers'
@@ -1396,7 +1462,11 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
 
                   <button
                     type="button"
-                    onClick={() => setAudienceType('manual')}
+                    onClick={() => {
+                      setAudienceType('manual');
+                      setMatchingProspects([]);
+                      setSelectedTargetIds(new Set());
+                    }}
                     disabled={isSending}
                     className={`py-1.5 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                       audienceType === 'manual'
@@ -1535,12 +1605,73 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
                 {audienceType === 'customers' && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                     <span className="text-[10px] uppercase font-bold text-gray-400 mr-1 flex items-center gap-0.5">
-                      <Zap className="w-3 h-3 text-amber-500" />
+                      <Zap className="w-3 h-3 text-blue-500" />
                       Quick Presets:
                     </span>
                     <button
                       type="button"
                       onClick={() => {
+                        setCustomerInverterBrand('Waaree');
+                        setCustomerOverallStatus('all');
+                        setCustomerInstallStatus('all');
+                      }}
+                      className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors shadow-2xs ${
+                        customerInverterBrand === 'Waaree'
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'bg-white border border-gray-300 hover:border-blue-500 hover:text-blue-700 text-gray-700'
+                      }`}
+                    >
+                      ⚡ Waaree Inverters (110)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerInverterBrand('Deye');
+                        setCustomerOverallStatus('all');
+                        setCustomerInstallStatus('all');
+                      }}
+                      className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors shadow-2xs ${
+                        customerInverterBrand === 'Deye'
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'bg-white border border-gray-300 hover:border-blue-500 hover:text-blue-700 text-gray-700'
+                      }`}
+                    >
+                      ⚡ Deye Inverters (52)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerInverterBrand('Polycab');
+                        setCustomerOverallStatus('all');
+                        setCustomerInstallStatus('all');
+                      }}
+                      className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors shadow-2xs ${
+                        customerInverterBrand === 'Polycab'
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'bg-white border border-gray-300 hover:border-blue-500 hover:text-blue-700 text-gray-700'
+                      }`}
+                    >
+                      ⚡ Polycab (15)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerInverterBrand('SolaX Power');
+                        setCustomerOverallStatus('all');
+                        setCustomerInstallStatus('all');
+                      }}
+                      className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors shadow-2xs ${
+                        customerInverterBrand === 'SolaX Power'
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'bg-white border border-gray-300 hover:border-blue-500 hover:text-blue-700 text-gray-700'
+                      }`}
+                    >
+                      ⚡ SolaX Power (5)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerInverterBrand('all');
                         setCustomerOverallStatus('completed');
                         setCustomerSubsidyStatus('received');
                         setCustomerInstallStatus('completed');
@@ -1552,22 +1683,13 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
                     <button
                       type="button"
                       onClick={() => {
+                        setCustomerInverterBrand('all');
                         setCustomerOverallStatus('in_progress');
                         setCustomerInstallStatus('in_progress');
                       }}
                       className="px-2 py-0.5 bg-white border border-gray-300 hover:border-blue-500 hover:text-blue-800 rounded text-[10px] font-medium text-gray-700 transition-colors shadow-2xs"
                     >
                       ⏳ In Progress Installs
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomerOverallStatus('pending_docs');
-                        setCustomerSubsidyStatus('all');
-                      }}
-                      className="px-2 py-0.5 bg-white border border-gray-300 hover:border-blue-500 hover:text-blue-800 rounded text-[10px] font-medium text-gray-700 transition-colors shadow-2xs"
-                    >
-                      📑 Pending Documents
                     </button>
                   </div>
                 )}
@@ -2435,6 +2557,29 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
                     </div>
 
                     <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center justify-between">
+                        <span>Inverter Brand</span>
+                        {customerInverterBrand !== 'all' && (
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                            Active
+                          </span>
+                        )}
+                      </label>
+                      <select
+                        value={customerInverterBrand}
+                        onChange={(e) => setCustomerInverterBrand(e.target.value)}
+                        disabled={isSending}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="all">All Inverter Brands</option>
+                        <option value="Waaree">Waaree (110 units)</option>
+                        <option value="Deye">Deye (52 units)</option>
+                        <option value="Polycab">Polycab (15 units)</option>
+                        <option value="SolaX Power">SolaX Power (5 units)</option>
+                      </select>
+                    </div>
+
+                    <div>
                       <label className="block text-[11px] font-semibold text-gray-600 mb-1">
                         Select Contacts from Results
                       </label>
@@ -2675,8 +2820,17 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
                                 <th className="py-1.5 px-2">Mobile (+91)</th>
                                 <th className="py-1.5 px-2">SC Number</th>
                                 <th className="py-1.5 px-2">Location / Mandal</th>
-                                <th className="py-1.5 px-2 text-center">Max Units / Bill</th>
-                                <th className="py-1.5 px-2 text-center">Recent Units / Bill</th>
+                                {audienceType === 'customers' ? (
+                                  <>
+                                    <th className="py-1.5 px-2 text-center">Inverter Make & SN</th>
+                                    <th className="py-1.5 px-2 text-center">Workflow Status</th>
+                                  </>
+                                ) : (
+                                  <>
+                                    <th className="py-1.5 px-2 text-center">Max Units / Bill</th>
+                                    <th className="py-1.5 px-2 text-center">Recent Units / Bill</th>
+                                  </>
+                                )}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 font-mono text-[11px]">
@@ -2715,38 +2869,66 @@ export default function WhatsAppCampaignsView({ onViewReplies }: WhatsAppCampaig
                                         )}
                                       </div>
                                     </td>
-                                    <td className="py-2 px-2 text-center font-sans font-medium">
-                                      {p.max_units != null ? (
-                                        <div className="flex flex-col items-center">
-                                          <span className="font-semibold text-gray-900 flex items-center gap-0.5">
-                                            ⚡ {p.max_units} <span className="text-[10px] text-gray-500 font-normal">U</span>
-                                          </span>
-                                          {p.max_bill != null && (
-                                            <span className="text-[10px] text-emerald-700 font-semibold">
-                                              ₹{Math.round(Number(p.max_bill)).toLocaleString('en-IN')}
-                                            </span>
+                                    {audienceType === 'customers' ? (
+                                      <>
+                                        <td className="py-2 px-2 text-center font-sans font-medium">
+                                          {p.inverter_brand ? (
+                                            <div className="flex flex-col items-center">
+                                              <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px] border border-blue-200">
+                                                ⚡ {p.inverter_brand} {p.inverter_capacity ? `(${p.inverter_capacity} kW)` : ''}
+                                              </span>
+                                              {p.inverter_serial_number && (
+                                                <span className="text-[9px] text-gray-500 font-mono mt-0.5 truncate max-w-[120px]" title={p.inverter_serial_number}>
+                                                  SN: {p.inverter_serial_number}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-400 text-[10px]">No Inverter Listed</span>
                                           )}
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-400 text-[11px]">-</span>
-                                      )}
-                                    </td>
-                                    <td className="py-2 px-2 text-center font-sans font-medium">
-                                      {p.recent_units != null ? (
-                                        <div className="flex flex-col items-center">
-                                          <span className="font-semibold text-gray-900 flex items-center gap-0.5">
-                                            ⚡ {p.recent_units} <span className="text-[10px] text-gray-500 font-normal">U</span>
+                                        </td>
+                                        <td className="py-2 px-2 text-center font-sans">
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700 uppercase">
+                                            {p.raw_status || 'Active'}
                                           </span>
-                                          {p.recent_bill != null && (
-                                            <span className="text-[10px] text-blue-700 font-semibold">
-                                              ₹{Math.round(Number(p.recent_bill)).toLocaleString('en-IN')}
-                                            </span>
+                                        </td>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <td className="py-2 px-2 text-center font-sans font-medium">
+                                          {p.max_units != null ? (
+                                            <div className="flex flex-col items-center">
+                                              <span className="font-semibold text-gray-900 flex items-center gap-0.5">
+                                                ⚡ {p.max_units} <span className="text-[10px] text-gray-500 font-normal">U</span>
+                                              </span>
+                                              {p.max_bill != null && (
+                                                <span className="text-[10px] text-emerald-700 font-semibold">
+                                                  ₹{Math.round(Number(p.max_bill)).toLocaleString('en-IN')}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-400 text-[11px]">-</span>
                                           )}
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-400 text-[11px]">-</span>
-                                      )}
-                                    </td>
+                                        </td>
+                                        <td className="py-2 px-2 text-center font-sans font-medium">
+                                          {p.recent_units != null ? (
+                                            <div className="flex flex-col items-center">
+                                              <span className="font-semibold text-gray-900 flex items-center gap-0.5">
+                                                ⚡ {p.recent_units} <span className="text-[10px] text-gray-500 font-normal">U</span>
+                                              </span>
+                                              {p.recent_bill != null && (
+                                                <span className="text-[10px] text-blue-700 font-semibold">
+                                                  ₹{Math.round(Number(p.recent_bill)).toLocaleString('en-IN')}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-400 text-[11px]">-</span>
+                                          )}
+                                        </td>
+                                      </>
+                                    )}
                                   </tr>
                                 );
                               })}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit2, Trash2, Pin, Lock, MessageCircle, Clock, Phone, Users, Mail, AlertCircle, CheckCircle, FileText, Languages } from 'lucide-react';
+import { Edit2, Trash2, Pin, Lock, MessageCircle, Clock, Phone, Users, Mail, AlertCircle, CheckCircle, FileText, Languages, Package, Zap, Plug, Landmark, ClipboardCheck } from 'lucide-react';
 import type { CustomerNote } from '../../lib/supabase';
 import { formatRelativeTime, getNoteTypeConfig } from '../../lib/notesApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,6 +20,11 @@ const noteTypeIcons = {
   AlertCircle,
   CheckCircle,
   FileText,
+  Package,
+  Zap,
+  Plug,
+  Landmark,
+  ClipboardCheck,
 };
 
 export default function NotesList({ notes, onEdit, onDelete, loading }: NotesListProps) {

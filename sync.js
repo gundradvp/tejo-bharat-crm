@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-const COMMIT_SHA = '4610bd04751ad566fb31ea327eae5a70467c8167';
+const COMMIT_SHA = 'main';
 
 const filesToSync = [
   'package.json',
@@ -42,6 +42,7 @@ const filesToSync = [
   'src/components/Customers/CustomerDetailsForm.tsx',
   'src/components/Customers/CustomerFinancePage.tsx',
   'src/components/Customers/CustomerForm.tsx',
+  'src/components/Customers/CustomerInventoryTracking.tsx',
   'src/components/Customers/CustomerList.tsx',
   'src/components/Customers/CustomerOverview.tsx',
   'src/components/Customers/CustomerPaymentTracking.tsx',
@@ -59,6 +60,7 @@ const filesToSync = [
   'src/components/Customers/Quotation.tsx',
   'src/components/Customers/QuotationManagement.tsx',
   'src/components/Customers/QuotationPage.tsx',
+  'src/components/Customers/SecondTranchePendingList.tsx',
   'src/components/Customers/SuryaGharDetailedImport.tsx',
   'src/components/Dashboard/AdminDashboard.tsx',
   'src/components/Dashboard/AgentDashboard.tsx',
@@ -79,6 +81,7 @@ const filesToSync = [
   'src/components/EBCustomers/EBCustomerImport.tsx',
   'src/components/EBCustomers/EBCustomerImportProgressWidget.tsx',
   'src/components/EBCustomers/EBCustomerList.tsx',
+  'src/components/GST/GSTInputTaxCreditHub.tsx',
   'src/components/Items/ItemsManagement.tsx',
   'src/components/JSP/Dashboard/JSPDashboard.tsx',
   'src/components/JSP/Hierarchy/HierarchyBrowser.tsx',
@@ -144,7 +147,9 @@ const filesToSync = [
   'src/lib/ebBillParser.ts',
   'src/lib/ebParser.ts',
   'src/lib/googleDrive.ts',
+  'src/lib/gstPortalApi.ts',
   'src/lib/importCustomers.ts',
+  'src/lib/inventoryApi.ts',
   'src/lib/jsonParser.ts',
   'src/lib/jspLocationData.ts',
   'src/lib/locationApi.ts',

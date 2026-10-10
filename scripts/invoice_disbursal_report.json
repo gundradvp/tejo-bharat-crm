@@ -1,0 +1,2523 @@
+{
+  "summary": {
+    "totalCustomers": 509,
+    "totalGstInvoiceFiles": 102,
+    "totalCustomersWithInvoicesRaised": 64,
+    "totalFullyDisbursedCustomers": 162,
+    "fullyDisbursedWithInvoice": 60,
+    "fullyDisbursedNEEDSInvoice": 102
+  },
+  "allInvoiceRaisedList": [
+    {
+      "id": "cfff53e0-bb8f-4791-a8d6-af53823f9222",
+      "name": "AKULA LAKSHMI PRASANNA",
+      "consumerNumber": "1452530714000022",
+      "phone": "7997112021",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_LAKSHMI_PRASANNA_Invoice_TB_26_27_1004001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "fa35cef1-7545-495c-a047-eb91b663ea48",
+      "name": "AKULA NARENDRA KUMAR",
+      "consumerNumber": "1452530714002945",
+      "phone": "9908518522",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_NARENDRA_KUMAR_Invoice_TB_26_27_1104001.pdf",
+        "AKULA_NARENDRA_KUMAR_Invoice_TB_25_26_319002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a30acd3f-0e2c-4c76-819a-6fca17504927",
+      "name": "AKULA SRI RAMA SURYA CHANDRA SEKHAR MURTY",
+      "consumerNumber": "1452530714003198",
+      "phone": "9948239971",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_SRI_RAMA_SURYA_CHANDRA_SEKHAR_MURTY_Invoice_TB_26_27_704001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "e2140b22-42e5-41d0-892a-0a1bf7be4157",
+      "name": "BANDI NOOKARAJU",
+      "consumerNumber": "1452530714002338",
+      "phone": "8341943802",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "BANDI_NOOKARAJU_Invoice_TB_26_27_2804001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ad58fe9e-d80d-4eba-bdd6-42213f24807c",
+      "name": "CHINTAPALLI SURYA PRAKASA REDDY",
+      "consumerNumber": "1452520501021426",
+      "phone": "9491973562",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "CHINTAPALLI_SURYA_PRAKASA_REDDY_Invoice_TB_26_27_304001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "bd033d90-bec1-4ebb-bd5a-abfcd09e2ea1",
+      "name": "GIDUTHURI RAMBABU",
+      "consumerNumber": "1452530701006465",
+      "phone": "9110781103",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GIDUTHURI_RAMBABU_Invoice_TB_26_27_404001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "3bf74b62-79bf-438b-b727-aa6e740d387c",
+      "name": "MOHAMMED SHAHEEN",
+      "consumerNumber": "1455443322040086",
+      "phone": "9494464765",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "MOHAMMED_SHAHEEN_Invoice_TB_25_26_104001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ad857b4a-6dee-475a-8aef-508b7371316d",
+      "name": "PALIVELA SATYAVATHI",
+      "consumerNumber": "1452520501020994",
+      "phone": "9705159828",
+      "loanStatus": "Partial Disburse",
+      "invoices": [
+        "PALIVELA_SATYAVATHI_Invoice_TB_26_27_604001.pdf",
+        "PALIVELA_SATYAVATHI_Invoice_TB_25_26_290101.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "11a6886a-b486-43da-84dc-08fe0e8d8ee4",
+      "name": "PATNALA CHINNI",
+      "consumerNumber": "115233A008002400",
+      "phone": "9912657457",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "PATNALA_CHINNI_Invoice_TB_26_27_804001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "8c43250b-da0d-4c38-b91f-7a448a1491c2",
+      "name": "VORUGANTI SATYA GOWRI",
+      "consumerNumber": "1455454518023330",
+      "phone": "8328602258",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "VORUGANTI_SATYA_GOWRI_Invoice_TB_26_27_204002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "b0dbf854-4097-4b7a-a8e2-3e7c4f90b616",
+      "name": "V VARA PRASAD",
+      "consumerNumber": "1455454518012520",
+      "phone": "8886597999",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "V_VARA_PRASAD_Invoice_TB_26_27_204001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a5b0920c-ea04-40ca-92db-3866efda21cd",
+      "name": "kali chandrakala",
+      "consumerNumber": "1452520501024116",
+      "phone": "7989760710",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "kali_chandrakala_Invoice_TB_26_27_904001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "19cef71c-2d4e-41ea-bd96-d0442cd81e48",
+      "name": "AKULA NOOKAYYA KAPU",
+      "consumerNumber": "1452530714000332",
+      "phone": "7075577888",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_NOOKAYYA_KAPU_Invoice_TB_25_26_320002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "10bd4305-ec84-449b-9220-7d16590ae556",
+      "name": "DEVAKI RAVI JAGANMOHANA RAO",
+      "consumerNumber": "1452520501023900",
+      "phone": "9948086607",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Devaki_Ravi_Jaganmohana_Rao_Invoice_TB_25_26_318001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "8503541a-7474-4ee4-bd23-1bda4d749839",
+      "name": "KARNEEDI KRANTHI",
+      "consumerNumber": "1482530701009480",
+      "phone": "9966777735",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "KARNEEDI_KRANTHI_Invoice_TB_25_26_319001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2dfe9dbf-a79b-46ed-bd26-1099bd693106",
+      "name": "KANDAVALLI BABY KUMARI",
+      "consumerNumber": "1452520501014880",
+      "phone": "9848719716",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Kandavalli_Baby_Kumari_Invoice_TB_25_26_321001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "82a1de9b-26e0-428a-b3e6-8e59d54def42",
+      "name": "MOKIREDDY GANGABABU",
+      "consumerNumber": "1452530701005988",
+      "phone": "9948603663",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "MOKIREDDY_GANGABABU_Invoice_TB_25_26_320001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "afcb5ef1-17b2-4299-9a4d-e7c4c30287af",
+      "name": "naralasetty praveen kumar",
+      "consumerNumber": "1452530701006754",
+      "phone": "9010195191",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Naralasetty_Praveen_Kumar_Invoice_TB_25_26_318002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "d3a87fa5-41a0-4650-b79d-8808f79a1937",
+      "name": "SADANALA SIVALAKSHMI",
+      "consumerNumber": "1452530714002224",
+      "phone": "9393171490",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "SADANALA_SIVALAKSHMI_Invoice_TB_25_26_303002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a1c6a677-5195-451a-a2f8-a382fa8c4582",
+      "name": "TATIPARTHY  SIVA NAGESWARA RAO",
+      "consumerNumber": "1452530713001404",
+      "phone": "9553384893",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "TATIPARTHY_SIVA_NAGESWARA_RAO_Invoice_TB_25_26_307002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f7bd3807-2fd3-4b6c-b4ba-d5954a32f04d",
+      "name": "vakada nagalakshmi",
+      "consumerNumber": "1452540834000377",
+      "phone": "8919212029",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Vakada_Nagalakshmi_Invoice_TB_25_26_309002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "dd71cc36-29ff-4649-b72b-62a19970d435",
+      "name": " AKULA VEERA BABU",
+      "consumerNumber": "1452530714002182",
+      "phone": "9581916454",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_VEERA_BABU_Invoice_TB_25_26_312002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "adc3a3b7-5a3b-4b6f-8859-e1cc40056124",
+      "name": "BOJJA  LOVARAJU",
+      "consumerNumber": "1452520501020360",
+      "phone": "9849511548",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Bojja_Lovaraju_Invoice_TB_25_26_314002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "4eaa947a-63d0-45b7-855a-266e1f5790a4",
+      "name": "CHALLA SRINIVASARAO",
+      "consumerNumber": "1452530711004435",
+      "phone": "9963843691",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "CHALLA_SRINIVASARAO_Invoice_TB_25_26_315002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "7e1087e6-8e84-4f41-8793-03bb1017fc1c",
+      "name": "GANGIREDLA AMMAJI",
+      "consumerNumber": "1452530701006306",
+      "phone": "9701077975",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GANGIREDLA_AMMAJI_Invoice_TB_25_26_317002 (1).pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "50a3663c-d134-4565-b696-062b15bdd34f",
+      "name": "GANGIREDLA RAJESH",
+      "consumerNumber": "1452530701008490",
+      "phone": "9959707152",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GANGIREDLA_RAJESH_Invoice_TB_25_26_314001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "132ed7b7-8c60-4797-a929-060c6d39a08f",
+      "name": "GANGIREDLA VARAPRASAD",
+      "consumerNumber": "1452530701008805",
+      "phone": "9700353279",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GANGIREDLA_VARAPRASAD_Invoice_TB_25_26_317001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "97a1c3f5-8d0a-45e4-9969-c7cc0304f899",
+      "name": "GUNDRA ADILAKSHMI",
+      "consumerNumber": "1452530714002632",
+      "phone": "9553805615",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GUNDRA_ADILAKSHMI_Invoice_TB_25_26_310001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5898556e-e134-4244-ab31-e5223ac1f30b",
+      "name": "GABU DURGARAO",
+      "consumerNumber": "1455454518008453",
+      "phone": "7013523169",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Gabu_Durga_Rao_Invoice_TB_25_26_306002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "89ce78cf-101e-48a6-8070-b47f0a60fada",
+      "name": " KARRI YESUBABU",
+      "consumerNumber": "1452530711002059",
+      "phone": "8340019987",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "KARRI_YESUBABU_Invoice_TB_25_26_305002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "4f4f0cef-c063-4469-aa7b-4b838035f3a9",
+      "name": "KURAKULA NARAYANAA RAO",
+      "consumerNumber": "1452740630000122",
+      "phone": "8639743350",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "KURAKULA_NARAYANAA_RAO_Invoice_TB_25_26_303001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "96249064-229e-41fc-93ac-1514dab296ac",
+      "name": "K SURYA CHAKRAM",
+      "consumerNumber": "1452530712001064",
+      "phone": "7036138361",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "K_SURYA_CHAKRAM_Invoice_TB_25_26_311002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a3cd441a-9adf-40ca-b2e4-a76636a1b632",
+      "name": "MERUGU RAMANAMMA",
+      "consumerNumber": "1482540801004211",
+      "phone": "9704930018",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "MERUGU_RAMANAMMA_Invoice_TB_25_26_310002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f0f93f97-8ca6-449b-888c-af3011956bfc",
+      "name": "MOGALI NAGADEVI",
+      "consumerNumber": "1452530701003323",
+      "phone": "9182597323",
+      "loanStatus": "not_applicable",
+      "invoices": [
+        "MOGALI_NAGADEVI_Invoice_TB_25_26_3315001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "463e80de-e0af-4c21-aa77-85f7b5a8093e",
+      "name": "Mogali yesu venkata dorababu",
+      "consumerNumber": "1452530701007654",
+      "phone": "9989534897",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Mogali_yesu_venkata_dorababu_Invoice_TB_25_26_313002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "196d82e1-c06c-4286-973d-83e90ae1b6f9",
+      "name": "NARALASETTI PAVAN CHANDRA NAGOOR",
+      "consumerNumber": "1452530701006847",
+      "phone": "9966212161",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "NARALASETTI_PAVAN_CHANDRA_NAGOOR_Invoice_TB_25_26_306001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0e15a11c-92c5-4b32-9d66-55ddc177cd31",
+      "name": "POLAVARAPU ANANDARAO",
+      "consumerNumber": "1452530713001224",
+      "phone": "7993593488",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "POLAVARAPU_ANANDARAO_Invoice_TB_25_26_309001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "3d822c0f-a248-43af-85b8-2bd3d53578cd",
+      "name": "PASAGADA JOHN RAJU",
+      "consumerNumber": "1452520501024979",
+      "phone": "9704190524",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Pasagada_John_Raju_Invoice_TB_25_26_316002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f5b8dc14-e6cc-4342-aa63-97b9e76c730b",
+      "name": "RAVULA DEVI",
+      "consumerNumber": "1452530714001249",
+      "phone": "9949733826",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "RAVULA_DEVI_Invoice_TB_25_26_312001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "66a9c346-4798-4e00-947c-e98de02bba7a",
+      "name": "TRIPURARI VISWESWARA DATTU",
+      "consumerNumber": "1452520501024096",
+      "phone": "9440217654",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Tripurari_Visweswara_Dattu_Invoice_TB_25_26_313001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "8bdec73c-158a-42d1-930d-db478d35963d",
+      "name": "VASIREDDY VENKATA LAKSHMI",
+      "consumerNumber": "1452740627002121",
+      "phone": "9949485304",
+      "loanStatus": "not_applicable",
+      "invoices": [
+        "VASIREDDY_VENKATA_LAKSHMI_Invoice_TB_25_26304001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "c273a46d-bbb7-4fdd-80d0-6f7aaea93859",
+      "name": "VELUGULA KRISHNARJUNUDU",
+      "consumerNumber": "1452530714003211",
+      "phone": "7386812933",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "VELUGULA_KRISHNARJUNUDU_Invoice_TB_25_26_302003.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2e7def94-ff8a-4962-9164-48a32ec73b28",
+      "name": "YADALA GOVINDARAJU",
+      "consumerNumber": "1452530711001341",
+      "phone": "9059625152",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "YADALA_GOVINDARAJU_Invoice_TB_25_26_304002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2b489eff-e77f-4806-8e28-0d8df56598a8",
+      "name": "adapa venkata ramalakshmi",
+      "consumerNumber": "1452530701007994",
+      "phone": "7989332173",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "adapa_venkata_ramalakshmi_Invoice_TB_25_26_307001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "445593a8-deb7-425e-b999-82a6a37d02f0",
+      "name": "karnidi venkataratnam",
+      "consumerNumber": "1452530701003206",
+      "phone": "9154118502",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "karnidi_venkataratnam_Invoice_TB_25_26_305001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "972b22a2-1d16-4168-8999-275c22d45159",
+      "name": "kurru nookaratnam",
+      "consumerNumber": "1452530714002479",
+      "phone": "9701779814",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "kurru_nookaratnam_Invoice_TB_25_26_311001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f446c1d6-6e99-4d35-8938-b08d3051a81a",
+      "name": "TAMILISETTI DURGA VENKATA SATYANARAYANA",
+      "consumerNumber": "1452520501025346",
+      "phone": "9550736121",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Tamilisetti_Durga_Venkata_Satyanarayana_Invoice_TB_26_27_05_13_1_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "07681f89-ba99-46b4-8de0-6548ce394993",
+      "name": "YARRAMILLI  VARALAKSHMI",
+      "consumerNumber": "1423680509001041",
+      "phone": "8143145983",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "YARRAMILLI_VARALAKSHMI_Invoice_TB_26_27_05_12_1_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5ec9dc39-eec4-400b-b821-c1f2c8485d70",
+      "name": "BOMMADEVU DHANA LAKSHMI",
+      "consumerNumber": "1452520501012737",
+      "phone": "9391776652",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "BOMMADEVU_DHANA_LAKSHMI_Invoice_TB_25_26_325001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "b8eab71b-22d8-4603-abbd-7e4a5c289538",
+      "name": "GOLLAPALLI GOVINDARAO",
+      "consumerNumber": "1452530714000634",
+      "phone": "8317597543",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GOLLAPALLI_GOVINDARAO_Invoice_TB_25_26_319003.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "9671381d-4e5e-49d3-952c-574c7c93b65e",
+      "name": "MERUGU DAYAMANI",
+      "consumerNumber": "1982540801004315",
+      "phone": "7993034104",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "MERUGU_DAYAMANI_Invoice_TB_25_26_322003.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f32d879f-2254-4ae4-bc01-cd24398cdd3e",
+      "name": "REDDY VENKATALAKSHMI",
+      "consumerNumber": "1452530712002116",
+      "phone": "9705836628",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "REDDY_VENKATALAKSHMI_Invoice_TB_25_26_320003.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0b88ad0a-d874-4ad6-88ac-959c951187b0",
+      "name": "VEGISETTY KONDA",
+      "consumerNumber": "1482530701010003",
+      "phone": "8008696177",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "VEGISETTY_KONDA_Invoice_TB_25_26_323001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0339507a-d7ad-4786-940a-a3c4530651ca",
+      "name": "BALLIPALLI SURYAVATHI",
+      "consumerNumber": "1452520501020592",
+      "phone": "9948998889",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "BALLIPALLI_SURYAVATHI_Invoice_TB_25_26_310003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "de979e2b-7d13-407f-8512-82843281a030",
+      "name": "BEERA VIJAYASEKHAR",
+      "consumerNumber": "1452520501004739",
+      "phone": "7673962888",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Beera_Vijaya_Sekhar_Invoice_TB_25_26_312003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "e1a0377b-88b6-48e6-9890-8911eb44caf6",
+      "name": "KONDEPUDI SATYAVENI",
+      "consumerNumber": "1452520501014290",
+      "phone": "9848950717",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Kondepudi_Satyaveni_Invoice_TB_25_26_307003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "de4c04d5-8fc4-4a98-a3f4-7492062a6ffd",
+      "name": "M V RAMANA",
+      "consumerNumber": "1452520501004129",
+      "phone": "7396578226",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "M_V_RAMANA_Invoice_TB_25_26_309003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "57e5bc48-d429-414a-bf10-af976d564365",
+      "name": "PALURI VENKATA LAKSHMI",
+      "consumerNumber": "1452520501025029",
+      "phone": "9182955044",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Paluri_Venkata_Lakshmi_Invoice_TB_25_26_311003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "b62979d1-26b2-49e8-b7fa-94f5712a7f8a",
+      "name": "SHAIK SATTAR SAHEB",
+      "consumerNumber": "1452520501013565",
+      "phone": "9010835232",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Shaik_Sattar_Saheb_Invoice_TB_25_26_308002_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f244539c-9a13-490c-ba2e-b9958dd0077f",
+      "name": "sheik mahaboob basha",
+      "consumerNumber": "1452520501018126",
+      "phone": "9502231967",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Sheik_Mahaboob_Basha_Invoice_TB_25_25_36001_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5d0baa60-ee08-41c5-a355-9fdb77ee6ce0",
+      "name": "MERUGU PREMANANDAM",
+      "consumerNumber": "1452540801001572",
+      "phone": "9704348459",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Merugu_Premanandam_Invoice_1 (1).pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "906f34c0-7bbe-4ed5-8365-5fc441d3029a",
+      "name": "ADAPA VENKATA RAMANA",
+      "consumerNumber": "1424670418002488",
+      "phone": "6302299593",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "ADAPA_VENKATA_RAMANA_Invoice_TB_25_26_110501.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "d859b2fd-1319-47cd-b7e5-302cd4ee50cc",
+      "name": "ALAMURI AMMAJI",
+      "consumerNumber": "1424670418002009",
+      "phone": "6302225302",
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "ALAMURI_AMMAJI_Invoice_TB_25_26_29042030.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "6e04b5e8-b7af-45ea-8387-0558107d5192",
+      "name": "YARRAMSETTI VENKATA SUBBARAO",
+      "consumerNumber": "11123000K3004986",
+      "phone": "9849644412",
+      "loanStatus": "not_applicable",
+      "invoices": [
+        "Yarramsetti_Venkata_Subbarao_Invoice_TB_25_26_311210.pdf"
+      ],
+      "currentStage": "site_survey"
+    }
+  ],
+  "disbursedNeedsInvoice": [
+    {
+      "id": "9994ba5d-c769-4f5c-87da-94ac224947ae",
+      "name": "THEEDA JAGAN MOHINI",
+      "consumerNumber": "1452520503022884",
+      "phone": "8919605190",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "6d746b16-f8da-4cb9-b921-cc767c0497a7",
+      "name": "TALLURI,VENKATESWARLU",
+      "consumerNumber": "2422202003048",
+      "phone": "9949947905",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "b6ca44b5-41d4-4514-b0fa-7f775ab2d62d",
+      "name": "YALLA LAKSHMI",
+      "consumerNumber": "1482530719009355",
+      "phone": "8367586686",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "624773cb-6ecf-46a7-96d7-a790fe1577f2",
+      "name": "JUVVALA SATYANANDAM",
+      "consumerNumber": "1482530712003039",
+      "phone": "9533505408",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "4600d32d-6a68-4753-ae39-d3da97e84033",
+      "name": "JUVVALA SATYANARAYANA",
+      "consumerNumber": "1452530712000257",
+      "phone": "9959467137",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "3fa1ce89-379b-4d21-82f3-29f03e482feb",
+      "name": "RAVULA GANGA BHAVANI",
+      "consumerNumber": "1452520502024612",
+      "phone": "9849230455",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ffc667a0-525f-4600-b245-29fbbb4bbcc9",
+      "name": "BORRA  SOWJANYA",
+      "consumerNumber": "1424670418003552",
+      "phone": "9292008879",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "db7fd7ea-4e79-47a4-97b1-e919cc3aae85",
+      "name": "AMARADI VALLI RAMAKRISHNA",
+      "consumerNumber": "1482530712003060",
+      "phone": "9949722111",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2d84a716-73a5-47a9-9487-9ae8ee4797ab",
+      "name": "jatla someswararao",
+      "consumerNumber": "1424670418000112",
+      "phone": "9866859730",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "01b93f04-2e3c-4c4e-8b48-09db695e6dc3",
+      "name": "SUNKARA SATYANARAYANA",
+      "consumerNumber": "1453494905004306",
+      "phone": "9705697370",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "33eac197-4a4d-4d97-9be9-52a7de0bdb85",
+      "name": "DEVARAPU CHAKRAMMA",
+      "consumerNumber": "1482530719009403",
+      "phone": "9705655471",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "7fd0aba2-cfb0-44c8-84e7-596ce9bbbf4d",
+      "name": "TIGIRIPALLI PRASANTH",
+      "consumerNumber": "1455757514004311",
+      "phone": "9032611461",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a5c8a05c-16f9-456d-b805-5b00a7b90147",
+      "name": "CHALLA,SUJATHA",
+      "consumerNumber": "4511227000776",
+      "phone": "7396825439",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "08417a09-6373-474a-8400-e49141f86f55",
+      "name": "MACHAA NAGESWARARAO",
+      "consumerNumber": "1424670410004049",
+      "phone": "9989527796",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "c99c8ab0-a6c5-4f77-bdff-960ca44922ba",
+      "name": "GONELA SRINIVASU",
+      "consumerNumber": "1452530719007456",
+      "phone": "9000894865",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "04998c5f-a506-4859-8a89-525c62fefec4",
+      "name": "KANDEPALLI SUBRAHMANYAM",
+      "consumerNumber": "1452540837000240",
+      "phone": "9701715506",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0b24a135-5787-46e9-ba4b-d3ac9d6bcbc3",
+      "name": "M S,RAMANA",
+      "consumerNumber": "5534307001243",
+      "phone": "9848066175",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "bccd1d30-7227-405a-a348-2ddc1ff76177",
+      "name": "posina venkataramana",
+      "consumerNumber": "1424670410001033",
+      "phone": "9989959934",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ec8baf12-4abe-4292-86a6-3c219a19c8d5",
+      "name": "KURRU SATYANARAYANA",
+      "consumerNumber": "1452530714002314",
+      "phone": "8374401922",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "c5a20afd-4dc1-4eb8-a0c0-32bf4d559886",
+      "name": "MAROTHU CHAKRAM",
+      "consumerNumber": "1424670418003574",
+      "phone": "9603561849",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "7cfdee49-099c-4049-9224-e16157ccdd71",
+      "name": "CHODIPILLI KONDAMMA",
+      "consumerNumber": "1452540801000050",
+      "phone": "7396418513",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "d4ed5f0d-e3a3-440d-82e8-1244d799796c",
+      "name": "PENUGONDA RAMA KRISHNA",
+      "consumerNumber": "1452530714001065",
+      "phone": "9705913978",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5511d818-ba70-4245-89f4-e0baf099dc17",
+      "name": "Pulapa suvarna kumari",
+      "consumerNumber": "1452740603000753",
+      "phone": "9491424417",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "28c48e39-f9dc-4723-8c6e-1a9ae7599e54",
+      "name": "MUNGALLA ESWARARAO",
+      "consumerNumber": "1452520502025125",
+      "phone": "8074838814",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "cb3a0d15-9d18-40c2-9c7f-1ded2d53c497",
+      "name": "GORUSUPATI VENKATA SATYA GURU PRASAD",
+      "consumerNumber": "1455443306016155",
+      "phone": "7036313318",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "44e13c8c-d0c7-4eac-b540-25c50f62eebe",
+      "name": "GANNEBOINA,LAKSHMI SPANDANA",
+      "consumerNumber": "2422204000417",
+      "phone": "8106791737",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "01fe2f66-186a-466e-b99f-fb03d898b034",
+      "name": "PENUMALLU SUBBIREDDY",
+      "consumerNumber": "1452540802000178",
+      "phone": "9247492374",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f0183dfc-af9f-4119-98b6-c55874c364b9",
+      "name": "AMBUJALAPU KONDABABU",
+      "consumerNumber": "1423680522001087",
+      "phone": "9440167915",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0a865f22-cbd6-4761-b66b-cdbb88c99a73",
+      "name": "MOOKIREDDY SUNITHA",
+      "consumerNumber": "1482530719010051",
+      "phone": "9948717742",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "8798c2ce-e635-415d-bd46-8d15b4743bf3",
+      "name": "JYOTHULA NARAYANA MURTHY",
+      "consumerNumber": "1452530712002830",
+      "phone": "9703690697",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "7ddb01c0-d002-4b70-bf93-16372b2dc05c",
+      "name": "RAVULA TATARAO",
+      "consumerNumber": "1452530714003321",
+      "phone": "9948603137",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "c729fa63-c024-4e3f-93be-e3a8e28f8af2",
+      "name": "T.RAMACHANDRA RAO",
+      "consumerNumber": "1453494901012738",
+      "phone": "9640946675",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "dab65acc-022a-4f73-8885-754a59ebfe52",
+      "name": "PITTALA RAJENDRAPRASAD RAO",
+      "consumerNumber": "1452520501025891",
+      "phone": "9440771414",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "dfc49919-68ee-4d73-bfaf-897cc0f53f99",
+      "name": "Gundupalli Surya Prakash Rao",
+      "consumerNumber": "1452520501004209",
+      "phone": "7013948498",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "cccf0d73-97c0-4860-bd9f-32830ab5623f",
+      "name": "INTI NOOKARAJU",
+      "consumerNumber": "1452530714001582",
+      "phone": "9100724179",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2861f127-beef-4e5f-944e-bf5f64d8ce32",
+      "name": "dasam ganga mahesh",
+      "consumerNumber": "1452530712000219",
+      "phone": "9642900784",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "cadaa1a3-69a2-4d17-97f0-da328b745afc",
+      "name": "GANISETTY SIVA RAMAKRISHNA",
+      "consumerNumber": "1982530722005455",
+      "phone": "9885644432",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f4afe070-862d-4b51-826c-d80e45027479",
+      "name": "GADI VENKATESWARLU",
+      "consumerNumber": "1924850421001311",
+      "phone": "9494404506",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5898ca6c-ab28-4344-ac63-b44e844d39d0",
+      "name": "PIDAKA TULASI RATNAM",
+      "consumerNumber": "1471210308001291",
+      "phone": "9951559018",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2c8b503d-079b-4f07-87b1-3349529f6fe6",
+      "name": "yamana sivakumar",
+      "consumerNumber": "1424670421000717",
+      "phone": "9866392477",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "506d8fc5-00c1-4b1d-b370-a32adad20963",
+      "name": "Kakinada Raju",
+      "consumerNumber": "1452530714002301",
+      "phone": "9949232081",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ac07b4ea-d8bf-43b7-80c6-9dec1793bfc8",
+      "name": "NAKKA DHAYA MANI",
+      "consumerNumber": "1452540801001069",
+      "phone": "7815807677",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "627b33be-11aa-402d-a5cf-c5d776178042",
+      "name": "ummidi bodakonda",
+      "consumerNumber": "1452530714002625",
+      "phone": "9059898535",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "21b8eb7a-9c2d-4cc6-88dc-0d784b885865",
+      "name": "REDDIPILLI KONDALARAO",
+      "consumerNumber": "1982520501027900",
+      "phone": "9390240795",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "7d836415-33bc-4ffa-96d9-a65f7db29da0",
+      "name": "KARRI RAMAKRISHNA",
+      "consumerNumber": "1982530711005525",
+      "phone": "8897992591",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "22b8849d-eef2-4c4f-a8da-7f87e1fbcc29",
+      "name": "ALLADA VENKATESWARA RAO",
+      "consumerNumber": "115233A008002103",
+      "phone": "9542125469",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "7e333cbb-920c-4d40-a83a-85349c1fbb1f",
+      "name": "PAMELLA,SREENATH",
+      "consumerNumber": "7124324003994",
+      "phone": "8919019438",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "61f42189-ed06-4dab-9d7e-a307721dc72c",
+      "name": "A,SUBHASHINI",
+      "consumerNumber": "5534203160390",
+      "phone": "9393515432",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "3f1f36dd-c134-4a68-9787-f0244ec6896e",
+      "name": "JAJULA,HARI BABU",
+      "consumerNumber": "4355720004535",
+      "phone": "8019469985",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ed8fe5c9-cef1-4c6a-ba11-4c42b7c713de",
+      "name": "ANISETTI RAMA CHANDRA RATNAM",
+      "consumerNumber": "1452540802000180",
+      "phone": "9666942113",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "208c5adf-bacf-4cea-8e73-77789e58cc37",
+      "name": "KADIMISETTI NARAYANA RAO KADIMISETTI NARAYANA RAO",
+      "consumerNumber": "1452540837000482",
+      "phone": "9676496390",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "b9074d50-1cdb-4658-b54e-fb5d0b90cb8b",
+      "name": "BOTTA GANGA BAVANI",
+      "consumerNumber": "1674767701018562",
+      "phone": "8790565407",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "42aa8ef8-2505-4f7a-8624-c216a85fed58",
+      "name": "PERAPU VENKATALAKSHMI",
+      "consumerNumber": "1452520501013061",
+      "phone": "9493109872",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5087f411-9ebc-4498-b24f-c940fa29a134",
+      "name": "KOTTAPALI  PRASANTHAKUMAR",
+      "consumerNumber": "1452530714002770",
+      "phone": "8121116330",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "36ad106f-a292-42c4-a1b7-b43eff1a047f",
+      "name": "MALIREDDY VENKATA LAKSHMI",
+      "consumerNumber": "1453727202000416",
+      "phone": "7013312060",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "83fe16e4-1073-499a-a60e-2ad11645ba62",
+      "name": "Darakumaraswamy",
+      "consumerNumber": "5523400129144",
+      "phone": "8790292540",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "bce6c422-89a9-41e9-bee4-c1aed00cd799",
+      "name": "N. Dhanamma",
+      "consumerNumber": "5113107000797",
+      "phone": "9963718152",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5916208d-f057-4b57-8d7f-f8d0c9bda121",
+      "name": "RAMAKURTHI SANDEEP",
+      "consumerNumber": "1424670421001119",
+      "phone": "7731990565",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "beb5f327-3fa6-42ec-a798-1cb10bc27284",
+      "name": "BAVISETTI RAMBABU",
+      "consumerNumber": "1455757503000228",
+      "phone": "9848161542",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0b39c884-b128-461b-8acf-a1fdc4090463",
+      "name": "KOSIREDDY SATYANARAYANA",
+      "consumerNumber": "1452530711003368",
+      "phone": "9177283474",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0ba8e430-35d4-4748-8abe-5d254836f475",
+      "name": "anisetty venkatareddy",
+      "consumerNumber": "1452540802001064",
+      "phone": "9502635571",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "3a46862c-48b0-4988-891e-28b1f22bdb9c",
+      "name": "YANDAPALLI LAXMI",
+      "consumerNumber": "1424670424000452",
+      "phone": "9989157362",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "89f1c1b2-3edf-4f6a-a41c-337837bcb4b3",
+      "name": "Anga tulasi chaitanya",
+      "consumerNumber": "1174767707000075",
+      "phone": "7989837014",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "425f16e2-31a8-4636-b961-2034b5ad4cca",
+      "name": "ANISETTI VARALAKSHMI",
+      "consumerNumber": "1482530701010086",
+      "phone": "8885482538",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "c0bf140f-2c4d-4b8b-a48d-75fb94a58e63",
+      "name": "G DHAMODHAR",
+      "consumerNumber": "5425202000286",
+      "phone": "9642826845",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5091a27c-9fdb-41b8-9df7-057e8ba9e5d5",
+      "name": "PALIKA SUNITHA",
+      "consumerNumber": "1174767707000065",
+      "phone": "9885367487",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "45808f13-a1ba-45d8-8a53-d3e6a6aac275",
+      "name": "MULUKURI VENKATA KANAKARAJU",
+      "consumerNumber": "1452530722001313",
+      "phone": "9030907870",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "dbe150e3-bbfe-4659-ba40-f8e6be7e3b7b",
+      "name": "SUJATHA",
+      "consumerNumber": "5425203000542",
+      "phone": "9849699249",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "69f29a52-59bd-428d-871d-3106ca945db2",
+      "name": "MUDUNURI SATYA VENKATA SITA RAMAKRISHNAM RAJU",
+      "consumerNumber": "1452520501015465",
+      "phone": "8801143435",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "31366d9b-7320-4670-b369-140dbddc767e",
+      "name": "Velugula Suryanarayana",
+      "consumerNumber": "1452530714000706",
+      "phone": "9912450712",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "8f8633a9-4ec2-4ab6-bdb4-14ef8416cb0e",
+      "name": "Swamireddy  Nageswararao",
+      "consumerNumber": "1452540834001208",
+      "phone": "9347216132",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "24672cd3-db2f-4492-b7f7-80cb86dbdc11",
+      "name": "GUNDRA GANAGA VENI",
+      "consumerNumber": "1452530714002175",
+      "phone": "9553731023",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5d580d60-4a2c-4f50-8c18-e9b691bdf4b1",
+      "name": "ulisetti shirisha",
+      "consumerNumber": "1452530714001694",
+      "phone": "9908780350",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "45d428dd-8094-4d45-a1ff-e99a422d65a9",
+      "name": "KOPPALA,SRINIVASULU",
+      "consumerNumber": "5534401159415",
+      "phone": "9505655544",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5117a641-3bf1-4104-bee4-6b841862b632",
+      "name": "D KESAVA REDDY",
+      "consumerNumber": "5534204142356",
+      "phone": "8309677536",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5943ec92-25d9-45a3-8271-529e1afd67a8",
+      "name": "DEVARAKONDA VENKATESH",
+      "consumerNumber": "1452520501025352",
+      "phone": "9849631808",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ccd9f1ca-d37f-4c88-8d3a-ed16f5236713",
+      "name": "VENU VENKATESH",
+      "consumerNumber": "1452520501020643",
+      "phone": "9100047764",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0fb598b2-33ce-49e9-8fa4-b3bd34ed11df",
+      "name": "KUTHA VENKATA RAMANAREDDY",
+      "consumerNumber": "1452540837000084",
+      "phone": "9959400848",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ee166110-e284-4d7a-86a0-7b7566a9c952",
+      "name": "KUMPATLA GANGALAKSHMI",
+      "consumerNumber": "1452530714002526",
+      "phone": "9866209918",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a28de5c3-4e42-44ed-bf79-a23c011c0e66",
+      "name": "karneedi tataji",
+      "consumerNumber": "1452520501012205",
+      "phone": "9948765569",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2e2067ca-fd8c-498e-99bd-d833cc752b51",
+      "name": "KOPPULA VENKATA SURYA NAGESWARAO",
+      "consumerNumber": "1454423303012115",
+      "phone": "9490742045",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "118f505a-40f6-4dc0-97ee-ee6d539eaf2d",
+      "name": "MUDHUNURI KAVITHA",
+      "consumerNumber": "1452520501015760",
+      "phone": "9618222288",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "23ccbe83-eb2b-40c0-8bc4-e88a13db6478",
+      "name": "SIRIGALA KRISHNAVENI",
+      "consumerNumber": "5522202016166",
+      "phone": "8639647655",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "8cd7d55f-fc5c-4ad9-a79a-2d995e9f7126",
+      "name": "VELUGULA RAMANNADORA",
+      "consumerNumber": "1452530714003111",
+      "phone": "8523082555",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "9207547a-2f86-4e28-8e4a-295bf638021a",
+      "name": "P,VASANTHA",
+      "consumerNumber": "5113107001192",
+      "phone": "8978493134",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "318836ea-c883-4bca-a308-aa69a1d3f2f8",
+      "name": "PULLA VARALAKSHMI DEVI",
+      "consumerNumber": "1455454502005927",
+      "phone": "9951576254",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "12f84f74-6022-4cbd-aeb9-63b73721d896",
+      "name": "UMMIDI ACHUTAMANI",
+      "consumerNumber": "1452530714001432",
+      "phone": "9346723228",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f804b992-a5ae-4a9c-8877-e883fd60ee6e",
+      "name": "D,Sasi Kumar",
+      "consumerNumber": "5534302110533",
+      "phone": "9533663320",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a6ad59f0-9597-483a-9dc9-0d053cb899d8",
+      "name": "pulla lakshmana rao",
+      "consumerNumber": "1455454502001073",
+      "phone": "7386494447",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5b018c4b-8a9b-40e5-9a8f-ec80d69d79a3",
+      "name": "SRINU",
+      "consumerNumber": "1424670409000133",
+      "phone": "9959647719",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "d4f5e7d1-728a-417f-af27-ffce03dc33ee",
+      "name": "MOYILLA VINOD KUMAR",
+      "consumerNumber": "1452740606000104",
+      "phone": "7680897936",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "72b06612-584c-406c-a279-4ba2a583314b",
+      "name": "BYRA UPPARAO",
+      "consumerNumber": "1424670409000025",
+      "phone": "9573486678",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2323269b-ec3f-44fe-ac96-4c7260b64255",
+      "name": "LAKSHMI DEVI",
+      "consumerNumber": "7334248001141",
+      "phone": "9989772353",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "c58b170e-8a0f-4d88-8336-d7e7f8007df9",
+      "name": "B.NAGALAXMI",
+      "consumerNumber": "1424670418000726",
+      "phone": "9866168597",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "46d7284b-3523-4599-9eb2-db910e66ee64",
+      "name": "ROUTHU V V SATYANARAYANA",
+      "consumerNumber": "1452520501006665",
+      "phone": "9652897736",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "75a525e2-ce13-4a49-bb84-66958643785d",
+      "name": "GURALA NERELLUREDDY",
+      "consumerNumber": "1452540802000110",
+      "phone": "9492031113",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2f5e18cc-e82a-4aa4-8714-26dc8cbb7b4d",
+      "name": "GUNDRA GANGA",
+      "consumerNumber": "1452530714001772",
+      "phone": "9505467893",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "9cfd2cc4-2abe-4944-9fb8-c94afbac6a5a",
+      "name": "Koka Satyamohan rao",
+      "consumerNumber": "1452520501011045",
+      "phone": "9866176855",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "8db6a176-aba5-4f4e-9505-817ed9eb2737",
+      "name": "Mallireddy Vishnu",
+      "consumerNumber": "1453727202001386",
+      "phone": "8897061222",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "944fcebb-e747-471f-acf0-916bebd9be43",
+      "name": "M Siddaiah",
+      "consumerNumber": "5425103000426",
+      "phone": "9502706157",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "7d24d361-fa79-4cfd-a5a5-62213cab6251",
+      "name": "DULAPALLI NAGA NAVEEN",
+      "consumerNumber": "1452520501025707",
+      "phone": "8125558122",
+      "district": "-",
+      "agreedCost": 185000,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ceffd57f-975f-4883-a743-3151e760c50c",
+      "name": "yerikireddi nagalakshmi",
+      "consumerNumber": "1452530714003170",
+      "phone": "9989416235",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "currentStage": "site_survey"
+    }
+  ],
+  "disbursedWithInvoice": [
+    {
+      "id": "f7bd3807-2fd3-4b6c-b4ba-d5954a32f04d",
+      "name": "vakada nagalakshmi",
+      "consumerNumber": "1452540834000377",
+      "phone": "8919212029",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Vakada_Nagalakshmi_Invoice_TB_25_26_309002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "bd033d90-bec1-4ebb-bd5a-abfcd09e2ea1",
+      "name": "GIDUTHURI RAMBABU",
+      "consumerNumber": "1452530701006465",
+      "phone": "9110781103",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GIDUTHURI_RAMBABU_Invoice_TB_26_27_404001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a1c6a677-5195-451a-a2f8-a382fa8c4582",
+      "name": "TATIPARTHY  SIVA NAGESWARA RAO",
+      "consumerNumber": "1452530713001404",
+      "phone": "9553384893",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "TATIPARTHY_SIVA_NAGESWARA_RAO_Invoice_TB_25_26_307002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "463e80de-e0af-4c21-aa77-85f7b5a8093e",
+      "name": "Mogali yesu venkata dorababu",
+      "consumerNumber": "1452530701007654",
+      "phone": "9989534897",
+      "district": "-",
+      "agreedCost": 205000,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Mogali_yesu_venkata_dorababu_Invoice_TB_25_26_313002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "66a9c346-4798-4e00-947c-e98de02bba7a",
+      "name": "TRIPURARI VISWESWARA DATTU",
+      "consumerNumber": "1452520501024096",
+      "phone": "9440217654",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Tripurari_Visweswara_Dattu_Invoice_TB_25_26_313001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2dfe9dbf-a79b-46ed-bd26-1099bd693106",
+      "name": "KANDAVALLI BABY KUMARI",
+      "consumerNumber": "1452520501014880",
+      "phone": "9848719716",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Kandavalli_Baby_Kumari_Invoice_TB_25_26_321001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "afcb5ef1-17b2-4299-9a4d-e7c4c30287af",
+      "name": "naralasetty praveen kumar",
+      "consumerNumber": "1452530701006754",
+      "phone": "9010195191",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Naralasetty_Praveen_Kumar_Invoice_TB_25_26_318002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "3bf74b62-79bf-438b-b727-aa6e740d387c",
+      "name": "MOHAMMED SHAHEEN",
+      "consumerNumber": "1455443322040086",
+      "phone": "9494464765",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "MOHAMMED_SHAHEEN_Invoice_TB_25_26_104001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "d3a87fa5-41a0-4650-b79d-8808f79a1937",
+      "name": "SADANALA SIVALAKSHMI",
+      "consumerNumber": "1452530714002224",
+      "phone": "9393171490",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "SADANALA_SIVALAKSHMI_Invoice_TB_25_26_303002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2e7def94-ff8a-4962-9164-48a32ec73b28",
+      "name": "YADALA GOVINDARAJU",
+      "consumerNumber": "1452530711001341",
+      "phone": "9059625152",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "YADALA_GOVINDARAJU_Invoice_TB_25_26_304002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "de979e2b-7d13-407f-8512-82843281a030",
+      "name": "BEERA VIJAYASEKHAR",
+      "consumerNumber": "1452520501004739",
+      "phone": "7673962888",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Beera_Vijaya_Sekhar_Invoice_TB_25_26_312003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "89ce78cf-101e-48a6-8070-b47f0a60fada",
+      "name": " KARRI YESUBABU",
+      "consumerNumber": "1452530711002059",
+      "phone": "8340019987",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "KARRI_YESUBABU_Invoice_TB_25_26_305002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "c273a46d-bbb7-4fdd-80d0-6f7aaea93859",
+      "name": "VELUGULA KRISHNARJUNUDU",
+      "consumerNumber": "1452530714003211",
+      "phone": "7386812933",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "VELUGULA_KRISHNARJUNUDU_Invoice_TB_25_26_302003.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "07681f89-ba99-46b4-8de0-6548ce394993",
+      "name": "YARRAMILLI  VARALAKSHMI",
+      "consumerNumber": "1423680509001041",
+      "phone": "8143145983",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "YARRAMILLI_VARALAKSHMI_Invoice_TB_26_27_05_12_1_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "d859b2fd-1319-47cd-b7e5-302cd4ee50cc",
+      "name": "ALAMURI AMMAJI",
+      "consumerNumber": "1424670418002009",
+      "phone": "6302225302",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "ALAMURI_AMMAJI_Invoice_TB_25_26_29042030.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0e15a11c-92c5-4b32-9d66-55ddc177cd31",
+      "name": "POLAVARAPU ANANDARAO",
+      "consumerNumber": "1452530713001224",
+      "phone": "7993593488",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "POLAVARAPU_ANANDARAO_Invoice_TB_25_26_309001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5ec9dc39-eec4-400b-b821-c1f2c8485d70",
+      "name": "BOMMADEVU DHANA LAKSHMI",
+      "consumerNumber": "1452520501012737",
+      "phone": "9391776652",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "BOMMADEVU_DHANA_LAKSHMI_Invoice_TB_25_26_325001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "8c43250b-da0d-4c38-b91f-7a448a1491c2",
+      "name": "VORUGANTI SATYA GOWRI",
+      "consumerNumber": "1455454518023330",
+      "phone": "8328602258",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "VORUGANTI_SATYA_GOWRI_Invoice_TB_26_27_204002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "fa35cef1-7545-495c-a047-eb91b663ea48",
+      "name": "AKULA NARENDRA KUMAR",
+      "consumerNumber": "1452530714002945",
+      "phone": "9908518522",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_NARENDRA_KUMAR_Invoice_TB_26_27_1104001.pdf",
+        "AKULA_NARENDRA_KUMAR_Invoice_TB_25_26_319002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "4eaa947a-63d0-45b7-855a-266e1f5790a4",
+      "name": "CHALLA SRINIVASARAO",
+      "consumerNumber": "1452530711004435",
+      "phone": "9963843691",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "CHALLA_SRINIVASARAO_Invoice_TB_25_26_315002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "8503541a-7474-4ee4-bd23-1bda4d749839",
+      "name": "KARNEEDI KRANTHI",
+      "consumerNumber": "1482530701009480",
+      "phone": "9966777735",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "KARNEEDI_KRANTHI_Invoice_TB_25_26_319001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0b88ad0a-d874-4ad6-88ac-959c951187b0",
+      "name": "VEGISETTY KONDA",
+      "consumerNumber": "1482530701010003",
+      "phone": "8008696177",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "VEGISETTY_KONDA_Invoice_TB_25_26_323001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "19cef71c-2d4e-41ea-bd96-d0442cd81e48",
+      "name": "AKULA NOOKAYYA KAPU",
+      "consumerNumber": "1452530714000332",
+      "phone": "7075577888",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_NOOKAYYA_KAPU_Invoice_TB_25_26_320002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "e2140b22-42e5-41d0-892a-0a1bf7be4157",
+      "name": "BANDI NOOKARAJU",
+      "consumerNumber": "1452530714002338",
+      "phone": "8341943802",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "BANDI_NOOKARAJU_Invoice_TB_26_27_2804001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "97a1c3f5-8d0a-45e4-9969-c7cc0304f899",
+      "name": "GUNDRA ADILAKSHMI",
+      "consumerNumber": "1452530714002632",
+      "phone": "9553805615",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GUNDRA_ADILAKSHMI_Invoice_TB_25_26_310001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "9671381d-4e5e-49d3-952c-574c7c93b65e",
+      "name": "MERUGU DAYAMANI",
+      "consumerNumber": "1982540801004315",
+      "phone": "7993034104",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "MERUGU_DAYAMANI_Invoice_TB_25_26_322003.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "96249064-229e-41fc-93ac-1514dab296ac",
+      "name": "K SURYA CHAKRAM",
+      "consumerNumber": "1452530712001064",
+      "phone": "7036138361",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "K_SURYA_CHAKRAM_Invoice_TB_25_26_311002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "4f4f0cef-c063-4469-aa7b-4b838035f3a9",
+      "name": "KURAKULA NARAYANAA RAO",
+      "consumerNumber": "1452740630000122",
+      "phone": "8639743350",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "KURAKULA_NARAYANAA_RAO_Invoice_TB_25_26_303001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "906f34c0-7bbe-4ed5-8365-5fc441d3029a",
+      "name": "ADAPA VENKATA RAMANA",
+      "consumerNumber": "1424670418002488",
+      "phone": "6302299593",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "ADAPA_VENKATA_RAMANA_Invoice_TB_25_26_110501.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f446c1d6-6e99-4d35-8938-b08d3051a81a",
+      "name": "TAMILISETTI DURGA VENKATA SATYANARAYANA",
+      "consumerNumber": "1452520501025346",
+      "phone": "9550736121",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Tamilisetti_Durga_Venkata_Satyanarayana_Invoice_TB_26_27_05_13_1_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "57e5bc48-d429-414a-bf10-af976d564365",
+      "name": "PALURI VENKATA LAKSHMI",
+      "consumerNumber": "1452520501025029",
+      "phone": "9182955044",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Paluri_Venkata_Lakshmi_Invoice_TB_25_26_311003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "e1a0377b-88b6-48e6-9890-8911eb44caf6",
+      "name": "KONDEPUDI SATYAVENI",
+      "consumerNumber": "1452520501014290",
+      "phone": "9848950717",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Kondepudi_Satyaveni_Invoice_TB_25_26_307003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "adc3a3b7-5a3b-4b6f-8859-e1cc40056124",
+      "name": "BOJJA  LOVARAJU",
+      "consumerNumber": "1452520501020360",
+      "phone": "9849511548",
+      "district": "-",
+      "agreedCost": 315000,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Bojja_Lovaraju_Invoice_TB_25_26_314002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "50a3663c-d134-4565-b696-062b15bdd34f",
+      "name": "GANGIREDLA RAJESH",
+      "consumerNumber": "1452530701008490",
+      "phone": "9959707152",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GANGIREDLA_RAJESH_Invoice_TB_25_26_314001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "10bd4305-ec84-449b-9220-7d16590ae556",
+      "name": "DEVAKI RAVI JAGANMOHANA RAO",
+      "consumerNumber": "1452520501023900",
+      "phone": "9948086607",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Devaki_Ravi_Jaganmohana_Rao_Invoice_TB_25_26_318001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f32d879f-2254-4ae4-bc01-cd24398cdd3e",
+      "name": "REDDY VENKATALAKSHMI",
+      "consumerNumber": "1452530712002116",
+      "phone": "9705836628",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "REDDY_VENKATALAKSHMI_Invoice_TB_25_26_320003.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "de4c04d5-8fc4-4a98-a3f4-7492062a6ffd",
+      "name": "M V RAMANA",
+      "consumerNumber": "1452520501004129",
+      "phone": "7396578226",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "M_V_RAMANA_Invoice_TB_25_26_309003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a30acd3f-0e2c-4c76-819a-6fca17504927",
+      "name": "AKULA SRI RAMA SURYA CHANDRA SEKHAR MURTY",
+      "consumerNumber": "1452530714003198",
+      "phone": "9948239971",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_SRI_RAMA_SURYA_CHANDRA_SEKHAR_MURTY_Invoice_TB_26_27_704001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "82a1de9b-26e0-428a-b3e6-8e59d54def42",
+      "name": "MOKIREDDY GANGABABU",
+      "consumerNumber": "1452530701005988",
+      "phone": "9948603663",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "MOKIREDDY_GANGABABU_Invoice_TB_25_26_320001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "dd71cc36-29ff-4649-b72b-62a19970d435",
+      "name": " AKULA VEERA BABU",
+      "consumerNumber": "1452530714002182",
+      "phone": "9581916454",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_VEERA_BABU_Invoice_TB_25_26_312002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "445593a8-deb7-425e-b999-82a6a37d02f0",
+      "name": "karnidi venkataratnam",
+      "consumerNumber": "1452530701003206",
+      "phone": "9154118502",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "karnidi_venkataratnam_Invoice_TB_25_26_305001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "132ed7b7-8c60-4797-a929-060c6d39a08f",
+      "name": "GANGIREDLA VARAPRASAD",
+      "consumerNumber": "1452530701008805",
+      "phone": "9700353279",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GANGIREDLA_VARAPRASAD_Invoice_TB_25_26_317001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5d0baa60-ee08-41c5-a355-9fdb77ee6ce0",
+      "name": "MERUGU PREMANANDAM",
+      "consumerNumber": "1452540801001572",
+      "phone": "9704348459",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Merugu_Premanandam_Invoice_1 (1).pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "b8eab71b-22d8-4603-abbd-7e4a5c289538",
+      "name": "GOLLAPALLI GOVINDARAO",
+      "consumerNumber": "1452530714000634",
+      "phone": "8317597543",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GOLLAPALLI_GOVINDARAO_Invoice_TB_25_26_319003.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "ad58fe9e-d80d-4eba-bdd6-42213f24807c",
+      "name": "CHINTAPALLI SURYA PRAKASA REDDY",
+      "consumerNumber": "1452520501021426",
+      "phone": "9491973562",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "CHINTAPALLI_SURYA_PRAKASA_REDDY_Invoice_TB_26_27_304001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "3d822c0f-a248-43af-85b8-2bd3d53578cd",
+      "name": "PASAGADA JOHN RAJU",
+      "consumerNumber": "1452520501024979",
+      "phone": "9704190524",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Pasagada_John_Raju_Invoice_TB_25_26_316002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "5898556e-e134-4244-ab31-e5223ac1f30b",
+      "name": "GABU DURGARAO",
+      "consumerNumber": "1455454518008453",
+      "phone": "7013523169",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Gabu_Durga_Rao_Invoice_TB_25_26_306002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "972b22a2-1d16-4168-8999-275c22d45159",
+      "name": "kurru nookaratnam",
+      "consumerNumber": "1452530714002479",
+      "phone": "9701779814",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "kurru_nookaratnam_Invoice_TB_25_26_311001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "2b489eff-e77f-4806-8e28-0d8df56598a8",
+      "name": "adapa venkata ramalakshmi",
+      "consumerNumber": "1452530701007994",
+      "phone": "7989332173",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "adapa_venkata_ramalakshmi_Invoice_TB_25_26_307001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "0339507a-d7ad-4786-940a-a3c4530651ca",
+      "name": "BALLIPALLI SURYAVATHI",
+      "consumerNumber": "1452520501020592",
+      "phone": "9948998889",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "BALLIPALLI_SURYAVATHI_Invoice_TB_25_26_310003_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "11a6886a-b486-43da-84dc-08fe0e8d8ee4",
+      "name": "PATNALA CHINNI",
+      "consumerNumber": "115233A008002400",
+      "phone": "9912657457",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "PATNALA_CHINNI_Invoice_TB_26_27_804001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a3cd441a-9adf-40ca-b2e4-a76636a1b632",
+      "name": "MERUGU RAMANAMMA",
+      "consumerNumber": "1482540801004211",
+      "phone": "9704930018",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "MERUGU_RAMANAMMA_Invoice_TB_25_26_310002.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "7e1087e6-8e84-4f41-8793-03bb1017fc1c",
+      "name": "GANGIREDLA AMMAJI",
+      "consumerNumber": "1452530701006306",
+      "phone": "9701077975",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "GANGIREDLA_AMMAJI_Invoice_TB_25_26_317002 (1).pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f5b8dc14-e6cc-4342-aa63-97b9e76c730b",
+      "name": "RAVULA DEVI",
+      "consumerNumber": "1452530714001249",
+      "phone": "9949733826",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "RAVULA_DEVI_Invoice_TB_25_26_312001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "a5b0920c-ea04-40ca-92db-3866efda21cd",
+      "name": "kali chandrakala",
+      "consumerNumber": "1452520501024116",
+      "phone": "7989760710",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "kali_chandrakala_Invoice_TB_26_27_904001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "b0dbf854-4097-4b7a-a8e2-3e7c4f90b616",
+      "name": "V VARA PRASAD",
+      "consumerNumber": "1455454518012520",
+      "phone": "8886597999",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "V_VARA_PRASAD_Invoice_TB_26_27_204001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "196d82e1-c06c-4286-973d-83e90ae1b6f9",
+      "name": "NARALASETTI PAVAN CHANDRA NAGOOR",
+      "consumerNumber": "1452530701006847",
+      "phone": "9966212161",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "NARALASETTI_PAVAN_CHANDRA_NAGOOR_Invoice_TB_25_26_306001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "cfff53e0-bb8f-4791-a8d6-af53823f9222",
+      "name": "AKULA LAKSHMI PRASANNA",
+      "consumerNumber": "1452530714000022",
+      "phone": "7997112021",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "AKULA_LAKSHMI_PRASANNA_Invoice_TB_26_27_1004001.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "b62979d1-26b2-49e8-b7fa-94f5712a7f8a",
+      "name": "SHAIK SATTAR SAHEB",
+      "consumerNumber": "1452520501013565",
+      "phone": "9010835232",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Shaik_Sattar_Saheb_Invoice_TB_25_26_308002_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    },
+    {
+      "id": "f244539c-9a13-490c-ba2e-b9958dd0077f",
+      "name": "sheik mahaboob basha",
+      "consumerNumber": "1452520501018126",
+      "phone": "9502231967",
+      "district": "-",
+      "agreedCost": 0,
+      "loanStatus": "Disbursed",
+      "invoices": [
+        "Sheik_Mahaboob_Basha_Invoice_TB_25_25_36001_ORIGINAL_FOR_RECIPIENT.pdf"
+      ],
+      "currentStage": "site_survey"
+    }
+  ]
+}

@@ -163,8 +163,13 @@ export async function searchCustomerNotes(
 }
 
 export function getNoteTypeConfig(noteType: NoteType) {
-  const configs = {
+  const configs: Record<NoteType, { label: string; color: string; icon: string }> = {
     general: { label: 'General', color: 'bg-blue-100 text-blue-800', icon: 'MessageCircle' },
+    dispatch: { label: 'Material Dispatched', color: 'bg-indigo-100 text-indigo-800', icon: 'Package' },
+    installation: { label: 'Site Installation', color: 'bg-amber-100 text-amber-800', icon: 'Zap' },
+    net_metering: { label: 'Net Metering / DISCOM', color: 'bg-emerald-100 text-emerald-800', icon: 'Plug' },
+    subsidy: { label: 'Subsidy / Loan', color: 'bg-cyan-100 text-cyan-800', icon: 'Landmark' },
+    survey: { label: 'Site Survey', color: 'bg-sky-100 text-sky-800', icon: 'ClipboardCheck' },
     follow_up: { label: 'Follow-up', color: 'bg-orange-100 text-orange-800', icon: 'Clock' },
     phone_call: { label: 'Phone Call', color: 'bg-green-100 text-green-800', icon: 'Phone' },
     meeting: { label: 'Meeting', color: 'bg-teal-100 text-teal-800', icon: 'Users' },
@@ -174,7 +179,7 @@ export function getNoteTypeConfig(noteType: NoteType) {
     document: { label: 'Document', color: 'bg-purple-100 text-purple-800', icon: 'FileText' },
   };
 
-  return configs[noteType];
+  return configs[noteType] || configs.general;
 }
 
 export function formatRelativeTime(dateString: string): string {

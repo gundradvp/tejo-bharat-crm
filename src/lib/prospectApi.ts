@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
-import { extractAreaCode, findAreaCodesForQuery } from './areaCodeCatalog';
+import { extractAreaCode, findAreaCodesForQuery, KAKINADA_AREA_CODES } from './areaCodeCatalog';
+import { JSP_LOCATION_HIERARCHY } from './jspLocationData';
+import { expandCategoryFilter } from './ebApi';
 export { extractAreaCode, findAreaCodesForQuery };
 
 export const HIGH_USAGE_THRESHOLD = 500;
@@ -384,35 +386,41 @@ export async function fetchProspects(
       p_page_offset: offset,
     };
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc('search_prospects', rpcParams);
-    if (rpcError) throw rpcError;
-    if (!rpcData || rpcData.length === 0) return { prospects: [], total: 0 };
-    const result = rpcData[0];
-    let rows = (result.rows || []) as LeadProspect[];
-    const rpcTotal = Number(result.total_count) || 0;
-    let total = rpcTotal > 0 ? rpcTotal : rows.length;
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('search_prospects', rpcParams);
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        const result = rpcData[0];
+        let rows = (result.rows || []) as LeadProspect[];
+        const rpcTotal = Number(result.total_count) || 0;
+        let total = rpcTotal > 0 ? rpcTotal : rows.length;
 
-    if (filters.areaCodes && filters.areaCodes.length > 0) {
-      rows = rows.filter((p) => {
-        const code = extractAreaCode(p.sc_number);
-        return code && filters.areaCodes!.includes(code);
-      });
-      if (rpcTotal === 0) total = rows.length;
+        if (filters.areaCodes && filters.areaCodes.length > 0) {
+          rows = rows.filter((p) => {
+            const code = extractAreaCode(p.sc_number);
+            return code && filters.areaCodes!.includes(code);
+          });
+          if (rpcTotal === 0) total = rows.length;
+        }
+        if (filters.hideSuryaGhar) {
+          rows = rows.filter((p) => !p.is_existing_customer);
+          if (rpcTotal === 0) total = rows.length;
+        }
+        if (filters.hideSolarInstalled) {
+          rows = rows.filter((p) => {
+            if (p.call_status === 'solar_already_installed' || p.call_status === 'already_installed') return false;
+            if (p.ep_registration_number && p.ep_registration_number.trim() && p.ep_registration_number.trim() !== '-' && p.ep_registration_number.trim() !== '--') return false;
+            if (p.existing_solar_load_kw != null && p.existing_solar_load_kw > 0) return false;
+            return true;
+          });
+          if (rpcTotal === 0) total = rows.length;
+        }
+        if (rows.length > 0 || rpcTotal > 0) {
+          return { prospects: rows, total: Math.max(total, rows.length) };
+        }
+      }
+    } catch (err) {
+      console.warn('search_prospects RPC failed:', err);
     }
-    if (filters.hideSuryaGhar) {
-      rows = rows.filter((p) => !p.is_existing_customer);
-      if (rpcTotal === 0) total = rows.length;
-    }
-    if (filters.hideSolarInstalled) {
-      rows = rows.filter((p) => {
-        if (p.call_status === 'solar_already_installed' || p.call_status === 'already_installed') return false;
-        if (p.ep_registration_number && p.ep_registration_number.trim() && p.ep_registration_number.trim() !== '-' && p.ep_registration_number.trim() !== '--') return false;
-        if (p.existing_solar_load_kw != null && p.existing_solar_load_kw > 0) return false;
-        return true;
-      });
-      if (rpcTotal === 0) total = rows.length;
-    }
-    return { prospects: rows, total: Math.max(total, rows.length) };
   }
 
   let query = supabase
@@ -452,7 +460,10 @@ export async function fetchProspects(
   if (filters.sections && filters.sections.length > 0) query = query.in('section_name', filters.sections);
   if (filters.statuses && filters.statuses.length > 0) query = query.in('eb_status', filters.statuses);
   if (filters.callStatuses && filters.callStatuses.length > 0) query = query.in('call_status', filters.callStatuses);
-  if (filters.categories && filters.categories.length > 0) query = query.in('category', filters.categories);
+  if (filters.categories && filters.categories.length > 0) {
+    const expandedCats = expandCategoryFilter(filters.categories);
+    query = query.in('category', expandedCats);
+  }
   if (filters.mandals && filters.mandals.length > 0) query = query.in('mandal_name', filters.mandals);
   if (filters.subStations && filters.subStations.length > 0) query = query.in('sub_station_name', filters.subStations);
   if (filters.areaCodes && filters.areaCodes.length > 0) {
@@ -511,22 +522,105 @@ export async function fetchProspectFilterValues(): Promise<{
   divisions: string[];
   subdivs: string[];
 }> {
-  const { data, error } = await supabase.rpc('get_prospect_filter_values');
-  if (error) throw error;
-  if (!data || data.length === 0) return { eros: [], sections: [], statuses: [], categories: [], mandals: [], subStations: [], circles: [], divisions: [], subdivs: [] };
+  const catalogSections = Array.from(new Set(KAKINADA_AREA_CODES.map((c) => c.section).filter(Boolean))).sort();
+  const catalogDivisions = Array.from(new Set(KAKINADA_AREA_CODES.map((c) => c.division).filter(Boolean))).sort();
+  const catalogSubdivs = Array.from(new Set(KAKINADA_AREA_CODES.map((c) => c.subdivision).filter(Boolean))).sort();
+  const catalogCircles = Array.from(new Set(KAKINADA_AREA_CODES.map((c) => c.circle).filter(Boolean))).sort();
+  const catalogMandals = Array.from(new Set(JSP_LOCATION_HIERARCHY.flatMap((n) => n.mandals.map((m) => m.name)).filter(Boolean))).sort();
+  const defaultEros = Array.from(new Set(['ANAKAPALLE', 'JAGGAMPETA', 'KAKINADA', 'PEDDAPURAM', 'PITHAPURAM', 'RAJAHMUNDRY', 'RAMACHANDRAPURAM', 'TUNI', ...catalogDivisions])).sort();
+  const defaultStatuses = ['LIVE', 'BILLSTOP', 'DISCONNECTED', 'DEVSTOP', 'TEMP-DISC', 'PERM-DISC', 'CONNECTED', 'ACTIVE', 'INACTIVE'];
+  const defaultCategories = ['LT-I(A)', 'LT-I(B)', 'LT-II(A)', 'LT-II(B)', 'LT-II(C)', 'LT-III', 'LT-IV', 'LT-V', 'LT-VI', 'LT-VII', 'LT-VIII', 'DOMESTIC', 'COMMERCIAL', 'INDUSTRIAL', 'AGRICULTURE'];
 
-  const row = data[0];
-  const sorted = (arr: string[] | null) => arr ? [...arr].sort((a, b) => a.localeCompare(b)) : [];
+  try {
+    const { data, error } = await supabase.rpc('get_prospect_filter_values');
+    if (!error && data && data.length > 0) {
+      const row = data[0];
+      const sorted = (arr: string[] | null) => (arr && arr.length > 0 ? [...arr].sort((a, b) => a.localeCompare(b)) : []);
+      const rEros = sorted(row.eros);
+      const rSections = sorted(row.sections);
+      const rStatuses = sorted(row.statuses);
+      const rCategories = sorted(row.categories);
+      const rMandals = sorted(row.mandals);
+      const rSubStations = sorted(row.sub_stations);
+      const rCircles = sorted(row.circles);
+      const rDivisions = sorted(row.divisions);
+      const rSubdivs = sorted(row.subdivs);
+
+      if (rEros.length > 0 || rSections.length > 0 || rMandals.length > 0) {
+        return {
+          eros: rEros.length > 0 ? rEros : defaultEros,
+          sections: rSections.length > 0 ? rSections : catalogSections,
+          statuses: rStatuses.length > 0 ? rStatuses : defaultStatuses,
+          categories: rCategories.length > 0 ? rCategories : defaultCategories,
+          mandals: rMandals.length > 0 ? rMandals : catalogMandals,
+          subStations: rSubStations,
+          circles: rCircles.length > 0 ? rCircles : (catalogCircles.length > 0 ? catalogCircles : ['KAKINADA']),
+          divisions: rDivisions.length > 0 ? rDivisions : catalogDivisions,
+          subdivs: rSubdivs.length > 0 ? rSubdivs : catalogSubdivs,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('RPC get_prospect_filter_values failed, falling back:', err);
+  }
+
+  // Direct table query fallback
+  try {
+    const { data: directData } = await supabase
+      .from('lead_prospects')
+      .select('ero_name, section_name, sub_station_name, mandal_name, eb_status, category, circle_name, division_name, subdiv_name')
+      .limit(2000);
+
+    if (directData && directData.length > 0) {
+      const eros = new Set<string>(defaultEros);
+      const sections = new Set<string>(catalogSections);
+      const statuses = new Set<string>(defaultStatuses);
+      const categories = new Set<string>(defaultCategories);
+      const mandals = new Set<string>(catalogMandals);
+      const subStations = new Set<string>();
+      const circles = new Set<string>(catalogCircles.length > 0 ? catalogCircles : ['KAKINADA']);
+      const divisions = new Set<string>(catalogDivisions);
+      const subdivs = new Set<string>(catalogSubdivs);
+
+      directData.forEach((row: any) => {
+        if (row.ero_name) eros.add(row.ero_name);
+        if (row.section_name) sections.add(row.section_name);
+        if (row.eb_status) statuses.add(row.eb_status);
+        if (row.category) categories.add(row.category);
+        if (row.mandal_name) mandals.add(row.mandal_name);
+        if (row.sub_station_name) subStations.add(row.sub_station_name);
+        if (row.circle_name) circles.add(row.circle_name);
+        if (row.division_name) divisions.add(row.division_name);
+        if (row.subdiv_name) subdivs.add(row.subdiv_name);
+      });
+
+      const sorted = (set: Set<string>) => Array.from(set).sort((a, b) => a.localeCompare(b));
+      return {
+        eros: sorted(eros),
+        sections: sorted(sections),
+        statuses: sorted(statuses),
+        categories: sorted(categories),
+        mandals: sorted(mandals),
+        subStations: sorted(subStations),
+        circles: sorted(circles),
+        divisions: sorted(divisions),
+        subdivs: sorted(subdivs),
+      };
+    }
+  } catch (err) {
+    console.warn('Direct lead_prospects fallback query failed:', err);
+  }
+
   return {
-    eros: sorted(row.eros),
-    sections: sorted(row.sections),
-    statuses: sorted(row.statuses),
-    categories: sorted(row.categories),
-    mandals: sorted(row.mandals),
-    subStations: sorted(row.sub_stations),
-    circles: sorted(row.circles),
-    divisions: sorted(row.divisions),
-    subdivs: sorted(row.subdivs),
+    eros: defaultEros,
+    sections: catalogSections,
+    statuses: defaultStatuses,
+    categories: defaultCategories,
+    mandals: catalogMandals,
+    subStations: [],
+    circles: catalogCircles.length > 0 ? catalogCircles : ['KAKINADA'],
+    divisions: catalogDivisions,
+    subdivs: catalogSubdivs,
   };
 }
 

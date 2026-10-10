@@ -282,7 +282,50 @@ export interface DocumentTemplate {
   updated_at: string;
 }
 
-export type NoteType = 'general' | 'follow_up' | 'phone_call' | 'meeting' | 'email' | 'issue' | 'resolution' | 'document';
+export type NoteType = 
+  | 'general' 
+  | 'dispatch' 
+  | 'installation' 
+  | 'net_metering' 
+  | 'subsidy' 
+  | 'survey' 
+  | 'follow_up' 
+  | 'phone_call' 
+  | 'meeting' 
+  | 'email' 
+  | 'issue' 
+  | 'resolution' 
+  | 'document';
+
+export interface CustomerInventoryAllocation {
+  id: string;
+  tenant_id: string;
+  customer_id: string;
+  item_id?: string | null;
+  item_name: string;
+  category?: string;
+  quantity: number;
+  measuring_unit: string;
+  unit_cost: number;
+  total_cost: number;
+  serial_numbers?: string;
+  dispatch_date: string;
+  challan_number?: string;
+  status: 'dispatched' | 'installed' | 'returned';
+  remarks?: string;
+  expense_id?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  items?: {
+    id: string;
+    item_name: string;
+    category?: string;
+    opening_stock: number;
+    sales_price: number;
+    measuring_unit: string;
+  };
+}
 
 export interface CustomerNote {
   id: string;

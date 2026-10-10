@@ -86,10 +86,8 @@ export default function ProspectList() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const canAccessWhatsApp = canAccessWhatsAppHub(profile as Profile | null);
-  const saved = loadSavedFilters();
-
   const [searchTerm, setSearchTerm] = useState(saved.search || '');
-  const [debouncedSearch, setDebouncedSearch] = useState(saved.search || '');
+  const [appliedSearch, setAppliedSearch] = useState(saved.search || '');
   const [circleSelections, setCircleSelections] = useState<string[]>(saved.circles || []);
   const [divisionSelections, setDivisionSelections] = useState<string[]>(saved.divisions || []);
   const [subdivSelections, setSubdivSelections] = useState<string[]>(saved.subdivs || []);
@@ -113,8 +111,12 @@ export default function ProspectList() {
   const [billUnitsMaxVal, setBillUnitsMaxVal] = useState(saved.billUnitsMaxVal || '');
 
   // Applied bill filter state
-  const [appliedBillAmount, setAppliedBillAmount] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(null);
-  const [appliedBillUnits, setAppliedBillUnits] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(null);
+  const [appliedBillAmount, setAppliedBillAmount] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(
+    saved.billAmountVal ? { op: saved.billAmountOp || 'gte', val: saved.billAmountVal, maxVal: saved.billAmountMaxVal || '' } : null
+  );
+  const [appliedBillUnits, setAppliedBillUnits] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(
+    saved.billUnitsVal ? { op: saved.billUnitsOp || 'gte', val: saved.billUnitsVal, maxVal: saved.billUnitsMaxVal || '' } : null
+  );
 
   const [showFilters, setShowFilters] = useState(false);
   const [prospects, setProspects] = useState<LeadProspect[]>([]);
@@ -169,7 +171,7 @@ export default function ProspectList() {
   // Persist filters to localStorage
   useEffect(() => {
     const data: SavedFilters = {
-      search: searchTerm,
+      search: appliedSearch,
       circles: circleSelections, divisions: divisionSelections, subdivs: subdivSelections,
       eros: eroSelections, sections: sectionSelections, statuses: statusSelections,
       callStatuses: callStatusSelections, categories: categorySelections,
@@ -185,12 +187,7 @@ export default function ProspectList() {
       pageSize,
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
-  }, [searchTerm, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, importBatchId, dateFrom, dateTo, sortBy, pageSize]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 400);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [appliedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, importBatchId, dateFrom, dateTo, sortBy, pageSize]);
 
   const loadFilterValues = useCallback(async () => {
     try {
@@ -238,7 +235,7 @@ export default function ProspectList() {
     try {
       const billFilters = buildBillFilters();
       const filters: ProspectFilterOptions = {
-        search: debouncedSearch || undefined,
+        search: appliedSearch.trim() || undefined,
         circles: circleSelections,
         divisions: divisionSelections,
         subdivs: subdivSelections,
@@ -278,7 +275,7 @@ export default function ProspectList() {
       }
     } catch (err) { console.error('Error loading prospects:', err); }
     finally { setLoading(false); }
-  }, [debouncedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, buildBillFilters, importBatchId, dateFrom, dateTo, page, pageSize, statFilter, sortBy]);
+  }, [appliedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, buildBillFilters, importBatchId, dateFrom, dateTo, page, pageSize, statFilter, sortBy]);
 
   useEffect(() => { loadProspects(); }, [loadProspects]);
   useEffect(() => { loadFilterValues(); loadStats(); }, [loadFilterValues, loadStats]);
@@ -397,7 +394,7 @@ export default function ProspectList() {
     try {
       const billFilters = buildBillFilters();
       const filters: ProspectFilterOptions = {
-        search: debouncedSearch || undefined,
+        search: appliedSearch.trim() || undefined,
         circles: circleSelections,
         divisions: divisionSelections,
         subdivs: subdivSelections,
@@ -517,14 +514,6 @@ export default function ProspectList() {
   const callStatusOptions = Object.keys(CALL_STATUS_LABELS);
   const callStatusLabels = Object.fromEntries(callStatusOptions.map(k => [k, CALL_STATUS_LABELS[k]]));
 
-  if (loading && prospects.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -582,22 +571,68 @@ export default function ProspectList() {
       {/* Search and filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input type="text" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-              placeholder="Search by phone, name, SC number, village, meter no, registration no..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => { setSearchTerm(''); setPage(1); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
-                title="Clear search"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setAppliedSearch(searchTerm.trim());
+              setPage(1);
+            }}
+            className="relative flex-1 flex items-center gap-2"
+          >
+            <div className="relative flex-1">
+              {loading && appliedSearch ? (
+                <Loader2 className="w-5 h-5 text-blue-600 animate-spin absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              ) : (
+                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              )}
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  if (!e.target.value.trim() && appliedSearch) {
+                    setAppliedSearch('');
+                    setPage(1);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    setAppliedSearch(searchTerm.trim());
+                    setPage(1);
+                  }
+                }}
+                placeholder="Search by phone, name, SC number, village, meter no... (Press Enter to search)"
+                className="w-full pl-10 pr-9 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setAppliedSearch('');
+                    setPage(1);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={loading && appliedSearch === searchTerm.trim()}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50 flex-shrink-0 cursor-pointer"
+            >
+              {loading && appliedSearch ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+              <span>Search</span>
+            </button>
+          </form>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <label className="text-xs font-semibold text-gray-500 whitespace-nowrap hidden md:flex items-center gap-1">
               <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" /> Sort:
@@ -1011,7 +1046,12 @@ export default function ProspectList() {
         </div>
       </div>
 
-      {prospects.length === 0 ? (
+      {loading && prospects.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">Loading prospects...</p>
+        </div>
+      ) : prospects.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm p-12 text-center">
           <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">No prospects found</p>

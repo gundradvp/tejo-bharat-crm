@@ -1,7 +1,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, User, Users as UsersIcon, ListTodo, DollarSign, Upload, Settings, Building2, Shield, ChevronDown, Database, Clock, Menu, X, Package, MapPin, Home, MoreHorizontal, HelpCircle, FileText, Phone, Zap, Layers, BarChart3, Network, FolderOpen, Activity, MessageSquare, StickyNote, Sun } from 'lucide-react';
+import { LogOut, User, Users as UsersIcon, ListTodo, DollarSign, Upload, Settings, Building2, Shield, ChevronDown, Database, Clock, Menu, X, Package, MapPin, Home, MoreHorizontal, HelpCircle, FileText, Phone, Zap, Layers, BarChart3, Network, FolderOpen, Activity, MessageSquare, StickyNote, Sun, Receipt } from 'lucide-react';
 import { useState } from 'react';
 import { InstallButton } from '../PWA/InstallPrompt';
 import { isJSPUser, isJSPAdmin, isSolarUser, hasAnyRole, isNagarjunaUser, type Profile } from '../../lib/supabase';
@@ -163,14 +163,27 @@ export default function Navbar() {
                   <DollarSign className="w-4 h-4" />
                   <span className="hidden xl:inline">Quotations</span>
                 </button>
-                <button
-                  onClick={() => navigate('/items')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Manage items and products"
-                >
-                  <Package className="w-4 h-4" />
-                  <span className="hidden xl:inline">Items</span>
-                </button>
+                {isAdmin && (
+                  <>
+                    <button
+                      onClick={() => navigate('/items')}
+                      className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                      title="Manage items and products"
+                    >
+                      <Package className="w-4 h-4" />
+                      <span className="hidden xl:inline">Items</span>
+                    </button>
+                    <button
+                      onClick={() => navigate('/gst/itc')}
+                      className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors border border-teal-200"
+                      title="GST Portal Input Tax Credit (ITC) & Vendor Bill Reconciliation"
+                    >
+                      <Receipt className="w-4 h-4 text-teal-600" />
+                      <span className="hidden xl:inline">GST ITC Hub</span>
+                      <span className="xl:hidden">GST ITC</span>
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => navigate('/documents/upload')}
                   className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
@@ -253,6 +266,19 @@ export default function Navbar() {
 
             {(isAdmin || isFinanceUser) && (
               <>
+                <button
+                  onClick={() => navigate('/customers/second-tranche')}
+                  className={`flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${
+                    isActive('/customers/second-tranche')
+                      ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold'
+                      : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-200'
+                  }`}
+                  title="2nd Tranche Pending List & Loan Tranche Hub"
+                >
+                  <Layers className="w-4 h-4 text-amber-600" />
+                  <span className="hidden xl:inline">2nd Tranches</span>
+                  <span className="xl:hidden">Tranches</span>
+                </button>
                 <button
                   onClick={() => navigate('/financial')}
                   className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium theme-text-secondary hover:bg-gray-100 rounded-lg transition-colors"
@@ -677,9 +703,16 @@ export default function Navbar() {
                   <button onClick={() => { navigate('/quotations'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
                     <DollarSign className="w-5 h-5" /> Quotations
                   </button>
-                  <button onClick={() => { navigate('/items'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
-                    <Package className="w-5 h-5" /> Items
-                  </button>
+                  {isAdmin && (
+                    <>
+                      <button onClick={() => { navigate('/items'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
+                        <Package className="w-5 h-5" /> Items
+                      </button>
+                      <button onClick={() => { navigate('/gst/itc'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-xl transition-colors border border-teal-200">
+                        <Receipt className="w-5 h-5 text-teal-600" /> GST ITC Hub
+                      </button>
+                    </>
+                  )}
                   <button onClick={() => { navigate('/documents/upload'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
                     <Upload className="w-5 h-5" /> Upload Documents
                   </button>
@@ -701,9 +734,14 @@ export default function Navbar() {
               )}
 
               {showSolarNav && (isAdmin || isFinanceUser) && (
-                <button onClick={() => { navigate('/financial'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
-                  <DollarSign className="w-5 h-5" /> Financial
-                </button>
+                <>
+                  <button onClick={() => { navigate('/customers/second-tranche'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors border border-amber-200">
+                    <Layers className="w-5 h-5 text-amber-600" /> 2nd Tranche Pending List
+                  </button>
+                  <button onClick={() => { navigate('/financial'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
+                    <DollarSign className="w-5 h-5" /> Financial
+                  </button>
+                </>
               )}
 
               {showSolarNav && isAdmin && (

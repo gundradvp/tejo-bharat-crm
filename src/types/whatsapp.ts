@@ -25,7 +25,7 @@ export interface WhatsAppTemplateVariable {
   key: string;
   label: string;
   fallback: string;
-  fieldMapping?: 'customer_name' | 'sc_number' | 'circle_name' | 'mandal_name' | 'section_name' | 'applied_solar_load_kw' | 'subsidy_amount';
+  fieldMapping?: 'customer_name' | 'sc_number' | 'circle_name' | 'mandal_name' | 'section_name' | 'applied_solar_load_kw' | 'subsidy_amount' | 'inverter_brand' | 'inverter_capacity' | 'inverter_serial_number';
 }
 
 export interface WhatsAppTemplate {

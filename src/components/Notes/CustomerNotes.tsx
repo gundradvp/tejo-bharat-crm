@@ -145,17 +145,22 @@ export default function CustomerNotes({ customerId }: CustomerNotesProps) {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as NoteType | 'all')}
-            className="w-full sm:w-48 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+            className="w-full sm:w-56 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none text-sm"
           >
             <option value="all">All Types ({notes.length})</option>
-            <option value="general">General ({noteTypeCounts.general || 0})</option>
-            <option value="follow_up">Follow-up ({noteTypeCounts.follow_up || 0})</option>
-            <option value="phone_call">Phone Call ({noteTypeCounts.phone_call || 0})</option>
-            <option value="meeting">Meeting ({noteTypeCounts.meeting || 0})</option>
-            <option value="email">Email ({noteTypeCounts.email || 0})</option>
-            <option value="issue">Issue ({noteTypeCounts.issue || 0})</option>
-            <option value="resolution">Resolution ({noteTypeCounts.resolution || 0})</option>
-            <option value="document">Document ({noteTypeCounts.document || 0})</option>
+            <option value="dispatch">📦 Material Dispatched ({noteTypeCounts.dispatch || 0})</option>
+            <option value="installation">⚡ Site Installation ({noteTypeCounts.installation || 0})</option>
+            <option value="net_metering">🔌 Net Metering ({noteTypeCounts.net_metering || 0})</option>
+            <option value="subsidy">💰 Subsidy / Loan ({noteTypeCounts.subsidy || 0})</option>
+            <option value="survey">📋 Site Survey ({noteTypeCounts.survey || 0})</option>
+            <option value="general">💬 General ({noteTypeCounts.general || 0})</option>
+            <option value="follow_up">⏰ Follow-up ({noteTypeCounts.follow_up || 0})</option>
+            <option value="phone_call">📞 Phone Call ({noteTypeCounts.phone_call || 0})</option>
+            <option value="meeting">👥 Meeting ({noteTypeCounts.meeting || 0})</option>
+            <option value="email">✉️ Email ({noteTypeCounts.email || 0})</option>
+            <option value="issue">⚠️ Issue ({noteTypeCounts.issue || 0})</option>
+            <option value="resolution">✅ Resolution ({noteTypeCounts.resolution || 0})</option>
+            <option value="document">📄 Document ({noteTypeCounts.document || 0})</option>
           </select>
         </div>
       </div>

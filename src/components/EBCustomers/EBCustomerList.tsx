@@ -45,6 +45,31 @@ const OPERATOR_LABELS: Record<FilterOperator, string> = {
   between: 'between',
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  '1': 'Category 1 (Domestic)',
+  '1A': 'Category 1A (Domestic)',
+  '1B': 'Category 1B (Domestic)',
+  '2': 'Category 2 (Commercial)',
+  '2A': 'Category 2A (Commercial)',
+  '2B': 'Category 2B (Commercial)',
+  '3': 'Category 3 (Industrial)',
+  '4': 'Category 4 (Cottage/Inst.)',
+  '5': 'Category 5 (Agriculture)',
+  '7': 'Category 7 (General)',
+  '8': 'Category 8',
+  'LT-I(A)': 'LT-I(A) (Domestic)',
+  'LT-I(B)': 'LT-I(B) (Domestic)',
+  'LT-II(A)': 'LT-II(A) (Commercial)',
+  'LT-II(B)': 'LT-II(B) (Commercial)',
+  'LT-III': 'LT-III (Industrial)',
+  'LT-IV': 'LT-IV (Institutional)',
+  'LT-V': 'LT-V (Agriculture)',
+  'DOMESTIC': 'Domestic',
+  'COMMERCIAL': 'Commercial',
+  'INDUSTRIAL': 'Industrial',
+  'AGRICULTURE': 'Agriculture',
+};
+
 const PAGE_SIZE_OPTIONS = [50, 100, 200];
 
 const STORAGE_KEY = 'eb_customer_filters';
@@ -90,7 +115,7 @@ export default function EBCustomerList() {
   const saved = loadSavedFilters();
 
   const [searchTerm, setSearchTerm] = useState(saved.search || '');
-  const [debouncedSearch, setDebouncedSearch] = useState(saved.search || '');
+  const [appliedSearch, setAppliedSearch] = useState(saved.search || '');
   const [areaCodeSelections, setAreaCodeSelections] = useState<string[]>(saved.areaCodes || []);
   const [eroSelections, setEroSelections] = useState<string[]>(saved.eros || []);
   const [sectionSelections, setSectionSelections] = useState<string[]>(saved.sections || []);
@@ -115,8 +140,12 @@ export default function EBCustomerList() {
   const [billUnitsMaxVal, setBillUnitsMaxVal] = useState(saved.billUnitsMaxVal || '');
 
   // Applied bill filter state (what actually gets queried)
-  const [appliedBillAmount, setAppliedBillAmount] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(null);
-  const [appliedBillUnits, setAppliedBillUnits] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(null);
+  const [appliedBillAmount, setAppliedBillAmount] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(
+    saved.billAmountVal ? { op: saved.billAmountOp || 'gte', val: saved.billAmountVal, maxVal: saved.billAmountMaxVal || '' } : null
+  );
+  const [appliedBillUnits, setAppliedBillUnits] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(
+    saved.billUnitsVal ? { op: saved.billUnitsOp || 'gte', val: saved.billUnitsVal, maxVal: saved.billUnitsMaxVal || '' } : null
+  );
 
   const [showFilters, setShowFilters] = useState(false);
   const [customers, setCustomers] = useState<EBCustomer[]>([]);
@@ -182,7 +211,7 @@ export default function EBCustomerList() {
   // Persist filters to localStorage
   useEffect(() => {
     const data: SavedFilters = {
-      search: searchTerm,
+      search: appliedSearch,
       areaCodes: areaCodeSelections,
       eros: eroSelections,
       sections: sectionSelections,
@@ -202,12 +231,7 @@ export default function EBCustomerList() {
       pageSize,
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
-  }, [searchTerm, areaCodeSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaSelections, excludeSolar, importBatchId, dateFrom, dateTo, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, sortBy, pageSize]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 400);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [appliedSearch, areaCodeSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaSelections, excludeSolar, importBatchId, dateFrom, dateTo, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, sortBy, pageSize]);
 
   const loadFilterValues = useCallback(async () => {
     setLoadingFilters(true);
@@ -271,7 +295,7 @@ export default function EBCustomerList() {
       }
 
       const filters: EBFilterOptions = {
-        search: debouncedSearch || undefined,
+        search: appliedSearch.trim() || undefined,
         areaCodes: areaCodeSelections,
         eros: eroSelections,
         sections: sectionSelections,
@@ -324,7 +348,7 @@ export default function EBCustomerList() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, areaCodeSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaSelections, excludeSolar, importBatchId, dateFrom, dateTo, buildBillFilters, page, pageSize, statFilter, jspOnlyFilter, volunteerFilter, volunteerAssembly, sortBy]);
+  }, [appliedSearch, areaCodeSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaSelections, excludeSolar, importBatchId, dateFrom, dateTo, buildBillFilters, page, pageSize, statFilter, jspOnlyFilter, volunteerFilter, volunteerAssembly, sortBy]);
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
   useEffect(() => { loadStats(); }, [loadStats]);
@@ -484,7 +508,7 @@ export default function EBCustomerList() {
     try {
       const billFilters = buildBillFilters();
       const filters: EBFilterOptions = {
-        search: debouncedSearch || undefined,
+        search: appliedSearch.trim() || undefined,
         areaCodes: areaCodeSelections,
         eros: eroSelections,
         sections: sectionSelections,
@@ -615,14 +639,6 @@ export default function EBCustomerList() {
   const callStatusOptions = Object.keys(CALL_STATUS_LABELS);
   const callStatusLabels = Object.fromEntries(callStatusOptions.map(k => [k, CALL_STATUS_LABELS[k]]));
 
-  if (loading && customers.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -700,19 +716,68 @@ export default function EBCustomerList() {
       {/* Search and filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input type="text" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-              placeholder="Search by SC number, name, mobile, meter no, area, address..."
-              className="w-full pl-10 pr-9 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            {searchTerm && (
-              <button onClick={() => { setSearchTerm(''); setDebouncedSearch(''); setPage(1); }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                title="Clear search">
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setAppliedSearch(searchTerm.trim());
+              setPage(1);
+            }}
+            className="relative flex-1 flex items-center gap-2"
+          >
+            <div className="relative flex-1">
+              {loading && appliedSearch ? (
+                <Loader2 className="w-5 h-5 text-blue-600 animate-spin absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              ) : (
+                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              )}
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  if (!e.target.value.trim() && appliedSearch) {
+                    setAppliedSearch('');
+                    setPage(1);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    setAppliedSearch(searchTerm.trim());
+                    setPage(1);
+                  }
+                }}
+                placeholder="Search by SC number, name, mobile, meter no, area... (Press Enter to search)"
+                className="w-full pl-10 pr-9 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setAppliedSearch('');
+                    setPage(1);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={loading && appliedSearch === searchTerm.trim()}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50 flex-shrink-0 cursor-pointer"
+            >
+              {loading && appliedSearch ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+              <span>Search</span>
+            </button>
+          </form>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <label className="text-xs font-semibold text-gray-500 whitespace-nowrap hidden md:flex items-center gap-1">
               <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" /> Sort:
@@ -766,7 +831,7 @@ export default function EBCustomerList() {
               <MultiSelectDropdown label="Sub Station" options={filterValues.subStations} selected={subStationSelections} onChange={(v) => { setSubStationSelections(v); setPage(1); }} />
               <MultiSelectDropdown label="Status" options={filterValues.statuses} selected={statusSelections} onChange={(v) => { setStatusSelections(v); setPage(1); }} />
               <MultiSelectDropdown label="Call Status" options={callStatusOptions} selected={callStatusSelections} onChange={(v) => { setCallStatusSelections(v); setPage(1); }} optionLabels={callStatusLabels} />
-              <MultiSelectDropdown label="Category" options={filterValues.categories} selected={categorySelections} onChange={(v) => { setCategorySelections(v); setPage(1); }} />
+              <MultiSelectDropdown label="Category" options={filterValues.categories} selected={categorySelections} onChange={(v) => { setCategorySelections(v); setPage(1); }} optionLabels={CATEGORY_LABELS} />
               <MultiSelectDropdown label="Mandal" options={filterValues.mandals} selected={mandalSelections} onChange={(v) => { setMandalSelections(v); setPage(1); }} />
               <AreaCodeFilter
                 label="Area"
@@ -963,7 +1028,12 @@ export default function EBCustomerList() {
         </div>
       </div>
 
-      {customers.length === 0 ? (
+      {loading && customers.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">Loading customers...</p>
+        </div>
+      ) : customers.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm p-12 text-center">
           <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">No EB customers found</p>

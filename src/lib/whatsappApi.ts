@@ -444,6 +444,9 @@ export async function executeBroadcastCampaign(
     mandal_name?: string;
     section_name?: string;
     applied_solar_load_kw?: number;
+    inverter_brand?: string;
+    inverter_capacity?: number;
+    inverter_serial_number?: string;
   }>,
   onProgress?: (progress: BroadcastBatchProgress) => void
 ): Promise<WhatsAppCampaign> {
@@ -472,6 +475,9 @@ export async function executeBroadcastCampaign(
       section_name: p.section_name || '',
       applied_solar_load_kw: p.applied_solar_load_kw || 3,
       subsidy_amount: '₹78,000',
+      inverter_brand: p.inverter_brand || 'Solar',
+      inverter_capacity: p.inverter_capacity ? `${p.inverter_capacity} kW` : '3 kW',
+      inverter_serial_number: p.inverter_serial_number || '',
     };
 
     const res = await sendWhatsAppTemplateMessage({

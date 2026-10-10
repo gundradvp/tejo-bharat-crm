@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowLeft, IndianRupee, Loader2, TrendingUp, TrendingDown, Wallet, Calculator, ArrowRightLeft, Receipt, AlertCircle } from 'lucide-react';
+import { ArrowLeft, IndianRupee, Loader2, TrendingUp, Wallet, Calculator, ArrowRightLeft, Receipt, AlertCircle, Package } from 'lucide-react';
 import ExpenseTracking from './ExpenseTracking';
 import LoanDisbursementTracking from './LoanDisbursementTracking';
 import CustomerPaymentTracking from './CustomerPaymentTracking';
 import FinancialSummaryEditor from './FinancialSummaryEditor';
 import MarginTracking from './MarginTracking';
+import CustomerInventoryTracking from './CustomerInventoryTracking';
 
 interface CustomerData {
   id: string;
@@ -19,7 +20,7 @@ interface CustomerData {
   bank_name?: string;
 }
 
-type Tab = 'overview' | 'expenses' | 'loan' | 'payments' | 'margin';
+type Tab = 'overview' | 'expenses' | 'inventory' | 'loan' | 'payments' | 'margin';
 
 export default function CustomerFinancePage() {
   const { id } = useParams<{ id: string }>();
@@ -168,7 +169,8 @@ export default function CustomerFinancePage() {
   // Admin: full financial view
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'overview', label: 'Overview', icon: <Calculator className="w-4 h-4" /> },
-    { key: 'expenses', label: 'Expenses', icon: <Receipt className="w-4 h-4" /> },
+    { key: 'expenses', label: 'Expenses & GST', icon: <Receipt className="w-4 h-4" /> },
+    { key: 'inventory', label: 'Materials & Inventory', icon: <Package className="w-4 h-4" /> },
     { key: 'loan', label: 'Loan Tranches', icon: <Wallet className="w-4 h-4" /> },
     { key: 'payments', label: 'Customer Payments', icon: <IndianRupee className="w-4 h-4" /> },
     { key: 'margin', label: 'Margin Payouts', icon: <ArrowRightLeft className="w-4 h-4" /> },
@@ -182,7 +184,7 @@ export default function CustomerFinancePage() {
           <div>
             <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
               <IndianRupee className="w-5 h-5 text-green-600" />
-              {customer.customer_name} — Project Finance
+              {customer.customer_name} — Project Finance & Costs
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
               {customer.bank_name && `Bank: ${customer.bank_name}`}
@@ -256,6 +258,13 @@ export default function CustomerFinancePage() {
         )}
         {activeTab === 'expenses' && (
           <ExpenseTracking customerId={customer.id} agreedCost={customer.agreed_project_cost} />
+        )}
+        {activeTab === 'inventory' && (
+          <CustomerInventoryTracking
+            customerId={customer.id}
+            customerName={customer.customer_name}
+            onStockChanged={triggerRefresh}
+          />
         )}
         {activeTab === 'loan' && (
           <LoanDisbursementTracking

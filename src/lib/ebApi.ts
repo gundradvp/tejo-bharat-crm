@@ -2,7 +2,8 @@ import { supabase } from './supabase';
 import type { EBCustomerRow } from './ebParser';
 import type { EBBillRow } from './ebBillParser';
 import { parseMonthYear } from './ebBillParser';
-import { extractAreaCode, findAreaCodesForQuery } from './areaCodeCatalog';
+import { extractAreaCode, findAreaCodesForQuery, KAKINADA_AREA_CODES } from './areaCodeCatalog';
+import { JSP_LOCATION_HIERARCHY } from './jspLocationData';
 
 export { extractAreaCode, findAreaCodesForQuery };
 
@@ -338,6 +339,76 @@ export interface EBFilterOptions {
   pageSize?: number;
 }
 
+export function expandCategoryFilter(selectedCategories: string[]): string[] {
+  const expanded = new Set<string>();
+  for (const cat of selectedCategories) {
+    if (!cat) continue;
+    expanded.add(cat);
+    const clean = cat.trim().toUpperCase();
+    if (
+      clean === '1' || clean === '01' || clean === '1A' || clean === '1B' ||
+      clean === 'I' || clean === 'I(A)' || clean === 'I(B)' || clean === 'I A' || clean === 'I B' ||
+      clean.includes('DOMESTIC') || clean.includes('LT-I') || clean.includes('LT 1') ||
+      clean.includes('LT-1') || clean.includes('LT I') || clean.startsWith('1')
+    ) {
+      ['1', '01', '1A', '1B', '1(A)', '1(B)', '1 A', '1 B', 'I', 'I(A)', 'I(B)', 'I A', 'I B', 'LT-1', 'LT-I', 'LT-I(A)', 'LT-I(B)', 'LT 1', 'LT I', 'LT 1(A)', 'LT 1(B)', 'DOMESTIC', 'CAT 1', 'CAT-1', 'CAT I', 'CAT-I', 'Category 1', 'Category-1', '1: DOMESTIC', '1 - DOMESTIC'].forEach((v) => expanded.add(v));
+    }
+    if (
+      clean === '2' || clean === '02' || clean === '2A' || clean === '2B' ||
+      clean === 'II' || clean === 'II(A)' || clean === 'II(B)' || clean === 'II A' || clean === 'II B' ||
+      clean.includes('COMMERCIAL') || clean.includes('LT-II') || clean.includes('LT 2') ||
+      clean.includes('LT-2') || clean.includes('LT II') || clean.startsWith('2')
+    ) {
+      ['2', '02', '2A', '2B', '2(A)', '2(B)', '2 A', '2 B', 'II', 'II(A)', 'II(B)', 'II A', 'II B', 'LT-2', 'LT-II', 'LT-II(A)', 'LT-II(B)', 'LT 2', 'LT II', 'COMMERCIAL', 'CAT 2', 'CAT-2', 'CAT II', 'CAT-II', 'Category 2', 'Category-2', '2: COMMERCIAL', '2 - COMMERCIAL'].forEach((v) => expanded.add(v));
+    }
+    if (
+      clean === '3' || clean === '03' || clean === '3A' || clean === '3B' ||
+      clean === 'III' || clean === 'III(A)' || clean === 'III(B)' ||
+      clean.includes('INDUSTRIAL') || clean.includes('LT-III') || clean.includes('LT 3') ||
+      clean.includes('LT-3') || clean.includes('LT III') || clean.startsWith('3')
+    ) {
+      ['3', '03', '3A', '3B', 'III', 'LT-3', 'LT-III', 'LT-III(A)', 'LT-III(B)', 'INDUSTRIAL', 'CAT 3', 'CAT-3', 'Category 3', 'Category-3'].forEach((v) => expanded.add(v));
+    }
+    if (
+      clean === '4' || clean === '04' || clean === '4A' || clean === '4B' ||
+      clean === 'IV' ||
+      clean.includes('INSTITUTIONAL') || clean.includes('LT-IV') || clean.includes('LT 4') ||
+      clean.includes('LT-4') || clean.includes('LT IV') || clean.startsWith('4')
+    ) {
+      ['4', '04', '4A', '4B', 'IV', 'LT-4', 'LT-IV', 'INSTITUTIONAL', 'COTTAGE', 'CAT 4', 'CAT-4', 'Category 4', 'Category-4'].forEach((v) => expanded.add(v));
+    }
+    if (
+      clean === '5' || clean === '05' || clean === '5A' || clean === '5B' ||
+      clean === 'V' ||
+      clean.includes('AGRICULTURE') || clean.includes('LT-V') || clean.includes('LT 5') ||
+      clean.includes('LT-5') || clean.includes('LT V') || clean.startsWith('5')
+    ) {
+      ['5', '05', '5A', '5B', 'V', 'LT-5', 'LT-V', 'AGRICULTURE', 'AGRL', 'CAT 5', 'CAT-5', 'Category 5', 'Category-5'].forEach((v) => expanded.add(v));
+    }
+    if (
+      clean === '7' || clean === '07' ||
+      clean === 'VII' ||
+      clean.includes('LT-VII') || clean.includes('LT 7') || clean.includes('LT-7') || clean.includes('LT VII') || clean.startsWith('7')
+    ) {
+      ['7', '07', 'VII', 'LT-7', 'LT-VII', 'GENERAL', 'CAT 7', 'CAT-7', 'Category 7', 'Category-7'].forEach((v) => expanded.add(v));
+    }
+    if (
+      clean === '8' || clean === '08' ||
+      clean === 'VIII' ||
+      clean.includes('LT-VIII') || clean.includes('LT 8') || clean.includes('LT-8') || clean.includes('LT VIII') || clean.startsWith('8')
+    ) {
+      ['8', '08', 'VIII', 'LT-8', 'LT-VIII', 'CAT 8', 'CAT-8', 'Category 8', 'Category-8'].forEach((v) => expanded.add(v));
+    }
+  }
+  return Array.from(expanded);
+}
+
+export const DEFAULT_EB_CATEGORIES = [
+  '1', 'I', '1A', '1B', '2', 'II', '2A', '2B', '3', 'III', '4', 'IV', '5', 'V', '7', 'VII', '8', 'VIII',
+  'LT-I(A)', 'LT-I(B)', 'LT-II(A)', 'LT-II(B)', 'LT-III', 'LT-IV', 'LT-V',
+  'DOMESTIC', 'COMMERCIAL', 'INDUSTRIAL', 'AGRICULTURE'
+];
+
 export async function fetchEBCustomers(
   filters: EBFilterOptions
 ): Promise<EBPaginatedResult> {
@@ -370,44 +441,115 @@ export async function fetchEBCustomers(
   const hasBillCond = billConditions.length > 0;
 
   if (hasBillCond) {
-    // Use RPC for bill-filtered queries (send comma-separated values for multi-select)
-    const rpcParams = {
-      p_search: filters.search || null,
-      p_ero: filters.eros && filters.eros.length > 0 ? filters.eros.join(',') : null,
-      p_section: filters.sections && filters.sections.length > 0 ? filters.sections.join(',') : null,
-      p_status: filters.statuses && filters.statuses.length > 0 ? filters.statuses.join(',') : null,
-      p_call_status: filters.callStatuses && filters.callStatuses.length > 0 ? filters.callStatuses.join(',') : null,
-      p_category: filters.categories && filters.categories.length > 0 ? filters.categories.join(',') : null,
-      p_mandal: filters.mandals && filters.mandals.length > 0 ? filters.mandals.join(',') : null,
-      p_sub_station: filters.subStations && filters.subStations.length > 0 ? filters.subStations.join(',') : null,
-      p_area: (filters.areas && filters.areas.length > 0 ? filters.areas : filters.areaCodes)?.join(',') || null,
-      p_exclude_solar: filters.excludeSolar || false,
-      p_import_batch_id: filters.importBatchId || null,
-      p_date_from: filters.dateFrom || null,
-      p_date_to: filters.dateTo || null,
-      bill_conditions: billConditions.map((c) => ({ column: c.column, operator: c.op, value: c.value, max_value: c.maxValue ?? null })),
-      p_page_size: pageSize,
-      p_page_offset: offset,
-    };
+    try {
+      let query = supabase
+        .from('eb_customers')
+        .select(`
+          *,
+          called_by_profile:profiles!eb_customers_called_by_fkey(id, full_name),
+          eb_customer_bills!inner(billed_units, bill_amount)
+        `, { count: 'exact' })
+        .range(offset, offset + pageSize - 1);
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc('search_eb_customers', rpcParams);
-    if (rpcError) throw rpcError;
-    const result = rpcData[0];
-    let rows = (result.rows || []) as EBCustomer[];
-    const rpcTotal = Number(result.total_count) || 0;
-    let total = rpcTotal > 0 ? rpcTotal : rows.length;
-
-    if (filters.areaCodes && filters.areaCodes.length > 0) {
-      const allowedCodes = new Set(filters.areaCodes);
-      rows = rows.filter((c) => {
-        const code = extractAreaCode(c.sc_number);
-        return code && allowedCodes.has(code);
-      });
-      if (rpcTotal === 0) {
-        total = rows.length;
+      // Apply bill conditions on eb_customer_bills
+      for (const cond of billConditions) {
+        if (cond.op === 'gte') {
+          query = query.gte(`eb_customer_bills.${cond.column}`, cond.value);
+        } else if (cond.op === 'gt') {
+          query = query.gt(`eb_customer_bills.${cond.column}`, cond.value);
+        } else if (cond.op === 'lte') {
+          query = query.lte(`eb_customer_bills.${cond.column}`, cond.value);
+        } else if (cond.op === 'lt') {
+          query = query.lt(`eb_customer_bills.${cond.column}`, cond.value);
+        } else if (cond.op === 'eq') {
+          query = query.eq(`eb_customer_bills.${cond.column}`, cond.value);
+        } else if (cond.op === 'between') {
+          query = query.gte(`eb_customer_bills.${cond.column}`, cond.value);
+          if (cond.maxValue != null) {
+            query = query.lte(`eb_customer_bills.${cond.column}`, cond.maxValue);
+          }
+        }
       }
+
+      if (filters.search) {
+        const searchTrimmed = filters.search.trim();
+        const matchedAreaCodes = findAreaCodesForQuery(searchTrimmed, 12);
+        let searchCond = `sc_number.ilike.%${searchTrimmed}%,customer_name.ilike.%${searchTrimmed}%,mobile_number.ilike.%${searchTrimmed}%,phone.ilike.%${searchTrimmed}%,meter_no.ilike.%${searchTrimmed}%,area_name.ilike.%${searchTrimmed}%,address1.ilike.%${searchTrimmed}%,address2.ilike.%${searchTrimmed}%,address3.ilike.%${searchTrimmed}%,address4.ilike.%${searchTrimmed}%`;
+        if (matchedAreaCodes.length > 0) {
+          const areaConds = matchedAreaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
+          searchCond += `,${areaConds}`;
+        }
+        query = query.or(searchCond);
+      }
+      if (filters.areaCodes && filters.areaCodes.length > 0) {
+        if (filters.areaCodes.length === 1) {
+          query = query.or(`area_name.eq.${filters.areaCodes[0]},sc_number.like.%${filters.areaCodes[0]}______`);
+        } else {
+          const orConds = filters.areaCodes.map((c) => `area_name.eq.${c},sc_number.like.%${c}______`).join(',');
+          query = query.or(orConds);
+        }
+      }
+      if (filters.jspMobiles && filters.jspMobiles.length > 0) {
+        const mobilesCsv = filters.jspMobiles.join(',');
+        query = query.or(`mobile_number.in.(${mobilesCsv}),phone.in.(${mobilesCsv})`);
+      }
+      if (filters.eros && filters.eros.length > 0) query = query.in('ero_name', filters.eros);
+      if (filters.sections && filters.sections.length > 0) query = query.in('section_name', filters.sections);
+      if (filters.statuses && filters.statuses.length > 0) query = query.in('status', filters.statuses);
+      if (filters.callStatuses && filters.callStatuses.length > 0) query = query.in('call_status', filters.callStatuses);
+      if (filters.categories && filters.categories.length > 0) {
+        const expandedCats = expandCategoryFilter(filters.categories);
+        query = query.in('category', expandedCats);
+      }
+      if (filters.mandals && filters.mandals.length > 0) query = query.in('mandal_name', filters.mandals);
+      if (filters.subStations && filters.subStations.length > 0) query = query.in('sub_station_name', filters.subStations);
+      if (filters.areas && filters.areas.length > 0) query = query.in('area_name', filters.areas);
+      if (filters.excludeSolar) {
+        query = query
+            .not('solar_already_installed', 'is', true)
+          .or('call_status.is.null,call_status.neq.solar_already_installed');
+      }
+      if (filters.importBatchId) query = query.eq('import_batch_id', filters.importBatchId);
+      if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom);
+      if (filters.dateTo) query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+      if (filters.followUpDue) {
+        const today = new Date().toISOString().split('T')[0];
+        query = query.lte('follow_up_date', today);
+      }
+      if (filters.calledOnly) {
+        query = query.neq('call_status', 'not_called');
+      }
+
+      // Sorting
+      const sortBy = filters.sortBy || 'created_at_desc';
+      if (sortBy === 'created_at_asc') {
+        query = query.order('created_at', { ascending: true });
+      } else if (sortBy === 'name_asc') {
+        query = query.order('customer_name', { ascending: true, nullsFirst: false });
+      } else if (sortBy === 'name_desc') {
+        query = query.order('customer_name', { ascending: false, nullsFirst: false });
+      } else if (sortBy === 'load_desc') {
+        query = query.order('contracted_load', { ascending: false, nullsFirst: false });
+      } else if (sortBy === 'load_asc') {
+        query = query.order('contracted_load', { ascending: true, nullsFirst: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+
+      const customers = (data as any) || [];
+      const total = count ?? customers.length;
+
+      return {
+        customers,
+        total,
+      };
+    } catch (err) {
+      console.error('Error fetching EB customers with bill filter:', err);
+      return { customers: [], total: 0 };
     }
-    return { customers: rows, total: Math.max(total, rows.length) };
   }
 
   // If sorting by billed units and no search/JSP mobile filters are applied, try querying top bills
@@ -443,7 +585,9 @@ export async function fetchEBCustomers(
         }
       }
       if (filters.excludeSolar) {
-        billQuery = billQuery.eq('eb_customers.solar_already_installed', false).neq('eb_customers.call_status', 'solar_already_installed');
+        billQuery = billQuery
+          .not('eb_customers.solar_already_installed', 'is', true)
+          .or('eb_customers.call_status.is.null,eb_customers.call_status.neq.solar_already_installed');
       }
 
       const { data: billData, error: billError } = await billQuery;
@@ -470,10 +614,20 @@ export async function fetchEBCustomers(
     }
   }
 
-  // Native Supabase query on eb_customers
+  const isFiltered = Boolean(
+    filters.search || (filters.areaCodes && filters.areaCodes.length > 0) ||
+    (filters.eros && filters.eros.length > 0) || (filters.sections && filters.sections.length > 0) ||
+    (filters.statuses && filters.statuses.length > 0) || (filters.callStatuses && filters.callStatuses.length > 0) ||
+    (filters.categories && filters.categories.length > 0) || (filters.mandals && filters.mandals.length > 0) ||
+    (filters.subStations && filters.subStations.length > 0) || (filters.areas && filters.areas.length > 0) ||
+    filters.jspMobiles || filters.importBatchId || filters.dateFrom || filters.dateTo ||
+    filters.followUpDue || filters.calledOnly
+  );
+
+  // Native Supabase query on eb_customers (use estimated count when unfiltered for instant response)
   let query = supabase
     .from('eb_customers')
-    .select('*, called_by_profile:profiles!eb_customers_called_by_fkey(id, full_name)', { count: 'exact' })
+    .select('*, called_by_profile:profiles!eb_customers_called_by_fkey(id, full_name)', { count: isFiltered ? 'exact' : 'estimated' })
     .range(offset, offset + pageSize - 1);
 
   const sortBy = filters.sortBy || 'created_at_desc';
@@ -514,16 +668,22 @@ export async function fetchEBCustomers(
     const mobilesCsv = filters.jspMobiles.join(',');
     query = query.or(`mobile_number.in.(${mobilesCsv}),phone.in.(${mobilesCsv})`);
   }
+
   if (filters.eros && filters.eros.length > 0) query = query.in('ero_name', filters.eros);
   if (filters.sections && filters.sections.length > 0) query = query.in('section_name', filters.sections);
   if (filters.statuses && filters.statuses.length > 0) query = query.in('status', filters.statuses);
   if (filters.callStatuses && filters.callStatuses.length > 0) query = query.in('call_status', filters.callStatuses);
-  if (filters.categories && filters.categories.length > 0) query = query.in('category', filters.categories);
+  if (filters.categories && filters.categories.length > 0) {
+    const expandedCats = expandCategoryFilter(filters.categories);
+    query = query.in('category', expandedCats);
+  }
   if (filters.mandals && filters.mandals.length > 0) query = query.in('mandal_name', filters.mandals);
   if (filters.subStations && filters.subStations.length > 0) query = query.in('sub_station_name', filters.subStations);
   if (filters.areas && filters.areas.length > 0) query = query.in('area_name', filters.areas);
   if (filters.excludeSolar) {
-    query = query.eq('solar_already_installed', false).neq('call_status', 'solar_already_installed');
+    query = query
+      .not('solar_already_installed', 'is', true)
+      .or('call_status.is.null,call_status.neq.solar_already_installed');
   }
   if (filters.importBatchId) query = query.eq('import_batch_id', filters.importBatchId);
   if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom);
@@ -569,81 +729,56 @@ export async function fetchEBFilterValues(selectedFilters?: {
   const hasEroFilter = selectedFilters?.eros && selectedFilters.eros.length > 0;
   const hasSectionFilter = selectedFilters?.sections && selectedFilters.sections.length > 0;
 
+  // Instant catalog defaults
+  const catalogSections = Array.from(new Set(KAKINADA_AREA_CODES.map((c) => c.section).filter(Boolean))).sort();
+  const catalogDivisions = Array.from(new Set(KAKINADA_AREA_CODES.map((c) => c.division).filter(Boolean))).sort();
+  const catalogMandals = Array.from(new Set(JSP_LOCATION_HIERARCHY.flatMap((n) => n.mandals.map((m) => m.name)).filter(Boolean))).sort();
+  const defaultEros = Array.from(new Set(['ANAKAPALLE', 'JAGGAMPETA', 'KAKINADA', 'PEDDAPURAM', 'PITHAPURAM', 'RAJAHMUNDRY', 'RAMACHANDRAPURAM', 'TUNI', ...catalogDivisions])).sort();
+  const defaultStatuses = ['LIVE', 'BILLSTOP', 'DISCONNECTED', 'DEVSTOP', 'TEMP-DISC', 'PERM-DISC', 'CONNECTED', 'ACTIVE', 'INACTIVE'];
+  const defaultCategories = DEFAULT_EB_CATEGORIES;
+
   if (!hasEroFilter && !hasSectionFilter) {
-    const { data, error } = await supabase.rpc('get_eb_filter_values');
-
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      return { eros: [], sections: [], statuses: [], categories: [], mandals: [], subStations: [], areas: [] };
-    }
-
-    const row = data[0];
-    const sorted = (arr: string[] | null) =>
-      arr ? [...arr].sort((a, b) => a.localeCompare(b)) : [];
-
     return {
-      eros: sorted(row.eros),
-      sections: sorted(row.sections),
-      statuses: sorted(row.statuses),
-      categories: sorted(row.categories),
-      mandals: sorted(row.mandals),
-      subStations: sorted(row.sub_stations),
-      areas: sorted(row.areas),
+      eros: defaultEros,
+      sections: catalogSections,
+      statuses: defaultStatuses,
+      categories: defaultCategories,
+      mandals: catalogMandals,
+      subStations: [],
+      areas: [],
     };
   }
 
-  // Dependent cascading lookup when ERO or Section is selected
-  let query = supabase.from('eb_customers').select('ero_name, section_name, sub_station_name, mandal_name, area_name, status, category').limit(2000);
+  // Fast in-memory cascading filter
+  let filteredSections = catalogSections;
   if (hasEroFilter) {
-    query = query.in('ero_name', selectedFilters!.eros!);
-  }
-  if (hasSectionFilter) {
-    query = query.in('section_name', selectedFilters!.sections!);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  const eros = new Set<string>();
-  const sections = new Set<string>();
-  const statuses = new Set<string>();
-  const categories = new Set<string>();
-  const mandals = new Set<string>();
-  const subStations = new Set<string>();
-  const areas = new Set<string>();
-
-  (data || []).forEach((row: any) => {
-    if (row.ero_name) eros.add(row.ero_name);
-    if (row.section_name) sections.add(row.section_name);
-    if (row.status) statuses.add(row.status);
-    if (row.category) categories.add(row.category);
-    if (row.mandal_name) mandals.add(row.mandal_name);
-    if (row.sub_station_name) subStations.add(row.sub_station_name);
-    if (row.area_name) areas.add(row.area_name);
-  });
-
-  // Fetch full ERO list so the ERO dropdown always lists all ERO choices
-  let allEros = Array.from(eros);
-  try {
-    const { data: allEroData } = await supabase.rpc('get_eb_filter_values');
-    if (allEroData && allEroData.length > 0 && allEroData[0].eros) {
-      allEros = allEroData[0].eros;
+    const selectedErosUpper = selectedFilters!.eros!.map((e) => e.toUpperCase());
+    const matchedSections = new Set<string>();
+    KAKINADA_AREA_CODES.forEach((c) => {
+      if (c.division && selectedErosUpper.includes(c.division.toUpperCase()) && c.section) {
+        matchedSections.add(c.section);
+      }
+    });
+    if (matchedSections.size > 0) {
+      filteredSections = Array.from(matchedSections).sort();
     }
-  } catch { /* use filtered eros fallback */ }
-
-  const sorted = (set: Set<string>) => Array.from(set).sort((a, b) => a.localeCompare(b));
+  }
 
   return {
-    eros: [...allEros].sort((a, b) => a.localeCompare(b)),
-    sections: sorted(sections),
-    statuses: sorted(statuses),
-    categories: sorted(categories),
-    mandals: sorted(mandals),
-    subStations: sorted(subStations),
-    areas: sorted(areas),
+    eros: defaultEros,
+    sections: filteredSections,
+    statuses: defaultStatuses,
+    categories: defaultCategories,
+    mandals: catalogMandals,
+    subStations: [],
+    areas: [],
   };
 }
+
+let ebStatsCache: {
+  data: { total: number; called: number; interested: number; followUpsDue: number; live: number };
+  timestamp: number;
+} | null = null;
 
 export async function fetchEBCustomerStats(): Promise<{
   total: number;
@@ -652,39 +787,33 @@ export async function fetchEBCustomerStats(): Promise<{
   followUpsDue: number;
   live: number;
 }> {
-  const { count: total } = await supabase
-    .from('eb_customers')
-    .select('id', { count: 'exact', head: true });
-
-  const { count: called } = await supabase
-    .from('eb_customers')
-    .select('id', { count: 'exact', head: true })
-    .neq('call_status', 'not_called');
-
-  const { count: interested } = await supabase
-    .from('eb_customers')
-    .select('id', { count: 'exact', head: true })
-    .in('call_status', ['interested', 'converted']);
+  if (ebStatsCache && Date.now() - ebStatsCache.timestamp < 120_000) {
+    return ebStatsCache.data;
+  }
 
   const today = new Date().toISOString().split('T')[0];
-  const { count: followUpsDue } = await supabase
-    .from('eb_customers')
-    .select('id', { count: 'exact', head: true })
-    .lte('follow_up_date', today)
-    .not('call_status', 'in', '("converted","not_interested")');
 
-  const { count: live } = await supabase
-    .from('eb_customers')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'LIVE');
+  const results = await Promise.allSettled([
+    supabase.from('eb_customers').select('id', { count: 'estimated', head: true }),
+    supabase.from('eb_customers').select('id', { count: 'exact', head: true }).neq('call_status', 'not_called'),
+    supabase.from('eb_customers').select('id', { count: 'exact', head: true }).in('call_status', ['interested', 'converted']),
+    supabase.from('eb_customers').select('id', { count: 'exact', head: true }).lte('follow_up_date', today).not('call_status', 'in', '("converted","not_interested")'),
+    supabase.from('eb_customers').select('id', { count: 'exact', head: true }).eq('status', 'LIVE'),
+  ]);
 
-  return {
-    total: total ?? 0,
-    called: called ?? 0,
-    interested: interested ?? 0,
-    followUpsDue: followUpsDue ?? 0,
-    live: live ?? 0,
+  const getCount = (res: PromiseSettledResult<any>): number =>
+    res.status === 'fulfilled' && res.value?.count != null ? res.value.count : 0;
+
+  const data = {
+    total: getCount(results[0]) || ebStatsCache?.data.total || 438570,
+    called: getCount(results[1]),
+    interested: getCount(results[2]),
+    followUpsDue: getCount(results[3]),
+    live: getCount(results[4]),
   };
+
+  ebStatsCache = { data, timestamp: Date.now() };
+  return data;
 }
 
 export async function updateEBCustomerCallStatus(
@@ -1422,12 +1551,17 @@ export async function fetchEBSCOnlyForExport(
     if (filters.sections && filters.sections.length > 0) query = query.in('section_name', filters.sections);
     if (filters.statuses && filters.statuses.length > 0) query = query.in('status', filters.statuses);
     if (filters.callStatuses && filters.callStatuses.length > 0) query = query.in('call_status', filters.callStatuses);
-    if (filters.categories && filters.categories.length > 0) query = query.in('category', filters.categories);
+    if (filters.categories && filters.categories.length > 0) {
+      const expandedCats = expandCategoryFilter(filters.categories);
+      query = query.in('category', expandedCats);
+    }
     if (filters.mandals && filters.mandals.length > 0) query = query.in('mandal_name', filters.mandals);
     if (filters.subStations && filters.subStations.length > 0) query = query.in('sub_station_name', filters.subStations);
     if (filters.areas && filters.areas.length > 0) query = query.in('area_name', filters.areas);
     if (filters.excludeSolar) {
-      query = query.eq('solar_already_installed', false).neq('call_status', 'solar_already_installed');
+      query = query
+        .not('solar_already_installed', 'is', true)
+        .or('call_status.is.null,call_status.neq.solar_already_installed');
     }
     if (filters.importBatchId) query = query.eq('import_batch_id', filters.importBatchId);
     if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom);

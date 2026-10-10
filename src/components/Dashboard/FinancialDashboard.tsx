@@ -254,25 +254,34 @@ export default function FinancialDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Financial Overview</h1>
           <p className="text-gray-600 mt-1">Comprehensive financial metrics and project profitability</p>
         </div>
-        <div className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-gray-200">
-          {stats.netProfit >= 0 ? (
-            <TrendingUp className="w-6 h-6 text-green-600" />
-          ) : (
-            <TrendingDown className="w-6 h-6 text-red-600" />
-          )}
-          <div>
-            <p className="text-xs text-gray-600">Net Profit</p>
-            <p className={`text-xl font-bold ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ₹{(Math.abs(stats.netProfit) / 100000).toFixed(2)}L
-            </p>
-            <p className={`text-xs font-medium ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {stats.profitMargin >= 0 ? '+' : ''}{stats.profitMargin.toFixed(1)}% margin
-            </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/customers/second-tranche')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-sm shadow-sm transition-colors cursor-pointer"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>2nd Tranche Pending List</span>
+          </button>
+          <div className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-gray-200">
+            {stats.netProfit >= 0 ? (
+              <TrendingUp className="w-6 h-6 text-green-600" />
+            ) : (
+              <TrendingDown className="w-6 h-6 text-red-600" />
+            )}
+            <div>
+              <p className="text-xs text-gray-600">Net Profit</p>
+              <p className={`text-xl font-bold ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                ₹{(Math.abs(stats.netProfit) / 100000).toFixed(2)}L
+              </p>
+              <p className={`text-xs font-medium ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {stats.profitMargin >= 0 ? '+' : ''}{stats.profitMargin.toFixed(1)}% margin
+              </p>
+            </div>
           </div>
         </div>
       </div>

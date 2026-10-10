@@ -82,14 +82,19 @@ export default function AddNoteForm({ onSubmit, onCancel }: AddNoteFormProps) {
               onChange={(e) => setNoteType(e.target.value as NoteType)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="general">General</option>
-              <option value="follow_up">Follow-up</option>
-              <option value="phone_call">Phone Call</option>
-              <option value="meeting">Meeting</option>
-              <option value="email">Email</option>
-              <option value="issue">Issue</option>
-              <option value="resolution">Resolution</option>
-              <option value="document">Document</option>
+              <option value="general">💬 General Note</option>
+              <option value="dispatch">📦 Material Dispatched</option>
+              <option value="installation">⚡ Site Installation</option>
+              <option value="net_metering">🔌 Net Metering / DISCOM</option>
+              <option value="subsidy">💰 Subsidy & Loan</option>
+              <option value="survey">📋 Site Survey</option>
+              <option value="follow_up">⏰ Follow-up</option>
+              <option value="phone_call">📞 Phone Call</option>
+              <option value="meeting">👥 Meeting</option>
+              <option value="email">✉️ Email</option>
+              <option value="issue">⚠️ Issue / Escalation</option>
+              <option value="resolution">✅ Resolution</option>
+              <option value="document">📄 Document</option>
             </select>
           </div>
 

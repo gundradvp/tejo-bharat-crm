@@ -29,6 +29,7 @@ import DocumentPrintPage from './components/Customers/DocumentPrintPage';
 import QuotationPage from './components/Customers/QuotationPage';
 import QuotationManagement from './components/Customers/QuotationManagement';
 import CustomerFinancePage from './components/Customers/CustomerFinancePage';
+import SecondTranchePendingList from './components/Customers/SecondTranchePendingList';
 import QuotationsList from './components/Quotations/QuotationsList';
 import QuotationForm from './components/Quotations/QuotationForm';
 import CentralUploadCenter from './components/Documents/CentralUploadCenter';
@@ -51,6 +52,7 @@ import LookupManagement from './components/Settings/LookupManagement';
 import LocationManagement from './components/Settings/LocationManagement';
 import TenantManagement from './components/SuperAdmin/TenantManagement';
 import ItemsManagement from './components/Items/ItemsManagement';
+import GSTInputTaxCreditHub from './components/GST/GSTInputTaxCreditHub';
 import LeadGeneratorManagement from './components/LeadGenerators/LeadGeneratorManagement';
 import WorkflowManagement from './components/Workflow/WorkflowManagement';
 import ProspectList from './components/Prospects/ProspectList';
@@ -135,73 +137,76 @@ function ProtectedRoutes() {
   }
 
   return (
-    <div className="min-h-screen theme-page-bg">
-      <Navbar />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">
-      <ErrorBoundary>
-        <Routes>
-          <Route path="/" element={<DashboardRouter />} />
-          <Route path="/financial" element={<FinancialDashboard />} />
-          <Route path="/customers" element={<CustomerList />} />
-          <Route path="/customers/import-detailed" element={<SuryaGharDetailedImport />} />
-          <Route path="/customers/:id" element={<CustomerOverview />} />
-          <Route path="/customers/:id/details" element={<CustomerDetailsForm />} />
-          <Route path="/customers/:id/print" element={<DocumentPrintPage />} />
-          <Route path="/customers/:id/quotation" element={<QuotationPage />} />
-          <Route path="/customers/:id/quotation-manage" element={<QuotationManagement />} />
-          <Route path="/customers/:id/finance" element={<CustomerFinancePage />} />
-          <Route path="/quotations" element={<QuotationsList />} />
-          <Route path="/quotations/create" element={<QuotationForm />} />
-          <Route path="/quotations/:id/edit" element={<QuotationForm />} />
-          <Route path="/quotations/:id/view" element={<QuotationForm />} />
-          <Route path="/quotations/:id/print" element={<QuotationForm />} />
-          <Route path="/documents/upload" element={<CentralUploadCenter />} />
-          <Route path="/documents/manage" element={<DocumentManagementDashboard />} />
-          <Route path="/documents/solar-upload" element={<SolarDocumentUpload />} />
-          <Route path="/tasks" element={<TaskList />} />
-          <Route path="/tasks/by-user" element={<TasksByUser />} />
-          <Route path="/attendance" element={<AttendanceReports />} />
-          <Route path="/attendance/leave" element={<LeaveManagement />} />
-          <Route path="/attendance/details" element={<AttendanceDetailView />} />
-          <Route path="/attendance/calendar" element={<AttendanceCalendar />} />
-          <Route path="/items" element={<ItemsManagement />} />
-          <Route path="/lead-generators" element={<LeadGeneratorManagement />} />
-          <Route path="/workflow" element={<WorkflowManagement />} />
-          <Route path="/prospects" element={<ProspectList />} />
-          <Route path="/prospects/import" element={<ProspectImport />} />
-          <Route path="/whatsapp" element={<WhatsAppHub />} />
-          <Route path="/whatsapp/:tab" element={<WhatsAppHub />} />
-          <Route path="/eb-customers" element={<EBCustomerList />} />
-          <Route path="/eb-customers/import" element={<EBCustomerImport />} />
-          <Route path="/eb-customers/import-bills" element={<EBBillImport />} />
-          <Route path="/users" element={<UserManagement />} />
-          <Route path="/settings/custom-status" element={<CustomStatusManagement />} />
-          <Route path="/settings/master-data" element={<MasterDataManagement />} />
-          <Route path="/settings/lookups" element={<LookupManagement />} />
-          <Route path="/settings/locations" element={<LocationManagement />} />
-          <Route path="/settings/tenant" element={<TenantSettings />} />
-          <Route path="/settings/drive-mapping" element={<DriveFolderMapping />} />
-          <Route path="/settings/system-health" element={<SystemHealthDashboard />} />
-          <Route path="/debug/health" element={<SystemHealthDashboard />} />
-          <Route path="/profile" element={<ProfileManagement />} />
-          <Route path="/documentation" element={<DocumentationPage />} />
-          <Route path="/super-admin" element={<SuperAdminDashboard />} />
-          <Route path="/super-admin/tenants/create" element={<TenantManagement />} />
-          <Route path="/super-admin/tenants/:id" element={<TenantManagement />} />
-          <Route path="/jsp" element={<JSPDashboard />} />
-          <Route path="/jsp/members" element={<KriyaMemberList />} />
-          <Route path="/jsp/import" element={<KriyaImport />} />
-          <Route path="/jsp/hierarchy" element={<JSPHierarchyBrowser />} />
-          <Route path="/jsp/incharges" element={<InchargeManagement />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </ErrorBoundary>
-      </main>
+    <ErrorBoundary>
+      <div className="min-h-screen theme-page-bg">
+        <Navbar />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">
+          <Routes>
+            <Route path="/" element={<DashboardRouter />} />
+            <Route path="/financial" element={<FinancialDashboard />} />
+            <Route path="/customers" element={<CustomerList />} />
+            <Route path="/customers/import-detailed" element={<SuryaGharDetailedImport />} />
+            <Route path="/customers/:id" element={<CustomerOverview />} />
+            <Route path="/customers/:id/details" element={<CustomerDetailsForm />} />
+            <Route path="/customers/:id/print" element={<DocumentPrintPage />} />
+            <Route path="/customers/:id/quotation" element={<QuotationPage />} />
+            <Route path="/customers/:id/quotation-manage" element={<QuotationManagement />} />
+            <Route path="/customers/:id/finance" element={<CustomerFinancePage />} />
+            <Route path="/customers/second-tranche" element={<SecondTranchePendingList />} />
+            <Route path="/customers/tranches" element={<SecondTranchePendingList />} />
+            <Route path="/gst/itc" element={<GSTInputTaxCreditHub />} />
+            <Route path="/quotations" element={<QuotationsList />} />
+            <Route path="/quotations/create" element={<QuotationForm />} />
+            <Route path="/quotations/:id/edit" element={<QuotationForm />} />
+            <Route path="/quotations/:id/view" element={<QuotationForm />} />
+            <Route path="/quotations/:id/print" element={<QuotationForm />} />
+            <Route path="/documents/upload" element={<CentralUploadCenter />} />
+            <Route path="/documents/manage" element={<DocumentManagementDashboard />} />
+            <Route path="/documents/solar-upload" element={<SolarDocumentUpload />} />
+            <Route path="/tasks" element={<TaskList />} />
+            <Route path="/tasks/by-user" element={<TasksByUser />} />
+            <Route path="/attendance" element={<AttendanceReports />} />
+            <Route path="/attendance/leave" element={<LeaveManagement />} />
+            <Route path="/attendance/details" element={<AttendanceDetailView />} />
+            <Route path="/attendance/calendar" element={<AttendanceCalendar />} />
+            <Route path="/items" element={<ItemsManagement />} />
+            <Route path="/lead-generators" element={<LeadGeneratorManagement />} />
+            <Route path="/workflow" element={<WorkflowManagement />} />
+            <Route path="/prospects" element={<ProspectList />} />
+            <Route path="/prospects/import" element={<ProspectImport />} />
+            <Route path="/whatsapp" element={<WhatsAppHub />} />
+            <Route path="/whatsapp/:tab" element={<WhatsAppHub />} />
+            <Route path="/eb-customers" element={<EBCustomerList />} />
+            <Route path="/eb-customers/import" element={<EBCustomerImport />} />
+            <Route path="/eb-customers/import-bills" element={<EBBillImport />} />
+            <Route path="/users" element={<UserManagement />} />
+            <Route path="/settings/custom-status" element={<CustomStatusManagement />} />
+            <Route path="/settings/master-data" element={<MasterDataManagement />} />
+            <Route path="/settings/lookups" element={<LookupManagement />} />
+            <Route path="/settings/locations" element={<LocationManagement />} />
+            <Route path="/settings/tenant" element={<TenantSettings />} />
+            <Route path="/settings/drive-mapping" element={<DriveFolderMapping />} />
+            <Route path="/settings/system-health" element={<SystemHealthDashboard />} />
+            <Route path="/debug/health" element={<SystemHealthDashboard />} />
+            <Route path="/profile" element={<ProfileManagement />} />
+            <Route path="/documentation" element={<DocumentationPage />} />
+            <Route path="/super-admin" element={<SuperAdminDashboard />} />
+            <Route path="/super-admin/tenants/create" element={<TenantManagement />} />
+            <Route path="/super-admin/tenants/:id" element={<TenantManagement />} />
+            <Route path="/jsp" element={<JSPDashboard />} />
+            <Route path="/jsp/members" element={<KriyaMemberList />} />
+            <Route path="/jsp/import" element={<KriyaImport />} />
+            <Route path="/jsp/hierarchy" element={<JSPHierarchyBrowser />} />
+            <Route path="/jsp/incharges" element={<InchargeManagement />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
 
-      {/* User-Specific Personal Sticky Notes & Time Spent Tracker Modal */}
-      <StickyNotesDrawer />
-      <UserActivityModal />
-    </div>
+        {/* User-Specific Personal Sticky Notes & Time Spent Tracker Modal */}
+        <StickyNotesDrawer />
+        <UserActivityModal />
+      </div>
+    </ErrorBoundary>
   );
 }
 

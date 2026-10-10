@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase, Customer, canImportSuryaGharLeads, isNagarjunaUser, hasAnyRole, type Profile } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { Search, Plus, Phone, Mail, MapPin, CreditCard as Edit2, Loader2, Printer, Grid3x3, List, MessageCircle, Settings, Paperclip, Copy, Check, Download, Hash, Zap, Sun, ClipboardCopy, IndianRupee, Bookmark, RotateCcw, AlertCircle, Upload, Clock, Flame, TrendingUp, FolderOpen, UserX, X, MessageSquare, PhoneCall, AlertTriangle, FileJson } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, CreditCard as Edit2, Loader2, Printer, Grid3x3, List, MessageCircle, Settings, Paperclip, Copy, Check, Download, Hash, Zap, Sun, ClipboardCopy, IndianRupee, Bookmark, RotateCcw, AlertCircle, Upload, Clock, Flame, TrendingUp, FolderOpen, UserX, X, MessageSquare, PhoneCall, AlertTriangle, FileJson, Layers } from 'lucide-react';
 import * as XLSX from 'xlsx/xlsx.mjs';
 import { useNavigate } from 'react-router-dom';
 import BulkImport from './BulkImport';
@@ -67,7 +67,7 @@ export default function CustomerList() {
   const [agents, setAgents] = useState<any[]>([]);
   const [discoms, setDiscoms] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [disbursementData, setDisbursementData] = useState<Record<string, { total: number; pending: number }>>({});
+  const [disbursementData, setDisbursementData] = useState<Record<string, { total: number; pending: number; tranche1Received?: boolean; tranche2Received?: boolean; hasTranche2Pending?: boolean }>>({});
   const [notesCount, setNotesCount] = useState<Record<string, number>>({});
   const [documentsCount, setDocumentsCount] = useState<Record<string, number>>({});
   const [technicalDetailsCustomer, setTechnicalDetailsCustomer] = useState<Customer | null>(null);
@@ -426,31 +426,50 @@ export default function CustomerList() {
 
   const loadDisbursementData = async () => {
     try {
-      const { data: customersData, error: customersError } = await supabase
-        .from('customers')
-        .select('id, loan_sanctioned_amount, installation_status');
+      const [custRes, appRes, disbRes] = await Promise.all([
+        supabase.from('customers').select('id, loan_sanctioned_amount, installation_status'),
+        supabase.from('loan_applications').select('id, customer_id, loan_amount_sanctioned'),
+        supabase.from('loan_disbursements').select('loan_application_id, disbursement_number, disbursement_amount, received_in_account')
+      ]);
 
-      if (customersError) throw customersError;
+      if (custRes.error) throw custRes.error;
 
-      const { data: disbursements, error: disbursementsError } = await supabase
-        .from('loan_disbursements')
-        .select('customer_id, disbursement_amount, disbursement_status');
+      const appByCustomer = new Map<string, string>();
+      appRes.data?.forEach(app => {
+        appByCustomer.set(app.customer_id, app.id);
+      });
 
-      if (disbursementsError) throw disbursementsError;
+      const disbByApp = new Map<string, any[]>();
+      disbRes.data?.forEach(d => {
+        if (!disbByApp.has(d.loan_application_id)) {
+          disbByApp.set(d.loan_application_id, []);
+        }
+        disbByApp.get(d.loan_application_id)!.push(d);
+      });
 
-      const disbursementMap: Record<string, { total: number; pending: number }> = {};
+      const disbursementMap: Record<string, any> = {};
 
-      customersData?.forEach(customer => {
+      custRes.data?.forEach(customer => {
         const sanctionedAmount = customer.loan_sanctioned_amount || 0;
-        const customerDisbursements = disbursements?.filter(
-          d => d.customer_id === customer.id && d.disbursement_status === 'received'
-        ) || [];
-        const totalDisbursed = customerDisbursements.reduce((sum, d) => sum + d.disbursement_amount, 0);
+        const appId = appByCustomer.get(customer.id);
+        const disbs = appId ? (disbByApp.get(appId) || []) : [];
+
+        const t1 = disbs.find(d => d.disbursement_number === 1 && d.received_in_account);
+        const t2 = disbs.find(d => d.disbursement_number === 2 && d.received_in_account);
+
+        const totalDisbursed = disbs
+          .filter(d => d.received_in_account)
+          .reduce((sum, d) => sum + Number(d.disbursement_amount || 0), 0);
+
         const pending = sanctionedAmount - totalDisbursed;
+        const hasTranche2Pending = !!t1 && !t2;
 
         disbursementMap[customer.id] = {
           total: sanctionedAmount,
-          pending: pending > 0 ? pending : 0
+          pending: pending > 0 ? pending : 0,
+          tranche1Received: !!t1,
+          tranche2Received: !!t2,
+          hasTranche2Pending
         };
       });
 
@@ -600,6 +619,14 @@ export default function CustomerList() {
 
     const matchesFinancial = (() => {
       if (financialFilter === 'all') return true;
+      if (financialFilter === 'tranche_2_pending') {
+        const data = disbursementData[customer.id];
+        return data && (data.hasTranche2Pending || (data.tranche1Received && !data.tranche2Received && data.pending > 0));
+      }
+      if (financialFilter === 'tranche_1_pending') {
+        const data = disbursementData[customer.id];
+        return data && !data.tranche1Received && data.total > 0;
+      }
       if (financialFilter === 'pending_disbursement') {
         const data = disbursementData[customer.id];
         return data && data.pending > 0 && customer.installation_status === 'completed';
@@ -1035,9 +1062,15 @@ export default function CustomerList() {
         const onHold = filteredCustomers.filter((c: any) => c.overall_status === 'on_hold' && getEffectiveLifecycleStatus(c) !== 'lost').length;
         const highUsage = Object.values(billSummaries).filter((b) => b.isHighUsage).length;
         const lost = filteredCustomers.filter((c: any) => getEffectiveLifecycleStatus(c) === 'lost').length;
+        const tranche2PendingCount = customers.filter(c => {
+          const d = disbursementData[c.id];
+          return d && (d.hasTranche2Pending || (d.tranche1Received && !d.tranche2Received && d.pending > 0));
+        }).length;
+
         const chips = [
           { label: 'Imported Active', value: importedActive.length, color: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-200', filter: () => { setStatusFilter('all'); setLifecycleFilter('active'); setImportSourceFilter('imported'); } },
           { label: 'Total In View', value: total, color: 'bg-gray-100 text-gray-700 hover:bg-gray-200', filter: () => { setStatusFilter('all'); setLifecycleFilter('all'); } },
+          { label: '⏳ 2nd Tranche Pending', value: tranche2PendingCount, color: 'bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 font-bold', filter: () => { setFinancialFilter('tranche_2_pending'); setLifecycleFilter('active'); } },
           { label: '✅ Done', value: completed, color: 'bg-green-100 text-green-700 hover:bg-green-200', filter: () => { setStatusFilter('completed'); setLifecycleFilter('active'); } },
           { label: '🔄 In Progress', value: inProgress, color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200', filter: () => { setStatusFilter('in_progress'); setLifecycleFilter('active'); } },
           { label: '📄 Pending Docs', value: pendingDocs, color: 'bg-orange-100 text-orange-700 hover:bg-orange-200', filter: () => { setStatusFilter('pending_docs'); setLifecycleFilter('active'); } },
@@ -1084,6 +1117,14 @@ export default function CustomerList() {
               </button>
             )}
           </div>
+          <button
+            onClick={() => navigate('/customers/second-tranche')}
+            className="flex items-center gap-1.5 px-3 py-2 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg transition-colors text-sm flex-shrink-0 font-semibold cursor-pointer"
+            title="Open 2nd Tranche Pending Hub & Disbursed Management"
+          >
+            <Layers className="w-4 h-4 text-amber-600" />
+            <span className="hidden sm:inline">2nd Tranches</span>
+          </button>
           <button
             onClick={() => setShowLocationFilter(!showLocationFilter)}
             className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg transition-colors text-sm flex-shrink-0 ${
@@ -1242,11 +1283,13 @@ export default function CustomerList() {
               <select
                 value={financialFilter}
                 onChange={(e) => setFinancialFilter(e.target.value)}
-                className="col-span-2 sm:col-span-1 px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-amber-50 border-amber-200"
+                className="col-span-2 sm:col-span-1 px-2 py-1.5 text-xs border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-amber-50 text-amber-900 font-medium"
               >
                 <option value="all">All Financial</option>
-                <option value="pending_disbursement">Pending Disbursement</option>
-                <option value="disbursement_incomplete">Disbursement Incomplete</option>
+                <option value="tranche_2_pending">⏳ 2nd Tranche Pending</option>
+                <option value="tranche_1_pending">1st Tranche Pending</option>
+                <option value="pending_disbursement">Completed & Pending Disb</option>
+                <option value="disbursement_incomplete">All Incomplete Disb</option>
               </select>
             </>
           )}
