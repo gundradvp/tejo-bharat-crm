@@ -86,6 +86,8 @@ export default function ProspectList() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const canAccessWhatsApp = canAccessWhatsAppHub(profile as Profile | null);
+  const saved = loadSavedFilters();
+
   const [searchTerm, setSearchTerm] = useState(saved.search || '');
   const [appliedSearch, setAppliedSearch] = useState(saved.search || '');
   const [circleSelections, setCircleSelections] = useState<string[]>(saved.circles || []);
