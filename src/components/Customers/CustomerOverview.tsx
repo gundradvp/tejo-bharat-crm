@@ -790,6 +790,20 @@ export default function CustomerOverview() {
               onClick={() => navigate(`/customers/${id}/quotation-manage`)}
             />
             <QuickAction
+              label="Billing App Quote"
+              icon={<Receipt className="w-5 h-5 text-purple-600" />}
+              color="bg-purple-50 text-purple-700 hover:bg-purple-100"
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (customer.customer_name) params.set('customer_name', customer.customer_name);
+                if (customer.phone) params.set('customer_phone', customer.phone);
+                if (customer.address) params.set('customer_address', customer.address);
+                if (customer.system_capacity) params.set('capacity_kw', String(customer.system_capacity));
+                params.set('docType', 'Quotation');
+                navigate(`/billing/create?${params.toString()}`);
+              }}
+            />
+            <QuickAction
               label="Edit Details"
               icon={<Edit2 className="w-5 h-5" />}
               color="bg-gray-50 text-gray-700 hover:bg-gray-100"

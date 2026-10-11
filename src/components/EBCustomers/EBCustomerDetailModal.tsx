@@ -353,6 +353,23 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
               {copiedField === 'all' ? <Check className="w-4 h-4" /> : <ClipboardList className="w-4 h-4" />}
               {copiedField === 'all' ? 'Copied!' : 'Copy All'}
             </button>
+            <button
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (customer.consumer_name) params.set('customer_name', customer.consumer_name);
+                if (customer.mobile) params.set('customer_phone', customer.mobile);
+                if (customer.address) params.set('customer_address', customer.address);
+                if (customer.solar_capacity) params.set('capacity_kw', String(customer.solar_capacity));
+                params.set('docType', 'Quotation');
+                onClose();
+                navigate(`/billing/create?${params.toString()}`);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors cursor-pointer"
+              title="Open in Billing Suite to create Quotation with prefilled customer data"
+            >
+              <Receipt className="w-4 h-4 text-purple-600" />
+              <span>Create Quote</span>
+            </button>
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
               <X className="w-5 h-5 text-gray-500" />
             </button>

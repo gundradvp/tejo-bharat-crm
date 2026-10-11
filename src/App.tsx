@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
+import BillingModule from './modules/quotation-app/BillingModule';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TenantProvider } from './contexts/TenantContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -98,6 +99,7 @@ function DashboardRouter() {
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     if (user) {
@@ -138,6 +140,15 @@ function ProtectedRoutes() {
     return <LoginForm />;
   }
 
+  // Full-width self-contained Billing & Quotation Suite
+  if (location.pathname.startsWith('/billing')) {
+    return (
+      <ErrorBoundary>
+        <BillingModule />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <AppLayout>
@@ -155,6 +166,7 @@ function ProtectedRoutes() {
           <Route path="/customers/second-tranche" element={<SecondTranchePendingList />} />
           <Route path="/customers/tranches" element={<SecondTranchePendingList />} />
           <Route path="/gst/itc" element={<GSTInputTaxCreditHub />} />
+          <Route path="/billing/*" element={<BillingModule />} />
           <Route path="/quotations" element={<QuotationsList />} />
           <Route path="/quotations/create" element={<QuotationForm />} />
           <Route path="/quotations/:id/edit" element={<QuotationForm />} />

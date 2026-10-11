@@ -138,6 +138,16 @@ export default function Navbar() {
               </button>
             )}
 
+            {/* Quick Switcher to Billing & Quotes Suite */}
+            <button
+              onClick={() => navigate('/billing')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 transition-all text-xs font-bold cursor-pointer shadow-2xs whitespace-nowrap"
+              title="Open Billing, Invoices & Quotations Suite"
+            >
+              <Receipt className="w-3.5 h-3.5 text-purple-600" />
+              <span className="hidden md:inline">Billing Suite</span>
+            </button>
+
             <InstallButton label="Install App" />
 
             {/* Time Spent & User Activity Button */}

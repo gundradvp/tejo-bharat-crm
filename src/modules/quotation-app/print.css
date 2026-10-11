@@ -1,0 +1,288 @@
+
+  body {
+    font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  
+}
+
+/* Strict A4 PDF Export & Print Engine — Ultra-Sharp & Vivid Color Guaranteed */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0mm;
+  }
+
+  /* Universal print color fidelity — forces browsers & PDF generators to render exact rich colors */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Hide non-printable UI elements */
+  .no-print, header, nav, button, .sidebar, aside {
+    display: none !important;
+  }
+
+  /* Strip heavy rasterized CSS box-shadows & filters in print mode for ultra-light crisp PDF */
+  .page, .page * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Deep, sharp text rendering for 300+ DPI print engines */
+  html, body, #root, main, .page, .page * {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: geometricPrecision !important;
+  }
+
+  /* Reset html/body/root so all pages render correctly */
+  html, body, #root, main {
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Remove gap between page containers in print mode */
+  .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+  }
+
+  /* Each .page = exactly one A4 printed sheet */
+  .page {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-width: 210mm !important;
+    height: 285mm !important;
+    max-height: 285mm !important;
+    min-height: 285mm !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+    padding: 5mm 8mm 4mm 8mm !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important; /* CRUCIAL: Sections stay tightly grouped at top */
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  /* Ensure flex child wrapper spans 100% height, sections stay at top without vertical stretch */
+  .page > div {
+    height: 100% !important;
+    max-height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important; /* CRUCIAL: Sections do not slide down */
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  /* Pinned page footer guarantees it prints at the bottom of every page without clipping */
+  .page-footer {
+    flex-shrink: 0 !important;
+    margin-top: auto !important; /* ONLY the footer goes to the bottom */
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 8pt !important;
+    padding-top: 1.5mm !important;
+    border-top: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Lock printable area to pure block layout without flex jitter or gaps */
+  .quotation-print-area {
+    display: block !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  /* Deepen muted text so it prints solid and sharp, never pale or washed out */
+  .text-slate-400, .text-slate-500, .text-gray-400, .text-gray-500 {
+    color: #1e293b !important;
+  }
+  .text-slate-600, .text-slate-700, .text-gray-600, .text-gray-700 {
+    color: #0f172a !important;
+  }
+  .text-slate-800, .text-slate-900, .text-gray-800, .text-gray-900 {
+    color: #000000 !important;
+  }
+
+  /* Boost brand colors for rich, vivid print */
+  .text-teal-700, .text-teal-800, .text-teal-900 {
+    color: #044e46 !important;
+  }
+  .text-emerald-700, .text-emerald-800 {
+    color: #065f46 !important;
+  }
+  .text-purple-800, .text-purple-900 {
+    color: #581c87 !important;
+  }
+  .bg-teal-700, .bg-teal-800, .bg-teal-900 {
+    background-color: #0f766e !important;
+    color: #ffffff !important;
+  }
+  .bg-slate-900, .bg-slate-950 {
+    background-color: #020617 !important;
+    color: #ffffff !important;
+  }
+  .text-amber-500, .text-amber-400 {
+    color: #9a3412 !important;
+  }
+
+  /* Crisp solid borders that print razor-sharp without breaking into faint dots */
+  .border-slate-200 {
+    border-color: #94a3b8 !important;
+  }
+  .border-slate-300 {
+    border-color: #64748b !important;
+  }
+  .border-teal-700, .border-teal-800 {
+    border-color: #0f766e !important;
+  }
+  .border-purple-300 {
+    border-color: #c084fc !important;
+  }
+  .border-teal-300 {
+    border-color: #2dd4bf !important;
+  }
+
+  /* Solidify light card backgrounds so printer drivers don't dither with pale dots */
+  .bg-slate-50\/80, .bg-slate-50, .bg-slate-100 {
+    background-color: #f8fafc !important;
+  }
+  .bg-purple-50 {
+    background-color: #faf5ff !important;
+  }
+  .bg-emerald-50, .bg-emerald-100 {
+    background-color: #ecfdf5 !important;
+  }
+  .bg-teal-50, .bg-teal-100 {
+    background-color: #f0fdfa !important;
+  }
+
+  /* Guarantee dead-centered badges and capacity pills in PDF / print output */
+  .site-card-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    border-radius: 50% !important;
+    background-color: #0f766e !important;
+    color: #ffffff !important;
+    font-size: 10.5px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+  .site-card-badge > span {
+    display: block !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .site-card-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 2px 9px !important;
+    border-radius: 9999px !important;
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+
+  /* No trailing blank page after last page */
+  .page:last-child {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Explicit html2pdf & screen canvas pagebreaks */
+.page {
+  page-break-after: always !important;
+  break-after: page !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+.page:last-child {
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+  page-break-before: avoid !important;
+}
+
+/* Universal typography & alignment rules for quotation preview and downloaded PDF */
+.quotation-print-area,
+.quotation-print-area * {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+.site-card-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  border-radius: 50% !important;
+  background-color: #0f766e !important;
+  color: #ffffff !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+.site-card-badge > span {
+  display: block !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.site-card-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 2px 9px !important;
+  border-radius: 9999px !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+

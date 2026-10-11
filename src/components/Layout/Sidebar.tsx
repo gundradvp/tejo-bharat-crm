@@ -182,6 +182,37 @@ export default function Sidebar() {
 
       {/* Navigation Sections */}
       <div className={`flex-1 ${isCollapsed ? 'overflow-visible' : 'overflow-y-auto'} no-scrollbar py-3 px-3 space-y-4`}>
+        {/* Module / App Switcher */}
+        {!isCollapsed ? (
+          <div className="p-1 bg-gray-100/90 rounded-xl flex items-center gap-1 border border-gray-200/80 shadow-2xs">
+            <button
+              onClick={() => navigate('/')}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-extrabold transition-all bg-white text-blue-700 shadow-xs border border-blue-100"
+            >
+              <span>☀️</span>
+              <span>Solar CRM</span>
+            </button>
+            <button
+              onClick={() => navigate('/billing')}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-extrabold transition-all text-gray-600 hover:text-indigo-700 hover:bg-white"
+              title="Open Billing, Invoices & Quotations Suite"
+            >
+              <span>📑</span>
+              <span>Billing Suite</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <button
+              onClick={() => navigate('/billing')}
+              className="p-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition-all"
+              title="Switch to Billing & Quotations Suite"
+            >
+              <Receipt className="w-5 h-5 text-purple-600" />
+            </button>
+          </div>
+        )}
+
         {showJspNav ? (
           <>
             {/* JSP Section */}
@@ -219,7 +250,10 @@ export default function Sidebar() {
                 {renderNavItem('/customers', 'Customers', UsersIcon)}
 
                 {(isAdmin || isLeadGen || isFinanceUser) &&
-                  renderNavItem('/quotations', 'Quotations', DollarSign)}
+                  renderNavItem('/billing', 'Billing & Quotes Suite', Receipt, 'purple')}
+
+                {(isAdmin || isLeadGen || isFinanceUser) &&
+                  renderNavItem('/quotations', 'Quotations History', DollarSign)}
 
                 {isAdmin && renderNavItem('/items', 'Items & Products', Package)}
 
