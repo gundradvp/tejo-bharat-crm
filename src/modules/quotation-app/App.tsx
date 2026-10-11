@@ -50,7 +50,7 @@ const INITIAL_QUOTATION: Quotation = {
   branch_id: 'pith-ap',
   branch: DEFAULT_BRANCHES[1],
   hsn_code: '85414011',
-  gst_rate_percent: 0,
+  gst_rate_percent: 8.9,
   payment_status: 'Unpaid',
   bank_details: DEFAULT_BANK_DETAILS,
   auto_round_off: true,
@@ -66,9 +66,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: '5 kWp 500+ W Mono DCR Solar Array, 5 kW On-Grid String Inverter, HDG Structure & BOS',
       qty: 5,
       unit: 'kW',
-      price_per_item: 70000,
-      tax_rate_percent: 0,
-      tax_amount: 0,
+      price_per_item: 64279.16,
+      tax_rate_percent: 8.9,
+      tax_amount: 28604.22,
       total_amount: 350000,
     },
     {
@@ -77,9 +77,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: '4 kWp 500+ W Mono DCR Solar Array, 4 kW On-Grid String Inverter, HDG Structure & BOS',
       qty: 4,
       unit: 'kW',
-      price_per_item: 70000,
-      tax_rate_percent: 0,
-      tax_amount: 0,
+      price_per_item: 64279.16,
+      tax_rate_percent: 8.9,
+      tax_amount: 22883.38,
       total_amount: 280000,
     },
     {
@@ -88,9 +88,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: '3 kWp 500+ W Mono DCR Solar Array, 3 kW On-Grid String Inverter, HDG Structure & BOS',
       qty: 3,
       unit: 'kW',
-      price_per_item: 70000,
-      tax_rate_percent: 0,
-      tax_amount: 0,
+      price_per_item: 64279.16,
+      tax_rate_percent: 8.9,
+      tax_amount: 17162.53,
       total_amount: 210000,
     },
     {
@@ -99,9 +99,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: '5 kWp 500+ W Mono DCR Solar Array, HDG Structure & Turnkey Base BOS',
       qty: 5,
       unit: 'kW',
-      price_per_item: 70000,
-      tax_rate_percent: 0,
-      tax_amount: 0,
+      price_per_item: 64279.16,
+      tax_rate_percent: 8.9,
+      tax_amount: 28604.22,
       total_amount: 350000,
     },
     {
@@ -110,9 +110,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: '5 kW Dual Output Hybrid Inverter Upgrade (Grid Export + Critical Load Backup)',
       qty: 1,
       unit: 'Set',
-      price_per_item: 80000,
-      tax_rate_percent: 0,
-      tax_amount: 0,
+      price_per_item: 73461.89,
+      tax_rate_percent: 8.9,
+      tax_amount: 6538.11,
       total_amount: 80000,
     },
     {
@@ -121,9 +121,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: '10 kWh LFP Battery Storage Bank for 24/7 Medical Cold Chain Backup',
       qty: 1,
       unit: 'Set',
-      price_per_item: 175000,
-      tax_rate_percent: 0,
-      tax_amount: 0,
+      price_per_item: 160697.89,
+      tax_rate_percent: 8.9,
+      tax_amount: 14302.11,
       total_amount: 175000,
     },
     {
@@ -132,9 +132,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: 'Heavy-Duty DC Distribution Box with SPDs & Protection',
       qty: 1,
       unit: 'Nos',
-      price_per_item: 12500,
-      tax_rate_percent: 0,
-      tax_amount: 0,
+      price_per_item: 11478.42,
+      tax_rate_percent: 8.9,
+      tax_amount: 1021.58,
       total_amount: 12500,
     },
     {
@@ -143,9 +143,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: 'Battery Enclosure Rack & Protective Box',
       qty: 1,
       unit: 'Nos',
-      price_per_item: 12500,
-      tax_rate_percent: 0,
-      tax_amount: 0,
+      price_per_item: 11478.42,
+      tax_rate_percent: 8.9,
+      tax_amount: 1021.58,
       total_amount: 12500,
     },
   ],
@@ -261,9 +261,16 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
           return u === 'kw' || u === 'kwp';
         }) || [];
         const sumKw = kwItems.reduce((acc, it) => acc + (Number(it.qty) || 0), 0);
-        const corrected = (sumKw > 0 && foundDoc.system_capacity_kw !== sumKw)
+        let corrected = (sumKw > 0 && foundDoc.system_capacity_kw !== sumKw)
           ? { ...foundDoc, system_capacity_kw: sumKw }
           : foundDoc;
+        if ((corrected.quotation_no || '').trim().toUpperCase() === 'TBGE2627Q003' && (!corrected.gst_rate_percent || corrected.gst_rate_percent === 0)) {
+          corrected = {
+            ...corrected,
+            gst_rate_percent: 8.9,
+            line_items: INITIAL_QUOTATION.line_items
+          };
+        }
         setQuotation(corrected);
         setCreateFormMode('preview');
         setActiveTab('create');
@@ -436,8 +443,16 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
               .forEach(q => {
                 const key = (q.quotation_no || '').trim().toUpperCase();
                 // If it's the obsolete 12.75L draft, keep the canonical 14.70L version
-                if (key === 'TBGE2627Q003' && q.total_amount === 1275000) {
-                  return;
+                if (key === 'TBGE2627Q003') {
+                  if (q.total_amount === 1275000) return;
+                  if (!q.gst_rate_percent || q.gst_rate_percent === 0) {
+                    const canonical = masterHistorical.find(m => (m.quotation_no || '').trim().toUpperCase() === 'TBGE2627Q003');
+                    q = {
+                      ...q,
+                      gst_rate_percent: canonical?.gst_rate_percent || 8.9,
+                      line_items: canonical?.line_items || INITIAL_QUOTATION.line_items,
+                    };
+                  }
                 }
                 map.set(key, q);
               });
@@ -447,7 +462,7 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
       } catch (e) { console.warn(e); }
     }
     // Helper to remove any "(Rate: ₹.../kW)" or "(Rate: ...)" from line items
-    const stripRateFromItems = (items?: LineItem[]) => {
+    const stripRateFromItems = (items?: LineItem[]): LineItem[] | undefined => {
       if (!items) return items;
       return items.map(it => ({
         ...it,
@@ -510,7 +525,13 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
 
     // Also sanitize current active quotation in state
     setQuotation(prev => {
-      let items = stripRateFromItems(prev.line_items) || [];
+      let items: LineItem[] = stripRateFromItems(prev.line_items) || [];
+      const isKvb003 = (prev.quotation_no || '').trim().toUpperCase() === 'TBGE2627Q003';
+      let gstRate = prev.gst_rate_percent;
+      if (isKvb003 && (!gstRate || gstRate === 0)) {
+        gstRate = 8.9;
+        items = INITIAL_QUOTATION.line_items || [];
+      }
       if (items && items.length > 0 && (/^\d+\s*k[wW]p?\s*On/i.test(items[0].name))) {
         const hasOtherKvbSites = items.some(it => it.name.includes('Panchayat') || it.name.includes('RSK'));
         if (hasOtherKvbSites) {
@@ -530,6 +551,7 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
 
       return {
         ...prev,
+        gst_rate_percent: gstRate,
         system_capacity_kw: cap,
         line_items: items
       };

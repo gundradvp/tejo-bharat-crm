@@ -1045,14 +1045,14 @@
   },
   {
     "id": "p-kvb",
-    "name": "KVB Solar Power Project (4 Institutional Sites)",
+    "name": "KVB Model village project, GRAMODAYA (4 Institutional Sites)",
     "mobile_number": "9989279586",
     "party_type": "Customer",
     "party_category": "Institutional Solar",
     "billing_address": "Panchayat, RSK Building, Health Center & ZPHS School, KVB",
     "shipping_address": "Panchayat, RSK Building, Health Center & ZPHS School, KVB",
     "same_as_billing": true,
-    "balance": 1275000,
+    "balance": 1470000,
     "balance_type": "To Collect"
   },
   {

@@ -1892,7 +1892,7 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
                     type="button"
                     onClick={() => {
                       const updated = lineItems.map(it => {
-                        const taxable = it.price_per_item * it.qty - (it.discount_rs || 0);
+                        const taxable = Math.round((it.price_per_item * it.qty - (it.discount_rs || 0)) * 100) / 100;
                         const tax = Math.round(((taxable * g.val) / 100) * 100) / 100;
                         return {
                           ...it,
@@ -1902,9 +1902,12 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
                         };
                       });
                       
+                      const newTotal = updated.reduce((sum, item) => sum + item.total_amount, 0);
+
                       onChangeQuotation({
                         ...quotation,
                         gst_rate_percent: g.val,
+                        total_amount: newTotal > 0 ? newTotal : quotation.total_amount,
                         line_items: updated,
                       });
                     }}

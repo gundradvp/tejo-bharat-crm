@@ -133,7 +133,7 @@
     "structure_type": "HDG Elevated Structure (80µ Zinc)",
     "branch_id": "pith-ap",
     "hsn_code": "85414011",
-    "gst_rate_percent": 0,
+    "gst_rate_percent": 8.9,
     "payment_status": "Unpaid",
     "auto_round_off": true,
     "amount_received": 0,
@@ -148,9 +148,9 @@
         "description": "5 kWp 500+ W Mono DCR Solar Array, 5 kW On-Grid String Inverter, HDG Structure & BOS",
         "qty": 5,
         "unit": "kW",
-        "price_per_item": 70000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 64279.16,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 28604.22,
         "total_amount": 350000
       },
       {
@@ -159,9 +159,9 @@
         "description": "4 kWp 500+ W Mono DCR Solar Array, 4 kW On-Grid String Inverter, HDG Structure & BOS",
         "qty": 4,
         "unit": "kW",
-        "price_per_item": 70000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 64279.16,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 22883.38,
         "total_amount": 280000
       },
       {
@@ -170,9 +170,9 @@
         "description": "3 kWp 500+ W Mono DCR Solar Array, 3 kW On-Grid String Inverter, HDG Structure & BOS",
         "qty": 3,
         "unit": "kW",
-        "price_per_item": 70000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 64279.16,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 17162.53,
         "total_amount": 210000
       },
       {
@@ -181,9 +181,9 @@
         "description": "5 kWp 500+ W Mono DCR Solar Array, HDG Structure & Turnkey Base BOS",
         "qty": 5,
         "unit": "kW",
-        "price_per_item": 70000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 64279.16,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 28604.22,
         "total_amount": 350000
       },
       {
@@ -192,9 +192,9 @@
         "description": "5 kW Dual Output Hybrid Inverter Upgrade (Grid Export + Critical Load Backup)",
         "qty": 1,
         "unit": "Set",
-        "price_per_item": 80000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 73461.89,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 6538.11,
         "total_amount": 80000
       },
       {
@@ -203,9 +203,9 @@
         "description": "10 kWh LFP Battery Storage Bank for 24/7 Medical Cold Chain Backup",
         "qty": 1,
         "unit": "Set",
-        "price_per_item": 175000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 160697.89,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 14302.11,
         "total_amount": 175000
       },
       {
@@ -214,9 +214,9 @@
         "description": "Heavy-Duty DC Distribution Box with SPDs & Protection",
         "qty": 1,
         "unit": "Nos",
-        "price_per_item": 12500,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 11478.42,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 1021.58,
         "total_amount": 12500
       },
       {
@@ -225,9 +225,9 @@
         "description": "Battery Enclosure Rack & Protective Box",
         "qty": 1,
         "unit": "Nos",
-        "price_per_item": 12500,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 11478.42,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 1021.58,
         "total_amount": 12500
       }
     ]
@@ -259,7 +259,7 @@
     "inverter_brand": "Deye 20 kW 3-Phase String Inverter with 24/7 Wi-Fi",
     "inverter_phase": "Three Phase",
     "cables_brand": "Polycab Solar DC & Armored AC Cable",
-    "structure_type": "HDG Steel Elevated Superstructure (6ft\u201310ft, 80+ Micron Zinc)",
+    "structure_type": "HDG Steel Elevated Superstructure (6ft–10ft, 80+ Micron Zinc)",
     "branch_id": "hyd-hq",
     "hsn_code": "85414011",
     "gst_rate_percent": 0,
@@ -274,7 +274,7 @@
       {
         "id": "li-saaghar20-1",
         "name": "20 kWp Commercial On-Grid Solar PV Plant",
-        "description": "20 kWp Mono DCR 580W+ Modules (35 Nos), Deye 20kW 3-Phase Inverter, HDG Elevated Superstructure (6ft\u201310ft), Polycab Cables, Net Metering Coordination (Gross: \u20b912,00,000, Less Subsidy: \u20b93,60,000)",
+        "description": "20 kWp Mono DCR 580W+ Modules (35 Nos), Deye 20kW 3-Phase Inverter, HDG Elevated Superstructure (6ft–10ft), Polycab Cables, Net Metering Coordination (Gross: ₹12,00,000, Less Subsidy: ₹3,60,000)",
         "qty": 20,
         "unit": "kW",
         "price_per_item": 42000,
@@ -362,7 +362,7 @@
     "panel_brand": "Waaree / Adani / Vikram 550W Mono PERC / Bifacial (6 Nos)",
     "inverter_brand": "Solis / Growatt / Goodwe 3KW Single Phase Wi-Fi Inverter",
     "inverter_phase": "Single Phase",
-    "cables_brand": "Polycab / Finolex Solar DC 4mm\u00b2 & AC Cable",
+    "cables_brand": "Polycab / Finolex Solar DC 4mm² & AC Cable",
     "structure_type": "GI / Aluminium Heavy Duty Mounting Structure",
     "branch_id": "pith-ap",
     "hsn_code": "85414011",
@@ -378,7 +378,7 @@
       {
         "id": "li-cs-1",
         "name": "3 kW Rooftop Solar System (PM Suryaghar)",
-        "description": "3 kW Mono PERC Modules (6 Nos), 3kW Solis/Growatt Inverter, GI Structure, Net Metering & Subsidy Assistance (Gross: \u20b92,00,000, MNRE Subsidy: \u20b978,000, Net Effective: \u20b91,22,000)",
+        "description": "3 kW Mono PERC Modules (6 Nos), 3kW Solis/Growatt Inverter, GI Structure, Net Metering & Subsidy Assistance (Gross: ₹2,00,000, MNRE Subsidy: ₹78,000, Net Effective: ₹1,22,000)",
         "qty": 3,
         "unit": "kW",
         "price_per_item": 66667,
