@@ -57,7 +57,7 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
     }
     let isMounted = true;
     setLoadingVolunteerEnrollCount(true);
-    fetchVolunteerStats(jspMember.volunteername)
+    fetchVolunteerStats(jspMember.volunteername, jspMember.volunteer_mobile || undefined)
       .then((res) => {
         if (isMounted) {
           setVolunteerEnrollCount(res.count);

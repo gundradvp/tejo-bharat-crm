@@ -1426,24 +1426,92 @@ export async function fetchJSPVolunteers(assembly?: string): Promise<string[]> {
   }
 }
 
-export async function fetchVolunteerStats(volunteerName: string): Promise<{ count: number; volunteerMember: any | null }> {
+export function isVolunteerNameMatch(recordName: string | null | undefined, volunteerName: string | null | undefined): boolean {
+  if (!recordName || !volunteerName) return false;
+
+  const clean1 = recordName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const clean2 = volunteerName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!clean1 || !clean2) return false;
+
+  // Exact alphanumeric match
+  if (clean1 === clean2) return true;
+
+  // Prefix match (e.g., 'jyothulasrinivas' vs 'jyothulasrinivasu')
+  if (clean1.startsWith(clean2) || clean2.startsWith(clean1)) {
+    const diff = Math.abs(clean1.length - clean2.length);
+    if (diff <= 2) return true;
+  }
+
+  // Token-based matching (e.g. "Jyothula Srinivas" vs "Jyothula Srinivasu")
+  const tokens1 = recordName.trim().toLowerCase().split(/\s+/).filter(t => t.length > 2);
+  const tokens2 = volunteerName.trim().toLowerCase().split(/\s+/).filter(t => t.length > 2);
+
+  if (tokens1.length > 0 && tokens2.length > 0) {
+    const matches = tokens1.filter(t1 =>
+      tokens2.some(t2 => t1 === t2 || (Math.abs(t1.length - t2.length) <= 2 && (t1.startsWith(t2) || t2.startsWith(t1))))
+    );
+    const requiredMatches = Math.min(tokens1.length, tokens2.length);
+    if (matches.length >= requiredMatches && requiredMatches >= 2) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export async function fetchVolunteerStats(volunteerName: string, volunteerMobile?: string): Promise<{ count: number; volunteerMember: any | null }> {
   try {
     const vName = volunteerName.trim();
+    const cleanMobile = volunteerMobile ? volunteerMobile.replace(/\D/g, '').slice(-10) : '';
+
     const countPromise = supabase
       .from('jsp_kriya_members')
       .select('*', { count: 'exact', head: true })
       .eq('volunteername', vName);
 
-    const memberPromise = supabase
+    let memberQuery = supabase
       .from('jsp_kriya_members')
-      .select('id, jsp_id, name, mobile, photo_url, constituency_name, mandal_name, panchayat_name, status, membership_type, phase')
-      .eq('name', vName)
-      .limit(1);
+      .select('id, jsp_id, name, mobile, photo_url, constituency_name, mandal_name, panchayat_name, status, membership_type, phase');
 
-    const [countRes, memberRes] = await Promise.all([countPromise, memberPromise]);
+    if (cleanMobile && cleanMobile.length === 10) {
+      memberQuery = memberQuery.eq('mobile', cleanMobile).limit(10);
+    } else {
+      memberQuery = memberQuery.ilike('name', `%${vName}%`).limit(5);
+    }
+
+    const [countRes, memberRes] = await Promise.all([countPromise, memberQuery]);
+
+    let matched: any = null;
+    if (memberRes.data && memberRes.data.length > 0) {
+      for (const m of memberRes.data) {
+        if (isVolunteerNameMatch(m.name, vName)) {
+          matched = m;
+          break;
+        }
+      }
+    }
+
+    // Fallback: If searched by mobile but name didn't match any of those mobile rows, try searching specifically by name
+    if (!matched && cleanMobile) {
+      const { data: nameRows } = await supabase
+        .from('jsp_kriya_members')
+        .select('id, jsp_id, name, mobile, photo_url, constituency_name, mandal_name, panchayat_name, status, membership_type, phase')
+        .ilike('name', `%${vName}%`)
+        .limit(5);
+
+      if (nameRows && nameRows.length > 0) {
+        for (const m of nameRows) {
+          if (isVolunteerNameMatch(m.name, vName)) {
+            matched = m;
+            break;
+          }
+        }
+      }
+    }
+
     return {
       count: countRes.count ?? 0,
-      volunteerMember: memberRes.data && memberRes.data.length > 0 ? memberRes.data[0] : null,
+      volunteerMember: matched,
     };
   } catch (err) {
     console.error('Error fetching volunteer stats:', err);

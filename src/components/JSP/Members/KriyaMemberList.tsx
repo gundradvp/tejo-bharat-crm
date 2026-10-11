@@ -4,6 +4,7 @@ import { supabase, Profile, isJSPAdmin, hasAnyRole } from '../../../lib/supabase
 import { useAuth } from '../../../contexts/AuthContext';
 import { Search, Download, X, ChevronLeft, ChevronRight, Users, Filter, Phone, MapPin, CreditCard, Calendar, UserCircle, ZoomIn, ExternalLink, MessageCircle, UserCheck, CheckCircle2, ChevronDown } from 'lucide-react';
 import { JSP_LOCATION_HIERARCHY } from '../../../lib/jspLocationData';
+import { isVolunteerNameMatch } from '../../../lib/ebApi';
 import Pagination from '../../Common/Pagination';
 
 interface KriyaMember {
@@ -172,35 +173,74 @@ export default function KriyaMemberList() {
           ? selectedMember.volunteer_mobile.replace(/\D/g, '').slice(-10)
           : '';
 
+        // 1. Fetch total count of enrolled members for this volunteer
         const countPromise = supabase
           .from('jsp_kriya_members')
           .select('*', { count: 'exact', head: true })
           .eq('volunteername', vName);
 
-        let memberPromise: Promise<any> | null = null;
-        if (cleanMobile && cleanMobile.length === 10) {
-          memberPromise = supabase
-            .from('jsp_kriya_members')
-            .select(MEMBER_COLS)
-            .eq('mobile', cleanMobile)
-            .limit(1);
-        } else {
-          memberPromise = supabase
-            .from('jsp_kriya_members')
-            .select(MEMBER_COLS)
-            .eq('name', vName)
-            .limit(1);
+        // 2. Resolve volunteer's own member record:
+        // Priority A: Check if selectedMember themselves is the volunteer!
+        let matchedVolunteer: KriyaMember | null = null;
+        if (selectedMember.name && isVolunteerNameMatch(selectedMember.name, vName)) {
+          matchedVolunteer = selectedMember;
         }
 
-        const [countRes, memberRes] = await Promise.all([countPromise, memberPromise]);
+        // Priority B: Query candidate records by mobile (or name)
+        let candidatesPromise: Promise<any> | null = null;
+        if (!matchedVolunteer) {
+          if (cleanMobile && cleanMobile.length === 10) {
+            candidatesPromise = supabase
+              .from('jsp_kriya_members')
+              .select(MEMBER_COLS)
+              .eq('mobile', cleanMobile)
+              .limit(20);
+          } else {
+            candidatesPromise = supabase
+              .from('jsp_kriya_members')
+              .select(MEMBER_COLS)
+              .ilike('name', `%${vName}%`)
+              .limit(5);
+          }
+        }
+
+        const [countRes, candidatesRes] = await Promise.all([countPromise, candidatesPromise]);
 
         if (isMounted) {
+          if (!matchedVolunteer && candidatesRes?.data) {
+            const candidates = candidatesRes.data as KriyaMember[];
+            // CRITICAL: MUST verify that candidate name actually matches the volunteer's name!
+            // Never pick a stranger who happens to share the volunteer's mobile number!
+            for (const cand of candidates) {
+              if (isVolunteerNameMatch(cand.name, vName)) {
+                matchedVolunteer = cand;
+                break;
+              }
+            }
+          }
+
+          // Priority C: If searched by mobile but none matched the volunteer's name, try searching specifically by name
+          if (!matchedVolunteer && cleanMobile) {
+            try {
+              const { data: nameData } = await supabase
+                .from('jsp_kriya_members')
+                .select(MEMBER_COLS)
+                .ilike('name', `%${vName}%`)
+                .limit(5);
+              if (nameData) {
+                for (const cand of nameData as KriyaMember[]) {
+                  if (isVolunteerNameMatch(cand.name, vName)) {
+                    matchedVolunteer = cand;
+                    break;
+                  }
+                }
+              }
+            } catch {}
+          }
+
           setVolunteerStats({
             count: countRes.count ?? 0,
-            volunteerMember:
-              memberRes && memberRes.data && memberRes.data.length > 0
-                ? (memberRes.data[0] as KriyaMember)
-                : null,
+            volunteerMember: matchedVolunteer,
           });
         }
       } catch (err) {
@@ -1141,19 +1181,19 @@ export default function KriyaMemberList() {
                   {/* Volunteer Header */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      {volunteerStats?.volunteerMember?.photo_url ? (
+                      {volunteerStats?.volunteerMember?.photo_url && isVolunteerNameMatch(volunteerStats.volunteerMember.name, selectedMember.volunteername) ? (
                         <div
                           className="relative group cursor-pointer flex-shrink-0"
                           onClick={() => setPreviewPhoto({
                             url: volunteerStats.volunteerMember!.photo_url!,
-                            name: selectedMember.volunteername || undefined,
+                            name: volunteerStats.volunteerMember?.name || selectedMember.volunteername || undefined,
                             jsp_id: volunteerStats.volunteerMember?.jsp_id || undefined,
                           })}
                           title="Click to view full photo"
                         >
                           <img
                             src={volunteerStats.volunteerMember.photo_url}
-                            alt={selectedMember.volunteername || 'Volunteer'}
+                            alt={volunteerStats.volunteerMember.name || selectedMember.volunteername || 'Volunteer'}
                             className="w-12 h-12 rounded-xl object-cover ring-2 ring-amber-400 shadow-sm group-hover:scale-105 transition-transform"
                           />
                           <div className="absolute inset-0 bg-black/30 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
@@ -1176,17 +1216,24 @@ export default function KriyaMemberList() {
                           </span>
                         </div>
 
+                        {volunteerStats?.volunteerMember?.name &&
+                         volunteerStats.volunteerMember.name.trim().toLowerCase() !== (selectedMember.volunteername || '').trim().toLowerCase() && (
+                          <p className="text-[11px] text-gray-500 font-medium">
+                            Member name: {volunteerStats.volunteerMember.name}
+                          </p>
+                        )}
+
                         {selectedMember.volunteer_mobile && (
                           <p className="text-xs text-gray-600 font-mono mt-0.5">{selectedMember.volunteer_mobile}</p>
                         )}
 
-                        {volunteerStats?.volunteerMember?.jsp_id && (
+                        {volunteerStats?.volunteerMember?.jsp_id && isVolunteerNameMatch(volunteerStats.volunteerMember.name, selectedMember.volunteername) && (
                           <p className="text-[11px] font-mono text-amber-700 font-semibold mt-0.5">
                             JSP ID: {volunteerStats.volunteerMember.jsp_id}
                           </p>
                         )}
 
-                        {volunteerStats?.volunteerMember?.panchayat_name && (
+                        {volunteerStats?.volunteerMember?.panchayat_name && isVolunteerNameMatch(volunteerStats.volunteerMember.name, selectedMember.volunteername) && (
                           <p className="text-[11px] text-gray-500 mt-0.5">
                             {volunteerStats.volunteerMember.panchayat_name}, {volunteerStats.volunteerMember.mandal_name}
                           </p>
@@ -1263,15 +1310,21 @@ export default function KriyaMemberList() {
                         </button>
                       </div>
 
-                      {/* If volunteer's own member record is found, allow inspecting it */}
-                      {volunteerStats?.volunteerMember && (
-                        <button
-                          onClick={() => openMemberDetail(volunteerStats.volunteerMember!)}
-                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-medium rounded-lg transition-colors"
-                        >
-                          <UserCircle className="w-3.5 h-3.5" />
-                          View Volunteer's Own Membership Details
-                        </button>
+                      {/* If volunteer's own member record is verified, allow inspecting it */}
+                      {volunteerStats?.volunteerMember && isVolunteerNameMatch(volunteerStats.volunteerMember.name, selectedMember.volunteername) && (
+                        selectedMember.id === volunteerStats.volunteerMember.id ? (
+                          <div className="text-center py-1.5 text-[11px] text-amber-800 bg-amber-100/70 rounded-lg font-medium">
+                            Self-Enrolled Volunteer Profile
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => openMemberDetail(volunteerStats.volunteerMember!)}
+                            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-medium rounded-lg transition-colors"
+                          >
+                            <UserCircle className="w-3.5 h-3.5" />
+                            View Volunteer's Own Membership Details
+                          </button>
+                        )
                       )}
                     </div>
                   )}
