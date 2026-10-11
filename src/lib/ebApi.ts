@@ -1426,6 +1426,31 @@ export async function fetchJSPVolunteers(assembly?: string): Promise<string[]> {
   }
 }
 
+export async function fetchVolunteerStats(volunteerName: string): Promise<{ count: number; volunteerMember: any | null }> {
+  try {
+    const vName = volunteerName.trim();
+    const countPromise = supabase
+      .from('jsp_kriya_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('volunteername', vName);
+
+    const memberPromise = supabase
+      .from('jsp_kriya_members')
+      .select('id, jsp_id, name, mobile, photo_url, constituency_name, mandal_name, panchayat_name, status, membership_type, phase')
+      .eq('name', vName)
+      .limit(1);
+
+    const [countRes, memberRes] = await Promise.all([countPromise, memberPromise]);
+    return {
+      count: countRes.count ?? 0,
+      volunteerMember: memberRes.data && memberRes.data.length > 0 ? memberRes.data[0] : null,
+    };
+  } catch (err) {
+    console.error('Error fetching volunteer stats:', err);
+    return { count: 0, volunteerMember: null };
+  }
+}
+
 export async function fetchMobilesForVolunteer(
   volunteerName?: string,
   assembly?: string

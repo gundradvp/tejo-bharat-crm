@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Phone, Copy, Check, MapPin, Zap, Calendar, Clock, MessageSquare, MessageCircle, User, Save, Loader2, FileText, Hash, Gauge, Home, Tag, Activity, Receipt, IndianRupee, ClipboardList, Sun as SunIcon, ExternalLink, UserCircle, ZoomIn } from 'lucide-react';
+import { X, Phone, Copy, Check, MapPin, Zap, Calendar, Clock, MessageSquare, MessageCircle, User, Save, Loader2, FileText, Hash, Gauge, Home, Tag, Activity, Receipt, IndianRupee, ClipboardList, Sun as SunIcon, ExternalLink, UserCircle, ZoomIn, Users } from 'lucide-react';
 import {
   EBCustomer,
   EBCustomerCall,
@@ -14,6 +14,7 @@ import {
   fetchEBBillsForCustomer,
   JSPMemberLink,
   fetchJSPMembersForEBCustomers,
+  fetchVolunteerStats,
 } from '../../lib/ebApi';
 import { extractAreaCode, findVillagesForCode } from '../../lib/areaCodeCatalog';
 import { useAuth } from '../../contexts/AuthContext';
@@ -46,6 +47,30 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
   const [loadingJsp, setLoadingJsp] = useState(false);
   const [showJspProfileModal, setShowJspProfileModal] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; name?: string; jsp_id?: string } | null>(null);
+  const [volunteerEnrollCount, setVolunteerEnrollCount] = useState<number | null>(null);
+  const [loadingVolunteerEnrollCount, setLoadingVolunteerEnrollCount] = useState(false);
+
+  useEffect(() => {
+    if (!showJspProfileModal || !jspMember?.volunteername) {
+      setVolunteerEnrollCount(null);
+      return;
+    }
+    let isMounted = true;
+    setLoadingVolunteerEnrollCount(true);
+    fetchVolunteerStats(jspMember.volunteername)
+      .then((res) => {
+        if (isMounted) {
+          setVolunteerEnrollCount(res.count);
+        }
+      })
+      .catch((err) => console.error('Error fetching volunteer stats:', err))
+      .finally(() => {
+        if (isMounted) setLoadingVolunteerEnrollCount(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [showJspProfileModal, jspMember?.volunteername]);
 
   useEffect(() => {
     if (customer) {
@@ -844,32 +869,68 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
               {/* Volunteer / Enrolled By */}
               <div className="space-y-2">
                 <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Enrolled By Volunteer (Sadhak)</h5>
-                <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{jspMember.volunteername || 'Not recorded'}</p>
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50/40 p-3.5 rounded-xl border border-amber-200/90 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-bold text-gray-900">{jspMember.volunteername || 'Not recorded'}</p>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide">
+                          Sadhak
+                        </span>
+                      </div>
+                      {jspMember.volunteer_mobile && (
+                        <p className="text-xs text-gray-600 font-mono mt-0.5">{jspMember.volunteer_mobile}</p>
+                      )}
+                    </div>
                     {jspMember.volunteer_mobile && (
-                      <p className="text-xs text-gray-600 font-mono mt-0.5">{jspMember.volunteer_mobile}</p>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <a
+                          href={`tel:${jspMember.volunteer_mobile}`}
+                          className="p-2 rounded-lg bg-white hover:bg-gray-100 text-gray-700 shadow-sm border border-gray-200 transition-colors"
+                          title="Call Volunteer"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                        <a
+                          href={`https://wa.me/91${jspMember.volunteer_mobile.replace(/\D/g, '').slice(-10)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 rounded-lg bg-green-500 hover:bg-green-600 text-white shadow-sm transition-colors"
+                          title="WhatsApp Volunteer"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
                     )}
                   </div>
-                  {jspMember.volunteer_mobile && (
-                    <div className="flex items-center gap-1.5">
-                      <a
-                        href={`tel:${jspMember.volunteer_mobile}`}
-                        className="p-2 rounded-lg bg-white hover:bg-gray-100 text-gray-700 shadow-sm border border-gray-200 transition-colors"
-                        title="Call Volunteer"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                      </a>
-                      <a
-                        href={`https://wa.me/91${jspMember.volunteer_mobile.replace(/\D/g, '').slice(-10)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2 rounded-lg bg-green-500 hover:bg-green-600 text-white shadow-sm transition-colors"
-                        title="WhatsApp Volunteer"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                      </a>
+
+                  {/* Live Volunteer Enrollment Count Badge */}
+                  {jspMember.volunteername && (
+                    <div className="bg-white/80 rounded-lg p-2 border border-amber-100 flex items-center justify-between text-xs">
+                      <span className="text-gray-600 font-medium">Total Members Enrolled by Him:</span>
+                      <span className="font-extrabold text-amber-900 px-2 py-0.5 bg-amber-100 rounded">
+                        {loadingVolunteerEnrollCount ? (
+                          <span className="animate-pulse">Checking...</span>
+                        ) : (
+                          `${volunteerEnrollCount ?? 0} Members`
+                        )}
+                      </span>
                     </div>
+                  )}
+
+                  {/* Action: Open Volunteer's Enrolled Members in Kriya Directory */}
+                  {jspMember.volunteername && (
+                    <button
+                      onClick={() => {
+                        setShowJspProfileModal(false);
+                        onClose();
+                        navigate(`/jsp/members?sadhak=${encodeURIComponent(jspMember.volunteername || '')}`);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      View Members Enrolled by {jspMember.volunteername}
+                    </button>
                   )}
                 </div>
               </div>

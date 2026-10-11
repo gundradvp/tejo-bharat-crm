@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase, Profile, isJSPAdmin, hasAnyRole } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Search, Download, X, ChevronLeft, ChevronRight, Users, Filter, Phone, MapPin, CreditCard, Calendar, UserCircle, ZoomIn, ExternalLink } from 'lucide-react';
+import { Search, Download, X, ChevronLeft, ChevronRight, Users, Filter, Phone, MapPin, CreditCard, Calendar, UserCircle, ZoomIn, ExternalLink, MessageCircle, UserCheck, CheckCircle2, ChevronDown } from 'lucide-react';
 import { JSP_LOCATION_HIERARCHY } from '../../../lib/jspLocationData';
 import Pagination from '../../Common/Pagination';
 
@@ -86,6 +86,7 @@ export default function KriyaMemberList() {
   const { profile } = useAuth();
   const [searchParams] = useSearchParams();
   const queryParamSearch = searchParams.get('search') || '';
+  const queryParamSadhak = searchParams.get('sadhak') || '';
 
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState<KriyaMember[]>([]);
@@ -94,9 +95,23 @@ export default function KriyaMemberList() {
   const [selectedMember, setSelectedMember] = useState<KriyaMember | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; name?: string; jsp_id?: string } | null>(null);
 
+  // Volunteer stats & roster modal states
+  const [volunteerStats, setVolunteerStats] = useState<{
+    count: number;
+    volunteerMember: KriyaMember | null;
+  } | null>(null);
+  const [loadingVolunteerStats, setLoadingVolunteerStats] = useState(false);
+
+  const [rosterVolunteerName, setRosterVolunteerName] = useState<string | null>(null);
+  const [rosterVolunteerMobile, setRosterVolunteerMobile] = useState<string | null>(null);
+  const [rosterMembers, setRosterMembers] = useState<KriyaMember[]>([]);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [rosterSearch, setRosterSearch] = useState('');
+
   // Filters
   const [searchInput, setSearchInput] = useState(queryParamSearch);
   const [activeSearch, setActiveSearch] = useState(queryParamSearch);
+  const [sadhakFilter, setSadhakFilter] = useState(queryParamSadhak);
 
   useEffect(() => {
     const param = searchParams.get('search');
@@ -104,17 +119,25 @@ export default function KriyaMemberList() {
       setSearchInput(param);
       setActiveSearch(param.trim());
     }
+    const sadhakParam = searchParams.get('sadhak');
+    if (sadhakParam) {
+      setSadhakFilter(sadhakParam.trim());
+    }
   }, [searchParams]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (previewPhoto) setPreviewPhoto(null);
+        if (previewPhoto) {
+          setPreviewPhoto(null);
+        } else if (rosterVolunteerName) {
+          setRosterVolunteerName(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [previewPhoto]);
+  }, [previewPhoto, rosterVolunteerName]);
 
   const [stateFilter, setStateFilter] = useState('');
   const [districtFilter, setDistrictFilter] = useState('');
@@ -126,12 +149,142 @@ export default function KriyaMemberList() {
   const [statusFilter, setStatusFilter] = useState('');
   const [membershipTypeFilter, setMembershipTypeFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
-  const [sadhakFilter, setSadhakFilter] = useState('');
 
   const handleSearchSubmit = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setActiveSearch(searchInput.trim());
   }, [searchInput]);
+
+  // Fetch volunteer enrollment count and volunteer's own member record whenever selectedMember changes
+  useEffect(() => {
+    if (!selectedMember || !selectedMember.volunteername) {
+      setVolunteerStats(null);
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingVolunteerStats(true);
+
+    const fetchVolunteerData = async () => {
+      try {
+        const vName = selectedMember.volunteername!.trim();
+        const cleanMobile = selectedMember.volunteer_mobile
+          ? selectedMember.volunteer_mobile.replace(/\D/g, '').slice(-10)
+          : '';
+
+        const countPromise = supabase
+          .from('jsp_kriya_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('volunteername', vName);
+
+        let memberPromise: Promise<any> | null = null;
+        if (cleanMobile && cleanMobile.length === 10) {
+          memberPromise = supabase
+            .from('jsp_kriya_members')
+            .select(MEMBER_COLS)
+            .eq('mobile', cleanMobile)
+            .limit(1);
+        } else {
+          memberPromise = supabase
+            .from('jsp_kriya_members')
+            .select(MEMBER_COLS)
+            .eq('name', vName)
+            .limit(1);
+        }
+
+        const [countRes, memberRes] = await Promise.all([countPromise, memberPromise]);
+
+        if (isMounted) {
+          setVolunteerStats({
+            count: countRes.count ?? 0,
+            volunteerMember:
+              memberRes && memberRes.data && memberRes.data.length > 0
+                ? (memberRes.data[0] as KriyaMember)
+                : null,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching volunteer data:', err);
+      } finally {
+        if (isMounted) setLoadingVolunteerStats(false);
+      }
+    };
+
+    fetchVolunteerData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedMember]);
+
+  // Open the roster modal for a volunteer
+  const openVolunteerRoster = useCallback(async (vName: string, vMobile?: string | null) => {
+    setRosterVolunteerName(vName);
+    setRosterVolunteerMobile(vMobile || null);
+    setLoadingRoster(true);
+    setRosterSearch('');
+    try {
+      const { data, error } = await supabase
+        .from('jsp_kriya_members')
+        .select(MEMBER_COLS)
+        .eq('volunteername', vName.trim())
+        .order('id', { ascending: false })
+        .limit(300);
+
+      if (error) throw error;
+      setRosterMembers((data || []) as KriyaMember[]);
+    } catch (err) {
+      console.error('Failed to load volunteer roster:', err);
+      setRosterMembers([]);
+    } finally {
+      setLoadingRoster(false);
+    }
+  }, []);
+
+  // Filter main directory table by this volunteer
+  const filterDirectoryByVolunteer = useCallback((vName: string) => {
+    setSadhakFilter(vName);
+    setSearchInput('');
+    setActiveSearch('');
+    setPage(0);
+    setSelectedMember(null);
+    setRosterVolunteerName(null);
+  }, []);
+
+  // Filtered members inside the volunteer roster modal
+  const filteredRosterMembers = useMemo(() => {
+    if (!rosterSearch.trim()) return rosterMembers;
+    const term = rosterSearch.toLowerCase().trim();
+    return rosterMembers.filter((m) =>
+      (m.name && m.name.toLowerCase().includes(term)) ||
+      (m.mobile && m.mobile.includes(term)) ||
+      (m.jsp_id && m.jsp_id.toLowerCase().includes(term)) ||
+      (m.panchayat_name && m.panchayat_name.toLowerCase().includes(term)) ||
+      (m.mandal_name && m.mandal_name.toLowerCase().includes(term)) ||
+      (m.polling_booth_number && m.polling_booth_number.includes(term))
+    );
+  }, [rosterMembers, rosterSearch]);
+
+  // Export volunteer roster to CSV
+  const exportRosterCSV = useCallback(() => {
+    if (filteredRosterMembers.length === 0) return;
+    const headers = ['ID', 'JSP ID', 'Name', 'Mobile', 'Age', 'Gender', 'Mandal', 'Panchayat', 'Booth', 'Ward', 'Phase', 'Status', 'Membership Type', 'Payment Status', 'Volunteer', 'Volunteer Mobile', 'Created Date'];
+    const rows = filteredRosterMembers.map((m) => [
+      m.id, m.jsp_id || '', m.name || '', m.mobile || '', m.age || '', m.gender || '',
+      m.mandal_name || '', m.panchayat_name || '', m.polling_booth_number || '', m.ward_no || '',
+      m.phase || '', m.status || '', m.membership_type || '', m.payment_status || '',
+      m.volunteername || '', m.volunteer_mobile || '', m.created_date || '',
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = (rosterVolunteerName || 'volunteer').replace(/[^a-zA-Z0-9_-]/g, '_');
+    a.download = `jsp_enrolled_${safeName}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filteredRosterMembers, rosterVolunteerName]);
 
   // Sadhaks options from DB
   const [sadhaks, setSadhaks] = useState<FilterOption[]>([]);
@@ -425,6 +578,13 @@ export default function KriyaMemberList() {
     } catch {}
   }, []);
 
+  const displayedSadhaks = useMemo(() => {
+    if (sadhakFilter && !sadhaks.some((s) => s.value.toLowerCase() === sadhakFilter.toLowerCase())) {
+      return [{ value: sadhakFilter, label: `${sadhakFilter} (Selected)` }, ...sadhaks];
+    }
+    return sadhaks;
+  }, [sadhaks, sadhakFilter]);
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -669,12 +829,12 @@ export default function KriyaMemberList() {
           {/* Sadhak / Volunteer */}
           <div className="relative">
             <select
-              className={selectClass}
+              className={`${selectClass} ${sadhakFilter ? 'border-amber-400 bg-amber-50/50 text-amber-900 font-semibold' : ''}`}
               value={sadhakFilter}
               onChange={(e) => setSadhakFilter(e.target.value)}
             >
-              <option value="">{`All Volunteers / Sadhaks (${sadhaks.length})`}</option>
-              {sadhaks.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              <option value="">{`All Volunteers / Sadhaks (${displayedSadhaks.length})`}</option>
+              {displayedSadhaks.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
             <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 rotate-90 pointer-events-none" />
           </div>
@@ -704,6 +864,45 @@ export default function KriyaMemberList() {
           </button>
         )}
       </div>
+
+      {/* Active Volunteer Filter Banner */}
+      {sadhakFilter && (
+        <div className="flex items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-amber-50 via-amber-50/70 to-orange-50/60 border border-amber-200 rounded-xl text-xs flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-200 text-amber-900 font-bold flex items-center justify-center text-xs flex-shrink-0">
+              <UserCheck className="w-4 h-4 text-amber-800" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-gray-500 font-medium">Volunteer Filter Active:</span>
+                <span className="font-bold text-gray-900 text-sm">{sadhakFilter}</span>
+                <span className="font-bold text-amber-900 bg-amber-200/70 px-2 py-0.5 rounded-full text-[11px]">
+                  {totalCount.toLocaleString()} Enrolled Members
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Listing all registered members recruited by this volunteer.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openVolunteerRoster(sadhakFilter)}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+            >
+              <Users className="w-3.5 h-3.5" />
+              Browse Roster
+            </button>
+            <button
+              onClick={() => setSadhakFilter('')}
+              className="p-1.5 hover:bg-amber-200/60 text-amber-900 rounded-lg transition-colors border border-amber-300"
+              title="Clear volunteer filter"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Results table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -936,11 +1135,147 @@ export default function KriyaMemberList() {
                 </div>
               </Section>
 
-              {/* Enrolled by */}
-              <Section title="Enrolled By" icon={Phone}>
-                <DetailRow label="Sadhak Name" value={selectedMember.volunteername || '—'} />
-                <DetailRow label="Sadhak Mobile" value={selectedMember.volunteer_mobile || '—'} />
-                <DetailRow label="Created Date" value={selectedMember.created_date || '—'} />
+              {/* Enrolled By Volunteer (Sadhak) */}
+              <Section title="Enrolled By Volunteer (Sadhak)" icon={UserCheck}>
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50/40 border border-amber-200/90 rounded-xl p-3.5 space-y-3">
+                  {/* Volunteer Header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      {volunteerStats?.volunteerMember?.photo_url ? (
+                        <div
+                          className="relative group cursor-pointer flex-shrink-0"
+                          onClick={() => setPreviewPhoto({
+                            url: volunteerStats.volunteerMember!.photo_url!,
+                            name: selectedMember.volunteername || undefined,
+                            jsp_id: volunteerStats.volunteerMember?.jsp_id || undefined,
+                          })}
+                          title="Click to view full photo"
+                        >
+                          <img
+                            src={volunteerStats.volunteerMember.photo_url}
+                            alt={selectedMember.volunteername || 'Volunteer'}
+                            className="w-12 h-12 rounded-xl object-cover ring-2 ring-amber-400 shadow-sm group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/30 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <ZoomIn className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-amber-200 text-amber-900 font-bold flex items-center justify-center text-sm ring-2 ring-amber-300 shadow-sm flex-shrink-0">
+                          {getInitials(selectedMember.volunteername)}
+                        </div>
+                      )}
+
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-bold text-gray-900 text-sm">
+                            {selectedMember.volunteername || 'Not recorded'}
+                          </h4>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide">
+                            Sadhak
+                          </span>
+                        </div>
+
+                        {selectedMember.volunteer_mobile && (
+                          <p className="text-xs text-gray-600 font-mono mt-0.5">{selectedMember.volunteer_mobile}</p>
+                        )}
+
+                        {volunteerStats?.volunteerMember?.jsp_id && (
+                          <p className="text-[11px] font-mono text-amber-700 font-semibold mt-0.5">
+                            JSP ID: {volunteerStats.volunteerMember.jsp_id}
+                          </p>
+                        )}
+
+                        {volunteerStats?.volunteerMember?.panchayat_name && (
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            {volunteerStats.volunteerMember.panchayat_name}, {volunteerStats.volunteerMember.mandal_name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Direct Call & WhatsApp */}
+                    {selectedMember.volunteer_mobile && (
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <a
+                          href={`tel:${selectedMember.volunteer_mobile}`}
+                          className="p-2 rounded-lg bg-white hover:bg-gray-100 text-gray-700 shadow-sm border border-gray-200 transition-colors"
+                          title="Call Volunteer"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                        <a
+                          href={`https://wa.me/91${selectedMember.volunteer_mobile.replace(/\D/g, '').slice(-10)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 rounded-lg bg-green-500 hover:bg-green-600 text-white shadow-sm transition-colors"
+                          title="WhatsApp Volunteer"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Live Enrollment Count Stat */}
+                  <div className="bg-white/90 backdrop-blur-sm rounded-lg p-2.5 border border-amber-100 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-amber-600" />
+                      <span className="text-gray-600 font-medium">Total Enrollments by Him:</span>
+                    </div>
+                    <div>
+                      {loadingVolunteerStats ? (
+                        <span className="text-gray-400 font-mono text-xs animate-pulse">Calculating...</span>
+                      ) : (
+                        <span className="font-extrabold text-amber-900 text-xs px-2 py-0.5 bg-amber-100 rounded-md">
+                          {volunteerStats?.count ?? 0} Members
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Enrollment Date */}
+                  {selectedMember.created_date && (
+                    <div className="flex items-center justify-between text-[11px] text-gray-500 px-0.5">
+                      <span>Enrolled on:</span>
+                      <span className="font-medium text-gray-700">{selectedMember.created_date}</span>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  {selectedMember.volunteername && (
+                    <div className="space-y-2 pt-1">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => openVolunteerRoster(selectedMember.volunteername!, selectedMember.volunteer_mobile)}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          Enrolled Roster
+                        </button>
+
+                        <button
+                          onClick={() => filterDirectoryByVolunteer(selectedMember.volunteername!)}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 text-xs font-semibold rounded-lg shadow-sm transition-colors"
+                        >
+                          <Filter className="w-3.5 h-3.5" />
+                          Filter Directory
+                        </button>
+                      </div>
+
+                      {/* If volunteer's own member record is found, allow inspecting it */}
+                      {volunteerStats?.volunteerMember && (
+                        <button
+                          onClick={() => openMemberDetail(volunteerStats.volunteerMember!)}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-medium rounded-lg transition-colors"
+                        >
+                          <UserCircle className="w-3.5 h-3.5" />
+                          View Volunteer's Own Membership Details
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </Section>
 
               {selectedMember.remarks && (
@@ -951,6 +1286,253 @@ export default function KriyaMemberList() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Volunteer Enrolled Members Roster Modal */}
+      {rosterVolunteerName && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setRosterVolunteerName(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-gray-200 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white p-4 sm:p-5 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg text-white shadow-inner">
+                  {getInitials(rosterVolunteerName)}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-base sm:text-lg">{rosterVolunteerName}</h3>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/25 uppercase tracking-wide">
+                      Volunteer / Sadhak
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-amber-100 mt-1 flex-wrap">
+                    {rosterVolunteerMobile && (
+                      <span className="font-mono flex items-center gap-1">
+                        <Phone className="w-3 h-3" />
+                        {rosterVolunteerMobile}
+                      </span>
+                    )}
+                    <span className="font-semibold bg-black/20 px-2 py-0.5 rounded-full">
+                      {volunteerStats?.count ?? rosterMembers.length} Total Enrolled
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Header Actions */}
+              <div className="flex items-center gap-2">
+                {rosterVolunteerMobile && (
+                  <div className="flex items-center gap-1.5 mr-1">
+                    <a
+                      href={`tel:${rosterVolunteerMobile}`}
+                      className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors"
+                      title="Call Volunteer"
+                    >
+                      <Phone className="w-4 h-4" />
+                    </a>
+                    <a
+                      href={`https://wa.me/91${rosterVolunteerMobile.replace(/\D/g, '').slice(-10)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2 rounded-xl bg-green-500 hover:bg-green-600 text-white shadow transition-colors"
+                      title="WhatsApp Volunteer"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </a>
+                  </div>
+                )}
+                <button
+                  onClick={exportRosterCSV}
+                  disabled={filteredRosterMembers.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur-sm transition-colors disabled:opacity-50"
+                  title="Export this volunteer's enrolled members to CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => setRosterVolunteerName(null)}
+                  className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors ml-1"
+                  title="Close (Esc)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Sub-bar: Search & Filter Toolbar */}
+            <div className="p-3 sm:p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Filter by name, mobile, JSP ID, panchayat, or mandal..."
+                  value={rosterSearch}
+                  onChange={(e) => setRosterSearch(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                />
+                {rosterSearch && (
+                  <button
+                    onClick={() => setRosterSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-500 font-medium">
+                  Showing <strong className="text-gray-900">{filteredRosterMembers.length}</strong> of {rosterMembers.length} loaded
+                  {volunteerStats && volunteerStats.count > rosterMembers.length && (
+                    <span className="text-amber-700 ml-1">({volunteerStats.count} total in DB)</span>
+                  )}
+                </span>
+                <button
+                  onClick={() => filterDirectoryByVolunteer(rosterVolunteerName)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-semibold transition-colors"
+                  title="Open this volunteer in the full directory table with pagination and sorting"
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  Open in Main Table
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body / Member List */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+              {loadingRoster ? (
+                <div className="py-16 text-center text-gray-500 space-y-3">
+                  <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-sm font-medium">Loading enrolled members for {rosterVolunteerName}...</p>
+                </div>
+              ) : filteredRosterMembers.length === 0 ? (
+                <div className="py-16 text-center text-gray-500 space-y-2">
+                  <Users className="w-10 h-10 text-gray-300 mx-auto" />
+                  <p className="text-sm font-semibold text-gray-700">No members match your search</p>
+                  <p className="text-xs text-gray-400">Try clearing the search input above.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredRosterMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="p-3 bg-white hover:bg-amber-50/50 rounded-xl border border-gray-100 hover:border-amber-200 transition-colors flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap"
+                    >
+                      {/* Avatar & Basic Info */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        {member.photo_url ? (
+                          <div
+                            className="relative group cursor-pointer flex-shrink-0"
+                            onClick={() => setPreviewPhoto({
+                              url: member.photo_url!,
+                              name: member.name || undefined,
+                              jsp_id: member.jsp_id || undefined,
+                            })}
+                            title="Click to view full photo"
+                          >
+                            <img
+                              src={member.photo_url}
+                              alt={member.name || ''}
+                              className="w-11 h-11 rounded-full object-cover border border-amber-300 group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/30 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <ZoomIn className="w-3.5 h-3.5 text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-11 h-11 rounded-full bg-amber-100 text-amber-800 font-bold flex items-center justify-center text-xs flex-shrink-0">
+                            {getInitials(member.name)}
+                          </div>
+                        )}
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-gray-900 text-sm truncate">{member.name || '—'}</span>
+                            {member.gender && (
+                              <span className="text-[11px] text-gray-500">
+                                • {member.age ? `${member.age}y` : ''} {member.gender}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 flex-wrap">
+                            {member.jsp_id && (
+                              <span className="font-mono text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-semibold">
+                                {member.jsp_id}
+                              </span>
+                            )}
+                            {member.mobile && (
+                              <span className="font-mono text-gray-600">{member.mobile}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Location & Status Info */}
+                      <div className="flex items-center gap-4 text-xs text-gray-600 flex-shrink-0">
+                        <div className="hidden md:block text-right">
+                          <p className="font-semibold text-gray-800">{member.panchayat_name || member.mandal_name || '—'}</p>
+                          <p className="text-[11px] text-gray-400">
+                            {member.polling_booth_number ? `Booth ${member.polling_booth_number}` : member.mandal_name || ''}
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_BADGES[(member.status || '').toLowerCase()] || 'bg-gray-100 text-gray-600'}`}>
+                            {member.status || '—'}
+                          </span>
+                          {member.created_date && (
+                            <p className="text-[10px] text-gray-400 mt-0.5 text-right font-mono">
+                              {member.created_date}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Inspect details button */}
+                        <button
+                          onClick={() => {
+                            setRosterVolunteerName(null);
+                            openMemberDetail(member);
+                          }}
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-amber-100 hover:text-amber-900 text-gray-700 font-semibold rounded-lg text-xs transition-colors"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 border-t border-gray-200 p-3 sm:p-4 flex items-center justify-between flex-wrap gap-2 text-xs">
+              <span className="text-gray-500">
+                Click <strong>View</strong> on any member to inspect full personal, nominee, and attendance details.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => filterDirectoryByVolunteer(rosterVolunteerName)}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-colors"
+                >
+                  Filter Main Directory by {rosterVolunteerName}
+                </button>
+                <button
+                  onClick={() => setRosterVolunteerName(null)}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Full Photo Lightbox Modal */}
