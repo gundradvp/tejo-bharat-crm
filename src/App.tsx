@@ -15,6 +15,8 @@ import SignupForm from './components/Auth/SignupForm';
 import ForgotPasswordForm from './components/Auth/ForgotPasswordForm';
 import ResetPasswordForm from './components/Auth/ResetPasswordForm';
 import Navbar from './components/Layout/Navbar';
+import Sidebar from './components/Layout/Sidebar';
+import { SidebarProvider, useSidebar } from './contexts/SidebarContext';
 
 import AdminDashboard from './components/Dashboard/AdminDashboard';
 import AgentDashboard from './components/Dashboard/AgentDashboard';
@@ -138,75 +140,87 @@ function ProtectedRoutes() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen theme-page-bg">
-        <Navbar />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">
-          <Routes>
-            <Route path="/" element={<DashboardRouter />} />
-            <Route path="/financial" element={<FinancialDashboard />} />
-            <Route path="/customers" element={<CustomerList />} />
-            <Route path="/customers/import-detailed" element={<SuryaGharDetailedImport />} />
-            <Route path="/customers/:id" element={<CustomerOverview />} />
-            <Route path="/customers/:id/details" element={<CustomerDetailsForm />} />
-            <Route path="/customers/:id/print" element={<DocumentPrintPage />} />
-            <Route path="/customers/:id/quotation" element={<QuotationPage />} />
-            <Route path="/customers/:id/quotation-manage" element={<QuotationManagement />} />
-            <Route path="/customers/:id/finance" element={<CustomerFinancePage />} />
-            <Route path="/customers/second-tranche" element={<SecondTranchePendingList />} />
-            <Route path="/customers/tranches" element={<SecondTranchePendingList />} />
-            <Route path="/gst/itc" element={<GSTInputTaxCreditHub />} />
-            <Route path="/quotations" element={<QuotationsList />} />
-            <Route path="/quotations/create" element={<QuotationForm />} />
-            <Route path="/quotations/:id/edit" element={<QuotationForm />} />
-            <Route path="/quotations/:id/view" element={<QuotationForm />} />
-            <Route path="/quotations/:id/print" element={<QuotationForm />} />
-            <Route path="/documents/upload" element={<CentralUploadCenter />} />
-            <Route path="/documents/manage" element={<DocumentManagementDashboard />} />
-            <Route path="/documents/solar-upload" element={<SolarDocumentUpload />} />
-            <Route path="/tasks" element={<TaskList />} />
-            <Route path="/tasks/by-user" element={<TasksByUser />} />
-            <Route path="/attendance" element={<AttendanceReports />} />
-            <Route path="/attendance/leave" element={<LeaveManagement />} />
-            <Route path="/attendance/details" element={<AttendanceDetailView />} />
-            <Route path="/attendance/calendar" element={<AttendanceCalendar />} />
-            <Route path="/items" element={<ItemsManagement />} />
-            <Route path="/lead-generators" element={<LeadGeneratorManagement />} />
-            <Route path="/workflow" element={<WorkflowManagement />} />
-            <Route path="/prospects" element={<ProspectList />} />
-            <Route path="/prospects/import" element={<ProspectImport />} />
-            <Route path="/whatsapp" element={<WhatsAppHub />} />
-            <Route path="/whatsapp/:tab" element={<WhatsAppHub />} />
-            <Route path="/eb-customers" element={<EBCustomerList />} />
-            <Route path="/eb-customers/import" element={<EBCustomerImport />} />
-            <Route path="/eb-customers/import-bills" element={<EBBillImport />} />
-            <Route path="/users" element={<UserManagement />} />
-            <Route path="/settings/custom-status" element={<CustomStatusManagement />} />
-            <Route path="/settings/master-data" element={<MasterDataManagement />} />
-            <Route path="/settings/lookups" element={<LookupManagement />} />
-            <Route path="/settings/locations" element={<LocationManagement />} />
-            <Route path="/settings/tenant" element={<TenantSettings />} />
-            <Route path="/settings/drive-mapping" element={<DriveFolderMapping />} />
-            <Route path="/settings/system-health" element={<SystemHealthDashboard />} />
-            <Route path="/debug/health" element={<SystemHealthDashboard />} />
-            <Route path="/profile" element={<ProfileManagement />} />
-            <Route path="/documentation" element={<DocumentationPage />} />
-            <Route path="/super-admin" element={<SuperAdminDashboard />} />
-            <Route path="/super-admin/tenants/create" element={<TenantManagement />} />
-            <Route path="/super-admin/tenants/:id" element={<TenantManagement />} />
-            <Route path="/jsp" element={<JSPDashboard />} />
-            <Route path="/jsp/members" element={<KriyaMemberList />} />
-            <Route path="/jsp/import" element={<KriyaImport />} />
-            <Route path="/jsp/hierarchy" element={<JSPHierarchyBrowser />} />
-            <Route path="/jsp/incharges" element={<InchargeManagement />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-
-        {/* User-Specific Personal Sticky Notes & Time Spent Tracker Modal */}
-        <StickyNotesDrawer />
-        <UserActivityModal />
-      </div>
+      <AppLayout>
+        <Routes>
+          <Route path="/" element={<DashboardRouter />} />
+          <Route path="/financial" element={<FinancialDashboard />} />
+          <Route path="/customers" element={<CustomerList />} />
+          <Route path="/customers/import-detailed" element={<SuryaGharDetailedImport />} />
+          <Route path="/customers/:id" element={<CustomerOverview />} />
+          <Route path="/customers/:id/details" element={<CustomerDetailsForm />} />
+          <Route path="/customers/:id/print" element={<DocumentPrintPage />} />
+          <Route path="/customers/:id/quotation" element={<QuotationPage />} />
+          <Route path="/customers/:id/quotation-manage" element={<QuotationManagement />} />
+          <Route path="/customers/:id/finance" element={<CustomerFinancePage />} />
+          <Route path="/customers/second-tranche" element={<SecondTranchePendingList />} />
+          <Route path="/customers/tranches" element={<SecondTranchePendingList />} />
+          <Route path="/gst/itc" element={<GSTInputTaxCreditHub />} />
+          <Route path="/quotations" element={<QuotationsList />} />
+          <Route path="/quotations/create" element={<QuotationForm />} />
+          <Route path="/quotations/:id/edit" element={<QuotationForm />} />
+          <Route path="/quotations/:id/view" element={<QuotationForm />} />
+          <Route path="/quotations/:id/print" element={<QuotationForm />} />
+          <Route path="/documents/upload" element={<CentralUploadCenter />} />
+          <Route path="/documents/manage" element={<DocumentManagementDashboard />} />
+          <Route path="/documents/solar-upload" element={<SolarDocumentUpload />} />
+          <Route path="/tasks" element={<TaskList />} />
+          <Route path="/tasks/by-user" element={<TasksByUser />} />
+          <Route path="/attendance" element={<AttendanceReports />} />
+          <Route path="/attendance/leave" element={<LeaveManagement />} />
+          <Route path="/attendance/details" element={<AttendanceDetailView />} />
+          <Route path="/attendance/calendar" element={<AttendanceCalendar />} />
+          <Route path="/items" element={<ItemsManagement />} />
+          <Route path="/lead-generators" element={<LeadGeneratorManagement />} />
+          <Route path="/workflow" element={<WorkflowManagement />} />
+          <Route path="/prospects" element={<ProspectList />} />
+          <Route path="/prospects/import" element={<ProspectImport />} />
+          <Route path="/whatsapp" element={<WhatsAppHub />} />
+          <Route path="/whatsapp/:tab" element={<WhatsAppHub />} />
+          <Route path="/eb-customers" element={<EBCustomerList />} />
+          <Route path="/eb-customers/import" element={<EBCustomerImport />} />
+          <Route path="/eb-customers/import-bills" element={<EBBillImport />} />
+          <Route path="/users" element={<UserManagement />} />
+          <Route path="/settings/custom-status" element={<CustomStatusManagement />} />
+          <Route path="/settings/master-data" element={<MasterDataManagement />} />
+          <Route path="/settings/lookups" element={<LookupManagement />} />
+          <Route path="/settings/locations" element={<LocationManagement />} />
+          <Route path="/settings/tenant" element={<TenantSettings />} />
+          <Route path="/settings/drive-mapping" element={<DriveFolderMapping />} />
+          <Route path="/settings/system-health" element={<SystemHealthDashboard />} />
+          <Route path="/debug/health" element={<SystemHealthDashboard />} />
+          <Route path="/profile" element={<ProfileManagement />} />
+          <Route path="/documentation" element={<DocumentationPage />} />
+          <Route path="/super-admin" element={<SuperAdminDashboard />} />
+          <Route path="/super-admin/tenants/create" element={<TenantManagement />} />
+          <Route path="/super-admin/tenants/:id" element={<TenantManagement />} />
+          <Route path="/jsp" element={<JSPDashboard />} />
+          <Route path="/jsp/members" element={<KriyaMemberList />} />
+          <Route path="/jsp/import" element={<KriyaImport />} />
+          <Route path="/jsp/hierarchy" element={<JSPHierarchyBrowser />} />
+          <Route path="/jsp/incharges" element={<InchargeManagement />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AppLayout>
     </ErrorBoundary>
+  );
+}
+
+function AppLayout({ children }: { children: React.ReactNode }) {
+  const { isCollapsed } = useSidebar();
+  return (
+    <div className="min-h-screen theme-page-bg">
+      <Sidebar />
+      <div className={`transition-all duration-300 ${isCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
+        <Navbar />
+        <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-8">
+          {children}
+        </main>
+      </div>
+
+      {/* User-Specific Personal Sticky Notes & Time Spent Tracker Modal */}
+      <StickyNotesDrawer />
+      <UserActivityModal />
+    </div>
   );
 }
 
@@ -214,28 +228,30 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <UserActivityProvider>
-          <ThemeProvider>
-            <ImportProgressProvider>
-              <ProspectImportProvider>
-              <EBImportProvider>
-                <TenantProvider>
-                  <Routes>
-                    <Route path="/debug/connection" element={<ConnectionTest />} />
-                    <Route path="/signup" element={<SignupForm />} />
-                    <Route path="/forgot-password" element={<ForgotPasswordForm />} />
-                    <Route path="/reset-password" element={<ResetPasswordForm />} />
-                    <Route path="*" element={<ProtectedRoutes />} />
-                  </Routes>
-                  <ImportProgressWidget />
-                  <ProspectImportProgressWidget />
-                  <EBCustomerImportProgressWidget />
-                </TenantProvider>
-              </EBImportProvider>
-              </ProspectImportProvider>
-            </ImportProgressProvider>
-          </ThemeProvider>
-        </UserActivityProvider>
+        <SidebarProvider>
+          <UserActivityProvider>
+            <ThemeProvider>
+              <ImportProgressProvider>
+                <ProspectImportProvider>
+                <EBImportProvider>
+                  <TenantProvider>
+                    <Routes>
+                      <Route path="/debug/connection" element={<ConnectionTest />} />
+                      <Route path="/signup" element={<SignupForm />} />
+                      <Route path="/forgot-password" element={<ForgotPasswordForm />} />
+                      <Route path="/reset-password" element={<ResetPasswordForm />} />
+                      <Route path="*" element={<ProtectedRoutes />} />
+                    </Routes>
+                    <ImportProgressWidget />
+                    <ProspectImportProgressWidget />
+                    <EBCustomerImportProgressWidget />
+                  </TenantProvider>
+                </EBImportProvider>
+                </ProspectImportProvider>
+              </ImportProgressProvider>
+            </ThemeProvider>
+          </UserActivityProvider>
+        </SidebarProvider>
       </AuthProvider>
     </BrowserRouter>
   );

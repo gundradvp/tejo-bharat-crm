@@ -5,6 +5,7 @@ const https = require('https');
 const COMMIT_SHA = 'main';
 
 const filesToSync = [
+  'sync.js',
   'package.json',
   'vite.config.ts',
   'tailwind.config.js',
@@ -90,6 +91,8 @@ const filesToSync = [
   'src/components/JSP/Members/KriyaImport.tsx',
   'src/components/JSP/Members/KriyaMemberList.tsx',
   'src/components/Layout/Navbar.tsx',
+  'src/components/Layout/Sidebar.tsx',
+  'src/contexts/SidebarContext.tsx',
   'src/components/LeadGenerators/LeadGeneratorManagement.tsx',
   'src/components/Notes/AddNoteForm.tsx',
   'src/components/Notes/CustomerNotes.tsx',
@@ -200,15 +203,16 @@ function fetchWithHttps(url, maxRedirects = 5) {
 }
 
 async function syncFile(file, index, total) {
+  const ts = Date.now();
+  const rawUrl = `https://raw.githubusercontent.com/gundradvp/tejo-bharat-crm/${COMMIT_SHA}/${file}?t=${ts}`;
   const cdnUrl = `https://cdn.jsdelivr.net/gh/gundradvp/tejo-bharat-crm@${COMMIT_SHA}/${file}`;
-  const rawUrl = `https://raw.githubusercontent.com/gundradvp/tejo-bharat-crm/${COMMIT_SHA}/${file}`;
 
   let content = null;
   try {
-    content = await fetchWithHttps(cdnUrl);
+    content = await fetchWithHttps(rawUrl);
   } catch (e) {
     try {
-      content = await fetchWithHttps(rawUrl);
+      content = await fetchWithHttps(cdnUrl);
     } catch (e2) {}
   }
 

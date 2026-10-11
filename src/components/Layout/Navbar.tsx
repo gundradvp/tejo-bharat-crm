@@ -1,8 +1,8 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, User, Users as UsersIcon, ListTodo, DollarSign, Upload, Settings, Building2, Shield, ChevronDown, Database, Clock, Menu, X, Package, MapPin, Home, MoreHorizontal, HelpCircle, FileText, Phone, Zap, Layers, BarChart3, Network, FolderOpen, Activity, MessageSquare, StickyNote, Sun, Receipt } from 'lucide-react';
-import { useState } from 'react';
+import { LogOut, User, Users as UsersIcon, ListTodo, DollarSign, Upload, Settings, Building2, Shield, ChevronDown, ChevronLeft, ChevronRight, Database, Clock, Menu, X, Package, MapPin, Home, MoreHorizontal, HelpCircle, FileText, Phone, Zap, Layers, BarChart3, Network, FolderOpen, Activity, MessageSquare, StickyNote, Sun, Receipt } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import { InstallButton } from '../PWA/InstallPrompt';
 import { isJSPUser, isJSPAdmin, isSolarUser, hasAnyRole, isNagarjunaUser, type Profile } from '../../lib/supabase';
 import { canAccessWhatsAppHub } from '../../lib/whatsappApi';
@@ -22,8 +22,10 @@ export default function Navbar() {
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
 
   const mobileTabClass = (path: string) =>
-    `flex flex-col items-center justify-center gap-0.5 px-2 py-1 flex-1 transition-colors ${
-      isActive(path) ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+    `flex flex-col items-center justify-center gap-0.5 px-0.5 sm:px-1 py-1 flex-1 min-w-[48px] max-w-[76px] flex-shrink-0 transition-colors ${
+      isActive(path)
+        ? (showJspNav ? 'text-amber-600 font-semibold' : 'text-blue-600 font-semibold')
+        : 'text-gray-500 hover:text-gray-700'
     }`;
 
   const handleSignOut = async () => {
@@ -48,380 +50,91 @@ export default function Navbar() {
   const canAccessWhatsApp = canAccessWhatsAppHub(profile as Profile | null);
   const canShowSuperAdmin = isSuperAdmin && !isNagarjuna && isAdmin;
 
+  const getPageTitle = (pathname: string) => {
+    if (pathname === '/') return 'Dashboard';
+    if (pathname.startsWith('/customers/second-tranche') || pathname.startsWith('/customers/tranches')) return '2nd Tranche Pending List';
+    if (pathname.startsWith('/customers')) return 'Customers';
+    if (pathname.startsWith('/prospects')) return 'Lead Prospects';
+    if (pathname.startsWith('/eb-customers')) return 'EB Customers';
+    if (pathname.startsWith('/quotations')) return 'Quotations';
+    if (pathname.startsWith('/items')) return 'Items & Products';
+    if (pathname.startsWith('/gst/itc')) return 'GST ITC Hub';
+    if (pathname.startsWith('/tasks')) return 'Tasks';
+    if (pathname.startsWith('/attendance')) return 'Staff Attendance';
+    if (pathname.startsWith('/lead-generators')) return 'Lead Generators';
+    if (pathname.startsWith('/whatsapp')) return 'WhatsApp Business Hub';
+    if (pathname.startsWith('/financial')) return 'Financial Reports';
+    if (pathname.startsWith('/documents/solar-upload')) return 'Quick Add Customer';
+    if (pathname.startsWith('/documents')) return 'Document Management';
+    if (pathname.startsWith('/users')) return 'User Management';
+    if (pathname.startsWith('/settings/tenant')) return 'Organization Settings';
+    if (pathname.startsWith('/settings/master-data')) return 'Master Data Settings';
+    if (pathname.startsWith('/settings/lookups')) return 'Dropdown Values Settings';
+    if (pathname.startsWith('/settings/locations')) return 'Location Master Data';
+    if (pathname.startsWith('/settings/custom-status')) return 'Custom Status Settings';
+    if (pathname.startsWith('/settings/drive-mapping')) return 'Drive Folder Mapping';
+    if (pathname.startsWith('/settings/system-health')) return 'DB & System Health';
+    if (pathname.startsWith('/settings')) return 'Settings';
+    if (pathname.startsWith('/super-admin')) return 'Super Admin Dashboard';
+    if (pathname.startsWith('/jsp')) return 'Jana Sena Party (JSP) Portal';
+    if (pathname.startsWith('/documentation')) return 'User Guide & Documentation';
+    if (pathname.startsWith('/profile')) return 'My Profile';
+    return tenant?.name || 'Solar CRM';
+  };
+
   return (
     <>
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 sm:gap-3 hover:opacity-90 transition-all group"
-          >
-            <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden shadow-md group-hover:shadow-lg transition-shadow bg-white p-1.5">
-              {tenant?.logo_url ? (
-                <img
-                  src={tenant.logo_url}
-                  alt={tenant.name}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentElement!.innerHTML = '<svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>';
-                  }}
-                />
-              ) : (
-                <Building2 className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
-              )}
-            </div>
-            <div className="text-left hidden sm:block">
-              <div className="flex items-baseline gap-2">
-                <h1
-                  className="text-base sm:text-lg font-bold"
-                  style={{ color: tenant?.primary_color || '#1F2937' }}
-                >
-                  {tenant?.name || 'Solar CRM'}
-                </h1>
-                {canShowSuperAdmin && (
-                  <span className="px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">
-                    Super Admin
-                  </span>
+    <nav className="bg-white/95 backdrop-blur-md border-b border-gray-200 sticky top-0 z-30 shadow-2xs">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16 gap-3">
+          {/* Mobile Brand & Logo */}
+          <div className="flex lg:hidden items-center">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2.5 hover:opacity-90 transition-all"
+            >
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl overflow-hidden shadow-xs bg-white p-1 border border-gray-200 flex-shrink-0">
+                {tenant?.logo_url ? (
+                  <img
+                    src={tenant.logo_url}
+                    alt={tenant.name}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <Building2 className="w-5 h-5 text-gray-400" />
                 )}
               </div>
-              <p className="text-xs text-gray-600 font-medium">Solar CRM & Management Portal</p>
-            </div>
-          </button>
-
-          <div className="hidden lg:flex items-center gap-2 xl:gap-4">
-            {showJspNav && (
-              <>
-                <button
-                  onClick={() => navigate('/jsp')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
-                >
-                  <Home className="w-4 h-4" />
-                  <span className="hidden xl:inline">Dashboard</span>
-                </button>
-                <button
-                  onClick={() => navigate('/jsp/members')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 rounded-lg transition-colors"
-                >
-                  <UsersIcon className="w-4 h-4" />
-                  <span className="hidden xl:inline">Members</span>
-                </button>
-                <button
-                  onClick={() => navigate('/jsp/hierarchy')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 rounded-lg transition-colors"
-                >
-                  <Layers className="w-4 h-4" />
-                  <span className="hidden xl:inline">Hierarchy</span>
-                </button>
-                {showJspIncharges && (
-                  <button
-                    onClick={() => navigate('/jsp/incharges')}
-                    className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 rounded-lg transition-colors"
-                  >
-                    <Network className="w-4 h-4" />
-                    <span className="hidden xl:inline">Incharges</span>
-                  </button>
-                )}
-                {showJspReports && (
-                  <button
-                    onClick={() => navigate('/jsp/reports')}
-                    className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 rounded-lg transition-colors"
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    <span className="hidden xl:inline">Reports</span>
-                  </button>
-                )}
-                {showJspReports && (
-                  <button
-                    onClick={() => navigate('/jsp/import')}
-                    className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:text-amber-700 rounded-lg transition-colors"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span className="hidden xl:inline">Import</span>
-                  </button>
-                )}
-              </>
-            )}
-
-            {showSolarNav && (
-            <>
-                {(isAdmin || isLeadGen || isFinanceUser) && (
-              <>
-                <button
-                  onClick={() => navigate('/documents/solar-upload')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-white btn-primary rounded-lg transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span className="hidden xl:inline">Quick Add Customer</span>
-                  <span className="xl:hidden">Add Customer</span>
-                </button>
-                <button
-                  onClick={() => navigate('/quotations')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <DollarSign className="w-4 h-4" />
-                  <span className="hidden xl:inline">Quotations</span>
-                </button>
-                {isAdmin && (
-                  <>
-                    <button
-                      onClick={() => navigate('/items')}
-                      className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                      title="Manage items and products"
-                    >
-                      <Package className="w-4 h-4" />
-                      <span className="hidden xl:inline">Items</span>
-                    </button>
-                    <button
-                      onClick={() => navigate('/gst/itc')}
-                      className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors border border-teal-200"
-                      title="GST Portal Input Tax Credit (ITC) & Vendor Bill Reconciliation"
-                    >
-                      <Receipt className="w-4 h-4 text-teal-600" />
-                      <span className="hidden xl:inline">GST ITC Hub</span>
-                      <span className="xl:hidden">GST ITC</span>
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => navigate('/documents/upload')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span className="hidden xl:inline">Upload Documents</span>
-                  <span className="xl:hidden">Upload</span>
-                </button>
-              </>
-            )}
-
-            {(isAdmin || isEmployee || isLeadGen || isNagarjuna) && (
-              <button
-                onClick={() => navigate('/prospects')}
-                className={`flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  isActive('/prospects')
-                    ? 'bg-blue-50 text-blue-800 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                title="Lead Prospects CRM"
+              <h1
+                className="text-base font-bold truncate"
+                style={{ color: tenant?.primary_color || '#1F2937' }}
               >
-                <Phone className="w-4 h-4" />
-                <span className="hidden xl:inline">Lead Prospects</span>
-              </button>
-            )}
+                {tenant?.name || 'Solar CRM'}
+              </h1>
+            </button>
+          </div>
 
-            {canAccessWhatsApp && (
+          {/* Desktop Breadcrumb / Title */}
+          <div className="hidden lg:flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              {showJspNav ? 'JSP' : (tenant?.name || 'Solar CRM')}
+            </span>
+            <span className="text-gray-300">/</span>
+            <h2 className="text-sm font-bold text-gray-900">
+              {getPageTitle(location.pathname)}
+            </h2>
+          </div>
+
+          {/* Right: Actions, Work Timer, Notes, Profile */}
+          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto">
+            {/* Quick Add Customer shortcut on desktop */}
+            {!showJspNav && (isAdmin || isLeadGen || isFinanceUser) && (
               <button
-                onClick={() => navigate('/whatsapp')}
-                className={`flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  isActive('/whatsapp')
-                    ? 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-200'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                title="WhatsApp Business Hub"
+                onClick={() => navigate('/documents/solar-upload')}
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-2xs transition-colors"
+                title="Quick Add Customer"
               >
-                <MessageSquare className="w-4 h-4 text-emerald-600" />
-                <span className="hidden xl:inline">WhatsApp</span>
-              </button>
-            )}
-
-            {(isAdmin || isEmployee || isLeadGen || isFinanceUser) && (
-              <button
-                onClick={() => navigate('/eb-customers')}
-                className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                title="EB Customers CRM"
-              >
-                <Zap className="w-4 h-4" />
-                <span className="hidden lg:inline">EB Customers</span>
-              </button>
-            )}
-
-            {(isAdmin || canManageLeadGenerators()) && (
-              <>
-                <button
-                  onClick={() => navigate('/tasks')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium theme-text-secondary hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ListTodo className="w-4 h-4" />
-                  <span className="hidden xl:inline">Tasks</span>
-                </button>
-                <button
-                  onClick={() => navigate('/attendance')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium theme-text-secondary hover:bg-gray-100 rounded-lg transition-colors"
-                  title="My attendance"
-                >
-                  <Clock className="w-4 h-4" />
-                  <span className="hidden xl:inline">Attendance</span>
-                </button>
-                <button
-                  onClick={() => navigate('/lead-generators')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium theme-text-secondary hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Manage lead generators"
-                >
-                  <UsersIcon className="w-4 h-4" />
-                  <span className="hidden xl:inline">Lead Generators</span>
-                </button>
-              </>
-            )}
-
-            {(isAdmin || isFinanceUser) && (
-              <>
-                <button
-                  onClick={() => navigate('/customers/second-tranche')}
-                  className={`flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${
-                    isActive('/customers/second-tranche')
-                      ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold'
-                      : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-200'
-                  }`}
-                  title="2nd Tranche Pending List & Loan Tranche Hub"
-                >
-                  <Layers className="w-4 h-4 text-amber-600" />
-                  <span className="hidden xl:inline">2nd Tranches</span>
-                  <span className="xl:hidden">Tranches</span>
-                </button>
-                <button
-                  onClick={() => navigate('/financial')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium theme-text-secondary hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <DollarSign className="w-4 h-4" />
-                  <span className="hidden xl:inline">Financial</span>
-                </button>
-              </>
-            )}
-
-            {isAdmin && (
-              <>
-                <button
-                  onClick={() => navigate('/documents/manage')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="View all documents and manage matches"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span className="hidden xl:inline">Doc Management</span>
-                </button>
-                <button
-                  onClick={() => navigate('/users')}
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <UsersIcon className="w-4 h-4" />
-                  <span className="hidden xl:inline">Users</span>
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                    className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Settings"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span className="hidden xl:inline">Settings</span>
-                    <ChevronDown className={`w-3 h-3 transition-transform ${showSettingsMenu ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {showSettingsMenu && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setShowSettingsMenu(false)}
-                      />
-                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                        <button
-                          onClick={() => {
-                            setShowSettingsMenu(false);
-                            navigate('/tasks/by-user');
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <ListTodo className="w-4 h-4" />
-                          <span>Tasks by User</span>
-                        </button>
-                        <div className="h-px bg-gray-200 my-1" />
-                        <button
-                          onClick={() => {
-                            setShowSettingsMenu(false);
-                            navigate('/settings/tenant');
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <Building2 className="w-4 h-4" />
-                          <span>Organization</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowSettingsMenu(false);
-                            navigate('/settings/master-data');
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <Database className="w-4 h-4" />
-                          <span>Master Data</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowSettingsMenu(false);
-                            navigate('/settings/lookups');
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <Settings className="w-4 h-4" />
-                          <span>Dropdown Values</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowSettingsMenu(false);
-                            navigate('/settings/locations');
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <MapPin className="w-4 h-4" />
-                          <span>Location Master Data</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowSettingsMenu(false);
-                            navigate('/settings/custom-status');
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <Settings className="w-4 h-4" />
-                          <span>Custom Status</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowSettingsMenu(false);
-                            navigate('/settings/drive-mapping');
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <FolderOpen className="w-4 h-4" />
-                          <span>Drive Folder Mapping</span>
-                        </button>
-                        <div className="h-px bg-gray-200 my-1" />
-                        <button
-                          onClick={() => {
-                            setShowSettingsMenu(false);
-                            navigate('/settings/system-health');
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 transition-colors font-medium"
-                        >
-                          <Activity className="w-4 h-4 text-emerald-600" />
-                          <span>DB & System Health</span>
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-            </>
-            )}
-
-            {canShowSuperAdmin && (
-              <button
-                onClick={() => navigate('/super-admin')}
-                className="flex items-center gap-2 px-3 xl:px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-              >
-                <Shield className="w-4 h-4" />
-                <span className="hidden xl:inline">Super Admin</span>
+                <Upload className="w-3.5 h-3.5" />
+                <span>Quick Add</span>
               </button>
             )}
 
@@ -431,7 +144,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={openActivityModal}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 transition-all text-xs font-bold cursor-pointer shadow-2xs"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 transition-all text-xs font-bold cursor-pointer shadow-2xs whitespace-nowrap"
               title="Work Time Spent & Activity (Click to view detailed breakdown)"
             >
               <Clock className="w-3.5 h-3.5 text-emerald-600" />
@@ -448,28 +161,31 @@ export default function Navbar() {
             <button
               type="button"
               onClick={toggleStickyNotes}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-all text-xs font-bold cursor-pointer shadow-2xs"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-all text-xs font-bold cursor-pointer shadow-2xs whitespace-nowrap"
               title="Personal Sticky Notes (1-Click Copy)"
             >
               <StickyNote className="w-3.5 h-3.5 text-amber-600 fill-amber-300" />
-              <span className="hidden xl:inline">Notes</span>
+              <span className="hidden sm:inline">Notes</span>
             </button>
 
+            {/* User Profile dropdown */}
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 xl:gap-3 px-3 xl:px-4 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-1.5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors whitespace-nowrap border border-gray-200/80"
               >
-                <User className="w-5 h-5 text-gray-600" />
-                <div className="text-sm hidden xl:block text-left">
-                  <p className="font-medium text-gray-900 leading-tight">{profile?.full_name || profile?.email?.split('@')[0] || 'User'}</p>
-                  {profile?.phone ? (
-                    <p className="text-[10px] text-emerald-700 font-mono font-semibold">{profile.phone}</p>
-                  ) : (
-                    <p className="text-[10px] text-gray-500 font-medium capitalize">{(profile?.role || 'Staff').replace('_', ' ')}</p>
-                  )}
+                <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs flex-shrink-0">
+                  {(profile?.full_name || profile?.email || 'U')[0].toUpperCase()}
                 </div>
-                <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                <div className="text-xs hidden sm:block text-left">
+                  <p className="font-semibold text-gray-900 leading-tight max-w-[120px] truncate">
+                    {profile?.full_name || profile?.email?.split('@')[0] || 'User'}
+                  </p>
+                  <p className="text-[10px] text-gray-500 font-medium capitalize truncate">
+                    {(profile?.role || 'Staff').replace('_', ' ')}
+                  </p>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
               </button>
 
               {showUserMenu && (
@@ -478,7 +194,7 @@ export default function Navbar() {
                     className="fixed inset-0 z-40"
                     onClick={() => setShowUserMenu(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
@@ -541,73 +257,77 @@ export default function Navbar() {
     </nav>
 
       {/* Mobile bottom navigation bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
-        <div className="flex items-stretch h-16">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
+        <div className="flex items-stretch justify-around h-16 px-0.5 overflow-x-auto no-scrollbar overscroll-x-contain">
           {showJspNav ? (
             <>
               <button onClick={() => { navigate('/jsp'); setShowMobileMenu(false); }} className={mobileTabClass('/jsp')}>
-                <Home className="w-5 h-5" />
-                <span className="text-xs font-medium">Home</span>
+                <Home className="w-5 h-5 flex-shrink-0" />
+                <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Home</span>
               </button>
               <button onClick={() => { navigate('/jsp/members'); setShowMobileMenu(false); }} className={mobileTabClass('/jsp/members')}>
-                <UsersIcon className="w-5 h-5" />
-                <span className="text-xs font-medium">Members</span>
+                <UsersIcon className="w-5 h-5 flex-shrink-0" />
+                <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Members</span>
               </button>
               <button onClick={() => { navigate('/jsp/hierarchy'); setShowMobileMenu(false); }} className={mobileTabClass('/jsp/hierarchy')}>
-                <Layers className="w-5 h-5" />
-                <span className="text-xs font-medium">Hierarchy</span>
+                <Layers className="w-5 h-5 flex-shrink-0" />
+                <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Hierarchy</span>
               </button>
               {showJspIncharges && (
                 <button onClick={() => { navigate('/jsp/incharges'); setShowMobileMenu(false); }} className={mobileTabClass('/jsp/incharges')}>
-                  <Network className="w-5 h-5" />
-                  <span className="text-xs font-medium">Incharges</span>
+                  <Network className="w-5 h-5 flex-shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Incharges</span>
                 </button>
               )}
               {showJspReports && (
                 <button onClick={() => { navigate('/jsp/import'); setShowMobileMenu(false); }} className={mobileTabClass('/jsp/import')}>
-                  <Upload className="w-5 h-5" />
-                  <span className="text-xs font-medium">Import</span>
+                  <Upload className="w-5 h-5 flex-shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Import</span>
                 </button>
               )}
             </>
           ) : (
             <>
-          <button onClick={() => { navigate('/'); setShowMobileMenu(false); }} className={mobileTabClass('/')}>
-            <Home className="w-5 h-5" />
-            <span className="text-xs font-medium">Home</span>
-          </button>
-          <button onClick={() => { navigate('/customers'); setShowMobileMenu(false); }} className={mobileTabClass('/customers')}>
-            <UsersIcon className="w-5 h-5" />
-            <span className="text-xs font-medium">Customers</span>
-          </button>
-          <button onClick={() => { navigate('/prospects'); setShowMobileMenu(false); }} className={mobileTabClass('/prospects')}>
-            <Phone className="w-5 h-5" />
-            <span className="text-xs font-medium">Prospects</span>
-          </button>
-          <button onClick={() => { navigate('/eb-customers'); setShowMobileMenu(false); }} className={mobileTabClass('/eb-customers')}>
-            <Zap className="w-5 h-5" />
-            <span className="text-xs font-medium">EB Customers</span>
-          </button>
-          {(isAdmin || canManageLeadGenerators()) && (
-            <button onClick={() => { navigate('/tasks'); setShowMobileMenu(false); }} className={mobileTabClass('/tasks')}>
-              <ListTodo className="w-5 h-5" />
-              <span className="text-xs font-medium">Tasks</span>
-            </button>
-          )}
-          {(isAdmin || canManageLeadGenerators()) && (
-            <button onClick={() => { navigate('/attendance'); setShowMobileMenu(false); }} className={mobileTabClass('/attendance')}>
-              <Clock className="w-5 h-5" />
-              <span className="text-xs font-medium">Attendance</span>
-            </button>
-          )}
+              <button onClick={() => { navigate('/'); setShowMobileMenu(false); }} className={mobileTabClass('/')}>
+                <Home className="w-5 h-5 flex-shrink-0" />
+                <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Home</span>
+              </button>
+              <button onClick={() => { navigate('/customers'); setShowMobileMenu(false); }} className={mobileTabClass('/customers')}>
+                <UsersIcon className="w-5 h-5 flex-shrink-0" />
+                <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Customers</span>
+              </button>
+              <button onClick={() => { navigate('/prospects'); setShowMobileMenu(false); }} className={mobileTabClass('/prospects')}>
+                <Phone className="w-5 h-5 flex-shrink-0" />
+                <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Prospects</span>
+              </button>
+              <button onClick={() => { navigate('/eb-customers'); setShowMobileMenu(false); }} className={mobileTabClass('/eb-customers')}>
+                <Zap className="w-5 h-5 flex-shrink-0" />
+                <span className="text-[10px] sm:text-xs font-medium text-center leading-tight">EB Customers</span>
+              </button>
+              {(isAdmin || canManageLeadGenerators()) && (
+                <button onClick={() => { navigate('/tasks'); setShowMobileMenu(false); }} className={mobileTabClass('/tasks')}>
+                  <ListTodo className="w-5 h-5 flex-shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Tasks</span>
+                </button>
+              )}
+              {(isAdmin || canManageLeadGenerators()) && (
+                <button onClick={() => { navigate('/attendance'); setShowMobileMenu(false); }} className={mobileTabClass('/attendance')}>
+                  <Clock className="w-5 h-5 flex-shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-medium text-center leading-tight truncate max-w-full">Attendance</span>
+                </button>
+              )}
             </>
           )}
           <button
             onClick={() => setShowMobileMenu(!showMobileMenu)}
-            className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 flex-1 transition-colors ${showMobileMenu ? (showJspNav ? 'text-amber-600' : 'text-blue-600') : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex flex-col items-center justify-center gap-0.5 px-0.5 sm:px-1 py-1 flex-1 min-w-[48px] max-w-[76px] flex-shrink-0 transition-colors ${
+              showMobileMenu
+                ? (showJspNav ? 'text-amber-600 font-semibold' : 'text-blue-600 font-semibold')
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
           >
-            {showMobileMenu ? <X className="w-5 h-5" /> : <MoreHorizontal className="w-5 h-5" />}
-            <span className="text-xs font-medium">More</span>
+            {showMobileMenu ? <X className="w-5 h-5 flex-shrink-0" /> : <MoreHorizontal className="w-5 h-5 flex-shrink-0" />}
+            <span className="text-[10px] sm:text-xs font-medium text-center leading-tight">More</span>
           </button>
         </div>
       </div>
@@ -728,9 +448,17 @@ export default function Navbar() {
               )}
 
               {showSolarNav && (isAdmin || canManageLeadGenerators()) && (
-                <button onClick={() => { navigate('/lead-generators'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
-                  <UsersIcon className="w-5 h-5" /> Lead Generators
-                </button>
+                <>
+                  <button onClick={() => { navigate('/tasks'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
+                    <ListTodo className="w-5 h-5" /> Tasks
+                  </button>
+                  <button onClick={() => { navigate('/attendance'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
+                    <Clock className="w-5 h-5" /> Attendance
+                  </button>
+                  <button onClick={() => { navigate('/lead-generators'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
+                    <UsersIcon className="w-5 h-5" /> Lead Generators
+                  </button>
+                </>
               )}
 
               {showSolarNav && (isAdmin || isFinanceUser) && (
