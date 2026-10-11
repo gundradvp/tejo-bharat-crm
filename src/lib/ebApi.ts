@@ -1338,12 +1338,23 @@ export interface JSPMemberLink {
   jsp_id: string | null;
   name: string | null;
   mobile: string | null;
+  photo_url: string | null;
   constituency_name: string | null;
   mandal_name: string | null;
   panchayat_name: string | null;
   volunteername: string | null;
   volunteer_mobile: string | null;
   status: string | null;
+  age?: number | null;
+  gender?: string | null;
+  dob?: string | null;
+  address?: string | null;
+  membership_type?: string | null;
+  phase?: string | null;
+  payment_status?: string | null;
+  polling_booth_number?: string | null;
+  ward_no?: string | null;
+  nominee_name?: string | null;
 }
 
 export async function fetchJSPMembersForEBCustomers(
@@ -1365,7 +1376,7 @@ export async function fetchJSPMembersForEBCustomers(
   try {
     const { data, error } = await supabase
       .from('jsp_kriya_members')
-      .select('id, jsp_id, name, mobile, constituency_name, mandal_name, panchayat_name, volunteername, volunteer_mobile, status')
+      .select('id, jsp_id, name, mobile, photo_url, constituency_name, mandal_name, panchayat_name, volunteername, volunteer_mobile, status, age, gender, dob, address, membership_type, phase, payment_status, polling_booth_number, ward_no, nominee_name')
       .in('mobile', cleanMobiles);
 
     if (error || !data) {

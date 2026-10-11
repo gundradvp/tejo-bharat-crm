@@ -80,7 +80,7 @@ function getInitials(name: string | null): string {
   return parts[0].slice(0, 2).toUpperCase();
 }
 
-const MEMBER_COLS = 'id,jsp_id,name,mobile,age,dob,gender,aadhar_number,address,membership_type,phase,status,payment_id,payment_status,payment_verified,payment_completed_date,parliament_constituency_id,parliament_constituency_name,assembly_id,constituency_name,mandal_name,panchayat_name,polling_booth_number,ward_no,volunteername,volunteer_mobile,created_date,nominee_name,nominee_aadhar_number,y2021_present,y2022_present,y2023_present,y2024_present,y2026_present,remarks';
+const MEMBER_COLS = 'id,jsp_id,name,mobile,photo_url,age,dob,gender,aadhar_number,address,membership_type,phase,status,payment_id,payment_status,payment_verified,payment_completed_date,parliament_constituency_id,parliament_constituency_name,assembly_id,constituency_name,mandal_name,panchayat_name,polling_booth_number,ward_no,volunteername,volunteer_mobile,created_date,nominee_name,nominee_aadhar_number,y2021_present,y2022_present,y2023_present,y2024_present,y2026_present,remarks';
 
 export default function KriyaMemberList() {
   const { profile } = useAuth();
@@ -201,7 +201,7 @@ export default function KriyaMemberList() {
 
   // Apply filters to a query builder
   const applyFilters = (q: any) => {
-    if (volunteerFilter) q = q.eq('volunteername', volunteerFilter);
+    if (volunteerFilter && !activeSearch.trim()) q = q.eq('volunteername', volunteerFilter);
     if (parliamentFilter) q = q.eq('parliament_constituency_name', parliamentFilter);
     if (assemblyFilter) q = q.eq('constituency_name', assemblyFilter);
     else if (districtFilter) {
@@ -223,17 +223,20 @@ export default function KriyaMemberList() {
 
     if (activeSearch.trim()) {
       const term = activeSearch.trim();
-      const isNumeric = /^\d+$/.test(term);
-      if (isNumeric) {
-        if (term.length === 12) {
-          q = q.or(`aadhar_number.eq.${term},mobile.eq.${term},aadhar_number.ilike.%${term}%,jsp_id.ilike.%${term}%`);
-        } else if (term.length === 10) {
-          q = q.or(`mobile.eq.${term},mobile.ilike.%${term}%,aadhar_number.ilike.%${term}%,jsp_id.ilike.%${term}%`);
-        } else {
-          q = q.or(`mobile.ilike.%${term}%,aadhar_number.ilike.%${term}%,jsp_id.ilike.%${term}%`);
-        }
+      const cleanDigits = term.replace(/\D/g, '');
+      if (cleanDigits.length === 10) {
+        // Fast index lookup for 10-digit mobile
+        q = q.eq('mobile', cleanDigits);
+      } else if (cleanDigits.length === 12) {
+        // Aadhar lookup
+        q = q.eq('aadhar_number', cleanDigits);
+      } else if (/^\d{3}-\d{5}$/.test(term)) {
+        // Exact JSP ID format
+        q = q.eq('jsp_id', term);
+      } else if (/^\d+$/.test(term)) {
+        q = q.or(`mobile.eq.${term},jsp_id.eq.${term}`);
       } else {
-        q = q.or(`name.ilike.%${term}%,jsp_id.ilike.%${term}%`);
+        q = q.ilike('name', `%${term}%`);
       }
     }
     return q;
@@ -748,7 +751,22 @@ export default function KriyaMemberList() {
                         className="border-b border-gray-50 hover:bg-amber-50/40 cursor-pointer transition-colors"
                       >
                         <td className="py-2.5 px-3">
-                          <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-xs font-bold text-amber-700">
+                          {m.photo_url ? (
+                            <img
+                              src={m.photo_url}
+                              alt={m.name || ''}
+                              className="w-9 h-9 rounded-full object-cover border border-amber-200 shadow-sm"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                if (e.currentTarget.nextElementSibling) {
+                                  (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`w-9 h-9 rounded-full bg-amber-100 items-center justify-center text-xs font-bold text-amber-700 ${m.photo_url ? 'hidden' : 'flex'}`}
+                          >
                             {getInitials(m.name)}
                           </div>
                         </td>

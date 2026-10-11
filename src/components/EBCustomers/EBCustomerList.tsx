@@ -1112,10 +1112,19 @@ export default function EBCustomerList() {
                               e.stopPropagation();
                               navigate(`/jsp/members?search=${encodeURIComponent(jspMember.mobile || jspMember.jsp_id || customer.mobile_number || '')}`);
                             }}
-                            className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 hover:bg-red-200 border border-red-200 flex items-center gap-1 cursor-pointer transition-colors"
+                            className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 hover:bg-red-200 border border-red-200 flex items-center gap-1.5 cursor-pointer transition-colors"
                             title={`JSP Member: ${jspMember.name || jspMember.jsp_id || ''} (${jspMember.constituency_name || 'JSP'}) - Click to view JSP Profile`}
                           >
-                            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+                            {jspMember.photo_url ? (
+                              <img
+                                src={jspMember.photo_url}
+                                alt=""
+                                className="w-3.5 h-3.5 rounded-full object-cover border border-red-300"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+                            )}
                             JSP Member ({jspMember.constituency_name || 'JSP'})
                           </span>
                         )}

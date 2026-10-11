@@ -137,7 +137,7 @@ export const isJSPUser = (profile: Profile | null): boolean => {
 };
 
 export const isJSPAdmin = (profile: Profile | null): boolean => {
-  return hasRole(profile, 'jsp_admin');
+  return hasAnyRole(profile, ['jsp_admin', 'admin', 'super_admin']);
 };
 
 export const isSolarUser = (profile: Profile | null): boolean =>
