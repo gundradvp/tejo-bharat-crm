@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, Copy, Check, Search, Upload, Users, Filter, MapPin, Zap, Clock, Loader2, TrendingUp, Calendar, Database, ChevronLeft, ChevronRight, RefreshCw, RotateCcw, Receipt, IndianRupee, Gauge, Download, Link2, UserSearch, X, Sun as SunIcon, FileStack, Flame, UserCircle, Building2, ArrowUpDown, MessageSquare } from 'lucide-react';
+import { Phone, Copy, Check, Search, Upload, Users, Filter, MapPin, Zap, Clock, Loader2, TrendingUp, Calendar, Database, ChevronLeft, ChevronRight, RefreshCw, RotateCcw, Receipt, IndianRupee, Gauge, Download, Link2, UserSearch, X, Sun as SunIcon, FileStack, Flame, UserCircle, Building2, ArrowUpDown, MessageSquare, Camera, ZoomIn, ExternalLink } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Pagination from '../Common/Pagination';
 import { useAuth } from '../../contexts/AuthContext';
@@ -172,6 +172,17 @@ export default function EBCustomerList() {
   const [volunteerFilter, setVolunteerFilter] = useState<string>('');
   const [volunteerAssembly, setVolunteerAssembly] = useState<string>('Pithapuram');
   const [volunteersList, setVolunteersList] = useState<string[]>([]);
+  const [previewPhoto, setPreviewPhoto] = useState<{ url: string; name?: string; jsp_id?: string } | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && previewPhoto) {
+        setPreviewPhoto(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewPhoto]);
 
   const AVAILABLE_ASSEMBLIES = useMemo(() => {
     return Array.from(new Set(JSP_LOCATION_HIERARCHY.map((n) => n.assembly))).filter(Boolean).sort();
@@ -1107,26 +1118,37 @@ export default function EBCustomerList() {
                           </span>
                         )}
                         {isAdmin && jspMember && (
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/jsp/members?search=${encodeURIComponent(jspMember.mobile || jspMember.jsp_id || customer.mobile_number || '')}`);
-                            }}
-                            className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 hover:bg-red-200 border border-red-200 flex items-center gap-1.5 cursor-pointer transition-colors"
-                            title={`JSP Member: ${jspMember.name || jspMember.jsp_id || ''} (${jspMember.constituency_name || 'JSP'}) - Click to view JSP Profile`}
-                          >
-                            {jspMember.photo_url ? (
-                              <img
-                                src={jspMember.photo_url}
-                                alt=""
-                                className="w-3.5 h-3.5 rounded-full object-cover border border-red-300"
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                              />
-                            ) : (
-                              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+                          <div className="inline-flex items-center gap-1 flex-wrap">
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/jsp/members?search=${encodeURIComponent(jspMember.mobile || jspMember.jsp_id || customer.mobile_number || '')}`);
+                              }}
+                              className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 hover:bg-red-200 border border-red-200 flex items-center gap-1.5 cursor-pointer transition-colors"
+                              title={`JSP Member: ${jspMember.name || jspMember.jsp_id || ''} (${jspMember.constituency_name || 'JSP'}) - Click to view JSP Profile`}
+                            >
+                              <span className="w-2 h-2 rounded-full bg-red-600"></span>
+                              JSP Member ({jspMember.constituency_name || 'JSP'})
+                            </span>
+                            {jspMember.photo_url && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewPhoto({
+                                    url: jspMember.photo_url!,
+                                    name: jspMember.name || undefined,
+                                    jsp_id: jspMember.jsp_id || undefined,
+                                  });
+                                }}
+                                className="px-1.5 py-0.5 text-[11px] font-medium rounded-full bg-white hover:bg-red-50 text-red-700 hover:text-red-800 border border-red-200 shadow-sm flex items-center gap-1 transition-colors cursor-pointer"
+                                title="View member photo on request"
+                              >
+                                <Camera className="w-3 h-3 text-red-500" />
+                                Photo
+                              </button>
                             )}
-                            JSP Member ({jspMember.constituency_name || 'JSP'})
-                          </span>
+                          </div>
                         )}
                         {customer.follow_up_date && (
                         <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700 flex items-center gap-1">
@@ -1282,6 +1304,59 @@ export default function EBCustomerList() {
                 {exporting ? 'Exporting...' : 'Export Now'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Photo Lightbox Modal (shown on request) */}
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div
+            className="relative max-w-2xl w-full max-h-[92vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Toolbar */}
+            <div className="w-full flex items-center justify-between pb-3 text-white">
+              <div>
+                <h4 className="font-bold text-base">{previewPhoto.name || 'JSP Member Photo'}</h4>
+                {previewPhoto.jsp_id && (
+                  <p className="text-xs text-red-300 font-mono">JSP ID: {previewPhoto.jsp_id}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewPhoto.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  title="Open original image"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                </a>
+                <button
+                  onClick={() => setPreviewPhoto(null)}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  title="Close (Esc)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Photo Preview Container */}
+            <div className="relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-black/40 flex items-center justify-center max-h-[80vh]">
+              <img
+                src={previewPhoto.url}
+                alt={previewPhoto.name || 'Full Member Photo'}
+                className="max-h-[80vh] w-auto max-w-full object-contain rounded-2xl"
+              />
+            </div>
+
+            <p className="text-xs text-gray-400 mt-2">Click outside or press Close to dismiss</p>
           </div>
         </div>
       )}
