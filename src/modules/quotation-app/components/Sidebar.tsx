@@ -24,7 +24,8 @@ import {
   ShoppingBag,
   CreditCard,
   Download,
-  Upload
+  Upload,
+  PanelLeftClose
 } from 'lucide-react';
 import { DocumentType } from '../types/quotation';
 
@@ -48,6 +49,8 @@ interface SidebarProps {
   onImportBackup?: (file: File) => void;
   basePath?: string;
   onBackToCrm?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -69,7 +72,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onExportBackup,
   onImportBackup,
   basePath = "",
-  onBackToCrm
+  onBackToCrm,
+  isCollapsed = false,
+  onToggleCollapse
 }) => {
   const navigate = useNavigate();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -101,28 +106,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-64 bg-[#0a1128] text-slate-300 flex flex-col justify-between min-h-screen no-print select-none border-r border-slate-800/80 shadow-2xl font-sans">
+    <aside className="w-64 bg-[#0a1128] text-slate-300 flex flex-col justify-between min-h-screen no-print select-none border-r border-slate-800/80 shadow-2xl font-sans flex-shrink-0 transition-all duration-300">
       
       {/* TOP HEADER */}
       <div className="p-3.5 space-y-3.5">
 
-        {/* Back to Solar CRM button when embedded in CRM */}
-        {onBackToCrm && (
-          <button
-            onClick={onBackToCrm}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all group cursor-pointer"
-          >
-            <Sun className="w-4 h-4 text-slate-950 group-hover:rotate-45 transition-transform" />
-            <span>← Switch to Solar CRM</span>
-          </button>
-        )}
+        {/* Back to Solar CRM button & Hide Sidebar toggle */}
+        <div className="flex items-center gap-2">
+          {onBackToCrm && (
+            <button
+              onClick={onBackToCrm}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all group cursor-pointer"
+            >
+              <Sun className="w-4 h-4 text-slate-950 group-hover:rotate-45 transition-transform" />
+              <span>← Switch to Solar CRM</span>
+            </button>
+          )}
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="p-2 bg-[#121c3d] hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700/80 transition-all cursor-pointer shadow-sm group flex-shrink-0 ml-auto"
+              title="Hide Sidebar"
+            >
+              <PanelLeftClose className="w-4 h-4 group-hover:scale-110 transition-transform text-slate-300" />
+            </button>
+          )}
+        </div>
         
         {/* Company Profile Header */}
         <div className="flex items-center gap-3 p-2 bg-[#121c3d] rounded-xl border border-slate-800/90 shadow-sm">
           <div className="w-9 h-9 bg-slate-900 border border-slate-700 rounded-lg flex items-center justify-center font-black text-xs text-white shadow-inner flex-shrink-0 bg-gradient-to-br from-indigo-900 to-slate-950">
             TB
           </div>
-          <div className="overflow-hidden leading-tight">
+          <div className="overflow-hidden leading-tight flex-1">
             <h1 className="font-extrabold text-xs text-white tracking-wide truncate">
               TEJO BHARAT GLO...
             </h1>
@@ -130,6 +146,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               9479797947
             </p>
           </div>
+          {!onBackToCrm && onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer flex-shrink-0"
+              title="Hide Sidebar"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* CREATE SALES INVOICE PRIMARY BUTTON (Matching MyBillBook Screenshot media_1789136175759.png) */}

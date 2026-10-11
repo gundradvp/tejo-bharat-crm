@@ -1066,5 +1066,17 @@
     "same_as_billing": true,
     "balance": 840000,
     "balance_type": "To Collect"
+  },
+  {
+    "id": "p-manikanta",
+    "name": "Mr. V Manikanta",
+    "mobile_number": "7845525775",
+    "party_type": "Customer",
+    "party_category": "Residential / Home",
+    "billing_address": "Bendapudi, Andhra Pradesh",
+    "shipping_address": "Bendapudi, Andhra Pradesh",
+    "same_as_billing": true,
+    "balance": 222000,
+    "balance_type": "To Collect"
   }
 ]

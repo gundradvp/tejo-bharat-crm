@@ -29,7 +29,7 @@
     "structure_type": "Hot-Dip Galvanized (HDG) Elevated Iron Structure",
     "branch_id": "pith-ap",
     "hsn_code": "85414011",
-    "gst_rate_percent": 0,
+    "gst_rate_percent": 8.9,
     "payment_status": "Unpaid",
     "auto_round_off": true,
     "amount_received": 0,
@@ -44,9 +44,9 @@
         "description": "550W Mono PERC / TOPCon Modules (27 Nos), Deye 15KW 3-Phase String Inverter, Heavy Duty HDG Structure, Polycab DC/AC Cables, ACDB/DCDB & Net Metering Coordination",
         "qty": 15,
         "unit": "kW",
-        "price_per_item": 55000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 50505.05,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 67424.24,
         "total_amount": 825000
       }
     ]
@@ -81,7 +81,7 @@
     "structure_type": "Hot-Dip Galvanized (HDG) Iron Structure",
     "branch_id": "pith-ap",
     "hsn_code": "85414011",
-    "gst_rate_percent": 0,
+    "gst_rate_percent": 8.9,
     "payment_status": "Unpaid",
     "auto_round_off": true,
     "amount_received": 0,
@@ -96,9 +96,9 @@
         "description": "550W Mono PERC / TOPCon Modules (9 Nos), Deye 5KW String Inverter, Heavy Duty HDG Structure, Polycab DC/AC Cables, ACDB/DCDB & Net Metering Coordination",
         "qty": 5,
         "unit": "kW",
-        "price_per_item": 60000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 55096.42,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 24517.91,
         "total_amount": 300000
       }
     ]
@@ -112,8 +112,8 @@
     "valid_until": "2026-10-16",
     "customer_name": "KVB Model village project, GRAMODAYA (4 Institutional Sites)",
     "customer_phone": "9989279586",
-    "customer_address": "Panchayat, RSK Building, Health Center & ZPHS School, KVB",
-    "customer_billing_address": "Panchayat, RSK Building, Health Center & ZPHS School, KVB",
+    "customer_address": "Panchayat, RSK Building, Health Center & ZPHS School, KVB, Andhra Pradesh",
+    "customer_billing_address": "Panchayat, RSK Building, Health Center & ZPHS School, KVB, Andhra Pradesh",
     "customer_location": "KVB, Andhra Pradesh",
     "category": "Commercial / Institutional",
     "installation_type": "Multi-Site On-Grid & Hybrid Rooftop Solar Plant (17 kW Total)",
@@ -192,9 +192,9 @@
         "description": "5 kW Dual Output Hybrid Inverter Upgrade (Grid Export + Critical Load Backup)",
         "qty": 1,
         "unit": "Set",
-        "price_per_item": 73461.89,
-        "tax_rate_percent": 8.9,
-        "tax_amount": 6538.11,
+        "price_per_item": 76190.48,
+        "tax_rate_percent": 5,
+        "tax_amount": 3809.52,
         "total_amount": 80000
       },
       {
@@ -203,9 +203,9 @@
         "description": "10 kWh LFP Battery Storage Bank for 24/7 Medical Cold Chain Backup",
         "qty": 1,
         "unit": "Set",
-        "price_per_item": 160697.89,
-        "tax_rate_percent": 8.9,
-        "tax_amount": 14302.11,
+        "price_per_item": 148305.08,
+        "tax_rate_percent": 18,
+        "tax_amount": 26694.92,
         "total_amount": 175000
       },
       {
@@ -214,9 +214,9 @@
         "description": "Heavy-Duty DC Distribution Box with SPDs & Protection",
         "qty": 1,
         "unit": "Nos",
-        "price_per_item": 11478.42,
-        "tax_rate_percent": 8.9,
-        "tax_amount": 1021.58,
+        "price_per_item": 10593.22,
+        "tax_rate_percent": 18,
+        "tax_amount": 1906.78,
         "total_amount": 12500
       },
       {
@@ -225,9 +225,9 @@
         "description": "Battery Enclosure Rack & Protective Box",
         "qty": 1,
         "unit": "Nos",
-        "price_per_item": 11478.42,
-        "tax_rate_percent": 8.9,
-        "tax_amount": 1021.58,
+        "price_per_item": 10593.22,
+        "tax_rate_percent": 18,
+        "tax_amount": 1906.78,
         "total_amount": 12500
       }
     ]
@@ -262,7 +262,7 @@
     "structure_type": "HDG Steel Elevated Superstructure (6ft–10ft, 80+ Micron Zinc)",
     "branch_id": "hyd-hq",
     "hsn_code": "85414011",
-    "gst_rate_percent": 0,
+    "gst_rate_percent": 8.9,
     "payment_status": "Unpaid",
     "auto_round_off": true,
     "amount_received": 0,
@@ -277,9 +277,9 @@
         "description": "20 kWp Mono DCR 580W+ Modules (35 Nos), Deye 20kW 3-Phase Inverter, HDG Elevated Superstructure (6ft–10ft), Polycab Cables, Net Metering Coordination (Gross: ₹12,00,000, Less Subsidy: ₹3,60,000)",
         "qty": 20,
         "unit": "kW",
-        "price_per_item": 42000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 38567.49,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 68650.14,
         "total_amount": 840000
       }
     ]
@@ -314,7 +314,7 @@
     "structure_type": "Hot-Dip Galvanized (HDG) Structure",
     "branch_id": "hyd-hq",
     "hsn_code": "85414011",
-    "gst_rate_percent": 0,
+    "gst_rate_percent": 8.9,
     "payment_status": "Unpaid",
     "auto_round_off": true,
     "amount_received": 0,
@@ -329,9 +329,9 @@
         "description": "15 kWp Mono DCR Solar Modules, Deye 15kW Inverter, HDG Structure, Turnkey Installation",
         "qty": 15,
         "unit": "kW",
-        "price_per_item": 50000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 45913.68,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 61294.77,
         "total_amount": 750000
       }
     ]
@@ -366,7 +366,7 @@
     "structure_type": "GI / Aluminium Heavy Duty Mounting Structure",
     "branch_id": "pith-ap",
     "hsn_code": "85414011",
-    "gst_rate_percent": 0,
+    "gst_rate_percent": 8.9,
     "payment_status": "Unpaid",
     "auto_round_off": true,
     "amount_received": 0,
@@ -381,9 +381,9 @@
         "description": "3 kW Mono PERC Modules (6 Nos), 3kW Solis/Growatt Inverter, GI Structure, Net Metering & Subsidy Assistance (Gross: ₹2,00,000, MNRE Subsidy: ₹78,000, Net Effective: ₹1,22,000)",
         "qty": 3,
         "unit": "kW",
-        "price_per_item": 66667,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 61218.24,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 16345.27,
         "total_amount": 200000
       }
     ]
@@ -418,7 +418,7 @@
     "structure_type": "HDG Steel Structure",
     "branch_id": "pith-ap",
     "hsn_code": "85414011",
-    "gst_rate_percent": 0,
+    "gst_rate_percent": 8.9,
     "payment_status": "Unpaid",
     "auto_round_off": true,
     "amount_received": 0,
@@ -433,10 +433,64 @@
         "description": "3 kWp Mono DCR Solar Modules, 3 kW String Inverter, HDG Mounting Structure, BOS & Turnkey Setup",
         "qty": 3,
         "unit": "kW",
-        "price_per_item": 70000,
-        "tax_rate_percent": 0,
-        "tax_amount": 0,
+        "price_per_item": 64279.16,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 17162.53,
         "total_amount": 210000
+      }
+    ]
+  },
+  {
+    "id": "quote-TBGE2627Q011",
+    "document_type": "Quotation",
+    "invoice_prefix": "TBGE2627Q",
+    "quotation_no": "TBGE2627Q011",
+    "quotation_date": "2026-10-11",
+    "valid_until": "2026-10-16",
+    "customer_name": "Mr. V Manikanta",
+    "customer_phone": "7845525775",
+    "customer_address": "Bendapudi, Andhra Pradesh",
+    "customer_billing_address": "Bendapudi, Andhra Pradesh",
+    "customer_location": "Bendapudi, Andhra Pradesh",
+    "category": "Residential / Home",
+    "installation_type": "3 kWp On-Grid Solar PV Power System",
+    "system_capacity_kw": 3,
+    "pricing_mode": "total_cost",
+    "rate_per_kw": 74000,
+    "total_amount": 222000,
+    "monthly_units": 375,
+    "annual_units": 4500,
+    "system_life_years": 25,
+    "monthly_savings_rs": 2813,
+    "payback_period_years": 4,
+    "panel_brand": "Premier / Waaree 500+ W Mono DCR (ALMM Listed) (6 Nos)",
+    "inverter_brand": "3 kW Three Phase / Single Phase String Inverter with 24/7 Wi-Fi Monitoring App",
+    "inverter_phase": "Single Phase",
+    "cables_brand": "Polycab / Havells UV-Protected DC & Armored AC Cables",
+    "structure_type": "HDG Elevated Structure (80µ Zinc) (Elevated Superstructure / Flush Mount)",
+    "branch_id": "pith-ap",
+    "hsn_code": "85414011",
+    "gst_rate_percent": 8.9,
+    "payment_status": "Unpaid",
+    "auto_round_off": true,
+    "amount_received": 0,
+    "payment_type": "Bank Transfer",
+    "is_fully_paid": false,
+    "status": "Active",
+    "quote_format": "5_page",
+    "subsidy_amount": 78000,
+    "net_payable": 144000,
+    "line_items": [
+      {
+        "id": "li-manikanta-1",
+        "name": "3 kWp On-Grid Solar PV Power System",
+        "description": "3 kWp 500+ W Mono DCR Solar Array, 3 kW On-Grid String Inverter, HDG Structure & BOS",
+        "qty": 3,
+        "unit": "kW",
+        "price_per_item": 67952.25,
+        "tax_rate_percent": 8.9,
+        "tax_amount": 18143.25,
+        "total_amount": 222000
       }
     ]
   }

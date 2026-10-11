@@ -16,7 +16,7 @@ import { supabase } from './lib/supabase';
 import { getNextSequentialNumber } from './lib/quoteNumberGenerator';
 import historicalQuotations from './data/historicalQuotations.json';
 import historicalParties from './data/historicalParties.json';
-import { CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle, AlertCircle, ArrowLeft, PanelLeftOpen } from 'lucide-react';
 
 const INITIAL_QUOTATION: Quotation = {
   document_type: 'Quotation',
@@ -110,9 +110,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: '5 kW Dual Output Hybrid Inverter Upgrade (Grid Export + Critical Load Backup)',
       qty: 1,
       unit: 'Set',
-      price_per_item: 73461.89,
-      tax_rate_percent: 8.9,
-      tax_amount: 6538.11,
+      price_per_item: 76190.48,
+      tax_rate_percent: 5,
+      tax_amount: 3809.52,
       total_amount: 80000,
     },
     {
@@ -121,9 +121,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: '10 kWh LFP Battery Storage Bank for 24/7 Medical Cold Chain Backup',
       qty: 1,
       unit: 'Set',
-      price_per_item: 160697.89,
-      tax_rate_percent: 8.9,
-      tax_amount: 14302.11,
+      price_per_item: 148305.08,
+      tax_rate_percent: 18,
+      tax_amount: 26694.92,
       total_amount: 175000,
     },
     {
@@ -132,9 +132,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: 'Heavy-Duty DC Distribution Box with SPDs & Protection',
       qty: 1,
       unit: 'Nos',
-      price_per_item: 11478.42,
-      tax_rate_percent: 8.9,
-      tax_amount: 1021.58,
+      price_per_item: 10593.22,
+      tax_rate_percent: 18,
+      tax_amount: 1906.78,
       total_amount: 12500,
     },
     {
@@ -143,9 +143,9 @@ const INITIAL_QUOTATION: Quotation = {
       description: 'Battery Enclosure Rack & Protective Box',
       qty: 1,
       unit: 'Nos',
-      price_per_item: 11478.42,
-      tax_rate_percent: 8.9,
-      tax_amount: 1021.58,
+      price_per_item: 10593.22,
+      tax_rate_percent: 18,
+      tax_amount: 1906.78,
       total_amount: 12500,
     },
   ],
@@ -221,6 +221,23 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
   const [isBranchModalOpen, setIsBranchModalOpen] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('tb_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('tb_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Synchronize React state with URL path (including individual quotation/invoice routes & query pre-fills)
   useEffect(() => {
@@ -445,12 +462,25 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
                 // If it's the obsolete 12.75L draft, keep the canonical 14.70L version
                 if (key === 'TBGE2627Q003') {
                   if (q.total_amount === 1275000) return;
-                  if (!q.gst_rate_percent || q.gst_rate_percent === 0) {
-                    const canonical = masterHistorical.find(m => (m.quotation_no || '').trim().toUpperCase() === 'TBGE2627Q003');
+                  const canonical003 = masterHistorical.find(m => (m.quotation_no || '').trim().toUpperCase() === 'TBGE2627Q003');
+                  if (canonical003 && (!q.gst_rate_percent || q.gst_rate_percent === 0 || !q.line_items?.some(it => it.tax_rate_percent > 0))) {
                     q = {
                       ...q,
-                      gst_rate_percent: canonical?.gst_rate_percent || 8.9,
-                      line_items: canonical?.line_items || INITIAL_QUOTATION.line_items,
+                      customer_name: canonical003.customer_name,
+                      customer_address: canonical003.customer_address,
+                      customer_billing_address: canonical003.customer_billing_address,
+                      customer_location: canonical003.customer_location,
+                      gst_rate_percent: canonical003.gst_rate_percent || 8.9,
+                      line_items: canonical003.line_items || INITIAL_QUOTATION.line_items,
+                    };
+                  }
+                } else {
+                  const canonical = masterHistorical.find(m => (m.quotation_no || '').trim().toUpperCase() === key);
+                  if (canonical && (!q.gst_rate_percent || q.gst_rate_percent === 0) && canonical.gst_rate_percent && canonical.gst_rate_percent > 0) {
+                    q = {
+                      ...q,
+                      gst_rate_percent: canonical.gst_rate_percent,
+                      line_items: canonical.line_items || q.line_items,
                     };
                   }
                 }
@@ -1014,42 +1044,58 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f5f9] flex font-sans select-none">
+    <div className="min-h-screen bg-[#f4f5f9] flex font-sans select-none relative">
       
+      {/* Floating Show Sidebar Button when collapsed */}
+      {isSidebarCollapsed && (
+        <button
+          onClick={toggleSidebarCollapse}
+          className="fixed top-3 left-3 z-50 bg-[#0a1128] hover:bg-[#121c3d] text-slate-200 hover:text-white p-2.5 px-3.5 rounded-xl shadow-2xl border border-slate-700/80 flex items-center gap-2 text-xs font-bold transition-all cursor-pointer group no-print animate-in fade-in"
+          title="Show Sidebar"
+        >
+          <PanelLeftOpen className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+          <span className="hidden sm:inline">Show Sidebar</span>
+        </button>
+      )}
+
       {/* MyBillBook Left Dark Sidebar */}
-      <Sidebar
-        basePath={basePath}
-        onBackToCrm={onBackToCrm}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        activeDocFilter={activeDocFilter}
-        setActiveDocFilter={setActiveDocFilter}
-        onNewDocument={handleNewDocument}
-        onOpenBranchModal={() => setIsBranchModalOpen(true)}
-        onOpenParties={() => setActiveTab('parties')}
-        onOpenItems={() => setActiveTab('items')}
-        onOpenCreateParty={() => {
-          setEditingParty(null);
-          setActiveTab('party_form');
-        }}
-        onOpenCreateItem={() => {
-          setEditingItem(null);
-          setIsItemModalOpen(true);
-        }}
-        onOpenCreatePaymentIn={() => {
-          setSelectedInvoiceForModal(null);
-          setIsPaymentInModalOpen(true);
-        }}
-        quotationsCount={quotationsHistory.filter(q => (q.document_type || 'Quotation') === 'Quotation').length}
-        invoicesCount={quotationsHistory.filter(q => q.document_type === 'Sales Invoice' || q.document_type === 'Tax Invoice').length}
-        partiesCount={parties.length}
-        itemsCount={items.length}
-        onExportBackup={handleExportBackup}
-        onImportBackup={handleImportBackup}
-      />
+      {!isSidebarCollapsed && (
+        <Sidebar
+          basePath={basePath}
+          onBackToCrm={onBackToCrm}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          activeDocFilter={activeDocFilter}
+          setActiveDocFilter={setActiveDocFilter}
+          onNewDocument={handleNewDocument}
+          onOpenBranchModal={() => setIsBranchModalOpen(true)}
+          onOpenParties={() => setActiveTab('parties')}
+          onOpenItems={() => setActiveTab('items')}
+          onOpenCreateParty={() => {
+            setEditingParty(null);
+            setActiveTab('party_form');
+          }}
+          onOpenCreateItem={() => {
+            setEditingItem(null);
+            setIsItemModalOpen(true);
+          }}
+          onOpenCreatePaymentIn={() => {
+            setSelectedInvoiceForModal(null);
+            setIsPaymentInModalOpen(true);
+          }}
+          quotationsCount={quotationsHistory.filter(q => (q.document_type || 'Quotation') === 'Quotation').length}
+          invoicesCount={quotationsHistory.filter(q => q.document_type === 'Sales Invoice' || q.document_type === 'Tax Invoice').length}
+          partiesCount={parties.length}
+          itemsCount={items.length}
+          onExportBackup={handleExportBackup}
+          onImportBackup={handleImportBackup}
+        />
+      )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex flex-col min-w-0 transition-all ${isSidebarCollapsed ? 'pl-0' : ''}`}>
         
         <main className="flex-1 w-full px-6 py-4 overflow-y-auto">
           
