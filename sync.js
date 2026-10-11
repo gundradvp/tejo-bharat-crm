@@ -171,7 +171,39 @@ const filesToSync = [
   'src/types/stickyNotes.ts',
   'src/types/userActivity.ts',
   'src/types/whatsapp.ts',
-  'src/vite-env.d.ts'
+  'src/vite-env.d.ts',
+  'package-lock.json',
+  'src/modules/quotation-app/App.tsx',
+  'src/modules/quotation-app/BillingModule.tsx',
+  'src/modules/quotation-app/index.ts',
+  'src/modules/quotation-app/print.css',
+  'src/modules/quotation-app/components/AddItemsToBillModal.tsx',
+  'src/modules/quotation-app/components/BranchModal.tsx',
+  'src/modules/quotation-app/components/EwayBillForm.tsx',
+  'src/modules/quotation-app/components/ItemModal.tsx',
+  'src/modules/quotation-app/components/ItemsList.tsx',
+  'src/modules/quotation-app/components/ManageDropdownsModal.tsx',
+  'src/modules/quotation-app/components/Navbar.tsx',
+  'src/modules/quotation-app/components/OffGridCalculatorModal.tsx',
+  'src/modules/quotation-app/components/PartiesList.tsx',
+  'src/modules/quotation-app/components/PartyForm.tsx',
+  'src/modules/quotation-app/components/PaymentInDetailView.tsx',
+  'src/modules/quotation-app/components/PaymentInModal.tsx',
+  'src/modules/quotation-app/components/QuotationForm.tsx',
+  'src/modules/quotation-app/components/QuotationPreview.tsx',
+  'src/modules/quotation-app/components/QuotationsList.tsx',
+  'src/modules/quotation-app/components/ShareWhatsAppModal.tsx',
+  'src/modules/quotation-app/components/Sidebar.tsx',
+  'src/modules/quotation-app/data/historicalParties.json',
+  'src/modules/quotation-app/data/historicalQuotations.json',
+  'src/modules/quotation-app/lib/autoFitProposal.ts',
+  'src/modules/quotation-app/lib/gstLookup.ts',
+  'src/modules/quotation-app/lib/quoteNumberGenerator.ts',
+  'src/modules/quotation-app/lib/solarYieldLookup.ts',
+  'src/modules/quotation-app/lib/supabase.ts',
+  'src/modules/quotation-app/lib/wordTemplateExporter.ts',
+  'src/modules/quotation-app/supabase/schema.sql',
+  'src/modules/quotation-app/types/quotation.ts'
 ];
 
 function fetchWithHttps(url, maxRedirects = 5) {
@@ -239,6 +271,22 @@ async function run() {
     if (ok) successCount++;
   }
   console.log(`\n🎉 DONE! ${successCount}/${filesToSync.length} files successfully updated inside Bolt!`);
+
+  // Auto-install html2pdf.js if not yet present in Bolt
+  try {
+    require.resolve('html2pdf.js');
+    console.log('✅ html2pdf.js dependency is verified.');
+  } catch (err) {
+    console.log('📦 Installing html2pdf.js in Bolt...');
+    try {
+      const { execSync } = require('child_process');
+      execSync('npm i html2pdf.js', { stdio: 'inherit' });
+      console.log('✅ Installed html2pdf.js successfully!');
+    } catch (e) {
+      console.warn('⚠️ Please run "npm i html2pdf.js" manually if needed.');
+    }
+  }
+
   console.log(`👉 Run 'npm run dev' to restart your preview.`);
 }
 
