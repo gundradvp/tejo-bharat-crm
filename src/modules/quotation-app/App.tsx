@@ -18,6 +18,64 @@ import historicalQuotations from './data/historicalQuotations.json';
 import historicalParties from './data/historicalParties.json';
 import { CheckCircle, AlertCircle, ArrowLeft, PanelLeftOpen } from 'lucide-react';
 
+const DEFAULT_BLANK_QUOTATION: Quotation = {
+  document_type: 'Quotation',
+  invoice_prefix: 'TBGE2627Q',
+  quotation_no: '',
+  quotation_date: new Date().toISOString().split('T')[0],
+  valid_until: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+  customer_name: '',
+  customer_phone: '',
+  customer_address: '',
+  customer_billing_address: '',
+  customer_location: '',
+  category: 'Residential / Home',
+  installation_type: '3 kWp On-Grid Solar PV Power System',
+  system_capacity_kw: 3,
+  pricing_mode: 'total_cost',
+  rate_per_kw: 70000,
+  total_amount: 210000,
+  monthly_units: 375,
+  annual_units: 4500,
+  system_life_years: 25,
+  monthly_savings_rs: 2813,
+  payback_period_years: 4.0,
+  panel_brand: 'Tier-1 High Efficiency Mono DCR 550W+ Solar Panels',
+  inverter_brand: '3 kW Single Phase On-Grid Inverter with Wi-Fi Monitoring',
+  inverter_phase: 'Single Phase',
+  cables_brand: 'Polycab / Havells UV-Protected DC & Armored AC Cables',
+  structure_type: 'Hot-Dip Galvanized (HDG) Elevated Structure (80µ Zinc)',
+  structure_grid: 'Standard High-Wind Resistance Mounting Tables',
+  structure_height: 'Elevated Superstructure (6ft–10ft Height)',
+  branch_id: 'pith-ap',
+  branch: DEFAULT_BRANCHES[1],
+  hsn_code: '85414011',
+  gst_rate_percent: 8.9,
+  payment_status: 'Unpaid',
+  bank_details: DEFAULT_BANK_DETAILS,
+  auto_round_off: true,
+  amount_received: 0,
+  payment_type: 'Bank Transfer',
+  is_fully_paid: false,
+  status: 'Active',
+  quote_format: '5_page',
+  subsidy_amount: 78000,
+  net_payable: 132000,
+  line_items: [
+    {
+      id: 'li-default-1',
+      name: '3 kWp On-Grid Solar PV Power System',
+      description: '3 kWp Mono DCR Solar Array, 3 kW On-Grid String Inverter, HDG Mounting Structure, BOS & Turnkey Setup',
+      qty: 3,
+      unit: 'kW',
+      price_per_item: 64279.16,
+      tax_rate_percent: 8.9,
+      tax_amount: 17162.53,
+      total_amount: 210000,
+    }
+  ],
+};
+
 const INITIAL_QUOTATION: Quotation = {
   document_type: 'Quotation',
   invoice_prefix: 'TBGE2627Q',
@@ -204,7 +262,7 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
   
   const [branches, setBranches] = useState<Branch[]>(DEFAULT_BRANCHES);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('hyd-hq');
-  const [quotation, setQuotation] = useState<Quotation>(INITIAL_QUOTATION);
+  const [quotation, setQuotation] = useState<Quotation>(DEFAULT_BLANK_QUOTATION);
   const [quotationsHistory, setQuotationsHistory] = useState<Quotation[]>([]);
   const [parties, setParties] = useState<Party[]>(DEFAULT_PARTIES);
   const [editingParty, setEditingParty] = useState<Party | null>(null);
@@ -339,6 +397,23 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
     } else if (lowerPath === '/create') {
       setActiveTab('create');
       setCreateFormMode('edit');
+      setQuotation(prev => {
+        if (!prev.quotation_no || prev.quotation_no === 'TBGE2627Q003') {
+          const docType = activeDocFilter === 'All' ? 'Sales Invoice' : activeDocFilter;
+          const nextNo = getNextSequentialNumber(docType, quotationsHistory);
+          const activeBr = branches.find(b => b.id === selectedBranchId) || branches[0];
+          return {
+            ...DEFAULT_BLANK_QUOTATION,
+            id: `q-${Date.now()}`,
+            document_type: docType,
+            invoice_prefix: nextNo.slice(0, 10),
+            quotation_no: nextNo,
+            branch_id: activeBr.id,
+            branch: activeBr,
+          };
+        }
+        return prev;
+      });
     } else if (lowerPath === '/all') {
       setActiveTab('list');
       setActiveDocFilter('All');
@@ -553,12 +628,13 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
     setQuotationsHistory(combinedQuotes);
     localStorage.setItem('tb_quotations_history', JSON.stringify(combinedQuotes));
 
-    // Also sanitize current active quotation in state
+    // Also sanitize current active quotation in state (only if it is KVB TBGE2627Q003)
     setQuotation(prev => {
-      let items: LineItem[] = stripRateFromItems(prev.line_items) || [];
       const isKvb003 = (prev.quotation_no || '').trim().toUpperCase() === 'TBGE2627Q003';
+      if (!isKvb003) return prev;
+      let items: LineItem[] = stripRateFromItems(prev.line_items) || [];
       let gstRate = prev.gst_rate_percent;
-      if (isKvb003 && (!gstRate || gstRate === 0)) {
+      if (!gstRate || gstRate === 0) {
         gstRate = 8.9;
         items = INITIAL_QUOTATION.line_items || [];
       }
@@ -712,12 +788,13 @@ export function App({ basePath = '', onBackToCrm }: QuotationAppProps) {
     const quoteNo = getNextSequentialNumber(docType, allRecords);
 
     setQuotation({
-      ...INITIAL_QUOTATION,
+      ...DEFAULT_BLANK_QUOTATION,
       id: `q-${Date.now()}`,
       document_type: docType,
       invoice_prefix: quoteNo.slice(0, 10),
       quotation_no: quoteNo,
       quotation_date: new Date().toISOString().split('T')[0],
+      valid_until: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
       branch_id: activeBranch.id,
       branch: activeBranch,
     });

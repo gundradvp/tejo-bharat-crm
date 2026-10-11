@@ -157,6 +157,8 @@ export interface Quotation {
   show_gst_in_table?: boolean;
   gst_display_mode?: 'detailed' | 'compact';
   is_interstate?: boolean;
+  subsidy_amount?: number;
+  net_payable?: number;
   
   // Scope of Work items
   scope_items?: ScopeItem[];
