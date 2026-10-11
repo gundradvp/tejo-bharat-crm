@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Phone, Copy, Check, MapPin, Zap, Calendar, Clock, MessageSquare, MessageCircle, User, Save, Loader2, FileText, Hash, Gauge, Home, Tag, Activity, Receipt, IndianRupee, ClipboardList, Sun as SunIcon, ExternalLink, UserCircle } from 'lucide-react';
+import { X, Phone, Copy, Check, MapPin, Zap, Calendar, Clock, MessageSquare, MessageCircle, User, Save, Loader2, FileText, Hash, Gauge, Home, Tag, Activity, Receipt, IndianRupee, ClipboardList, Sun as SunIcon, ExternalLink, UserCircle, ZoomIn } from 'lucide-react';
 import {
   EBCustomer,
   EBCustomerCall,
@@ -45,6 +45,7 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
   const [jspMember, setJspMember] = useState<JSPMemberLink | null>(null);
   const [loadingJsp, setLoadingJsp] = useState(false);
   const [showJspProfileModal, setShowJspProfileModal] = useState(false);
+  const [previewPhoto, setPreviewPhoto] = useState<{ url: string; name?: string; jsp_id?: string } | null>(null);
 
   useEffect(() => {
     if (customer) {
@@ -68,6 +69,20 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
       }
     }
   }, [customer, isAdmin]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (previewPhoto) {
+          setPreviewPhoto(null);
+        } else if (showJspProfileModal) {
+          setShowJspProfileModal(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewPhoto, showJspProfileModal]);
 
   const loadBills = async (customerId: string) => {
     setLoadingBills(true);
@@ -755,14 +770,27 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
               {/* Member Photo & Key Header */}
               <div className="flex items-center gap-4 bg-red-50/60 p-4 rounded-xl border border-red-100">
                 {jspMember.photo_url ? (
-                  <img
-                    src={jspMember.photo_url}
-                    alt={jspMember.name || 'JSP Member'}
-                    className="w-20 h-20 rounded-2xl object-cover border-2 border-red-400 shadow-md flex-shrink-0"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
+                  <div
+                    className="relative group cursor-pointer flex-shrink-0"
+                    onClick={() => setPreviewPhoto({
+                      url: jspMember.photo_url!,
+                      name: jspMember.name || undefined,
+                      jsp_id: jspMember.jsp_id || undefined,
+                    })}
+                    title="Click to view full photo"
+                  >
+                    <img
+                      src={jspMember.photo_url}
+                      alt={jspMember.name || 'JSP Member'}
+                      className="w-20 h-20 rounded-2xl object-cover border-2 border-red-400 shadow-md group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/30 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <ZoomIn className="w-6 h-6 text-white drop-shadow" />
+                    </div>
+                  </div>
                 ) : (
                   <div className="w-20 h-20 rounded-2xl bg-red-200 flex items-center justify-center text-xl font-bold text-red-800 flex-shrink-0">
                     {jspMember.name ? jspMember.name.slice(0, 2).toUpperCase() : 'JSP'}
@@ -904,6 +932,59 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Photo Lightbox Modal */}
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div
+            className="relative max-w-2xl w-full max-h-[92vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Toolbar */}
+            <div className="w-full flex items-center justify-between pb-3 text-white">
+              <div>
+                <h4 className="font-bold text-base">{previewPhoto.name || 'Member Photo'}</h4>
+                {previewPhoto.jsp_id && (
+                  <p className="text-xs text-red-300 font-mono">JSP ID: {previewPhoto.jsp_id}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewPhoto.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  title="Open original image"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                </a>
+                <button
+                  onClick={() => setPreviewPhoto(null)}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  title="Close (Esc)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Photo Preview Container */}
+            <div className="relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-black/40 flex items-center justify-center max-h-[80vh]">
+              <img
+                src={previewPhoto.url}
+                alt={previewPhoto.name || 'Full Member Photo'}
+                className="max-h-[80vh] w-auto max-w-full object-contain rounded-2xl"
+              />
+            </div>
+
+            <p className="text-xs text-gray-400 mt-2">Click outside or press Close to dismiss</p>
           </div>
         </div>
       )}

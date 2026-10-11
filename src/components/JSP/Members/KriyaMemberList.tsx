@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase, Profile, isJSPAdmin, hasAnyRole } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Search, Download, X, ChevronLeft, ChevronRight, Users, Filter, Phone, MapPin, CreditCard, Calendar, UserCircle } from 'lucide-react';
+import { Search, Download, X, ChevronLeft, ChevronRight, Users, Filter, Phone, MapPin, CreditCard, Calendar, UserCircle, ZoomIn, ExternalLink } from 'lucide-react';
 import { JSP_LOCATION_HIERARCHY } from '../../../lib/jspLocationData';
 import Pagination from '../../Common/Pagination';
 
@@ -92,6 +92,7 @@ export default function KriyaMemberList() {
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [selectedMember, setSelectedMember] = useState<KriyaMember | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<{ url: string; name?: string; jsp_id?: string } | null>(null);
 
   // Filters
   const [searchInput, setSearchInput] = useState(queryParamSearch);
@@ -104,6 +105,16 @@ export default function KriyaMemberList() {
       setActiveSearch(param.trim());
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (previewPhoto) setPreviewPhoto(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewPhoto]);
 
   const [stateFilter, setStateFilter] = useState('');
   const [districtFilter, setDistrictFilter] = useState('');
@@ -755,7 +766,16 @@ export default function KriyaMemberList() {
                             <img
                               src={m.photo_url}
                               alt={m.name || ''}
-                              className="w-9 h-9 rounded-full object-cover border border-amber-200 shadow-sm"
+                              className="w-9 h-9 rounded-full object-cover border border-amber-200 shadow-sm hover:scale-125 transition-transform cursor-pointer"
+                              title="Click to view full photo"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewPhoto({
+                                  url: m.photo_url!,
+                                  name: m.name || undefined,
+                                  jsp_id: m.jsp_id || undefined,
+                                });
+                              }}
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                                 if (e.currentTarget.nextElementSibling) {
@@ -831,9 +851,26 @@ export default function KriyaMemberList() {
               {/* Photo + name */}
               <div className="flex items-center gap-4">
                 {selectedMember.photo_url ? (
-                  <img src={selectedMember.photo_url} alt={selectedMember.name || ''} className="w-20 h-20 rounded-full object-cover border-2 border-amber-200" />
+                  <div
+                    className="relative group cursor-pointer flex-shrink-0"
+                    onClick={() => setPreviewPhoto({
+                      url: selectedMember.photo_url!,
+                      name: selectedMember.name || undefined,
+                      jsp_id: selectedMember.jsp_id || undefined,
+                    })}
+                    title="Click to view full photo"
+                  >
+                    <img
+                      src={selectedMember.photo_url}
+                      alt={selectedMember.name || ''}
+                      className="w-20 h-20 rounded-full object-cover border-2 border-amber-300 shadow-md group-hover:scale-105 transition-transform"
+                    />
+                    <div className="absolute inset-0 bg-black/30 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <ZoomIn className="w-6 h-6 text-white drop-shadow" />
+                    </div>
+                  </div>
                 ) : (
-                  <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center text-xl font-bold text-amber-700">
+                  <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center text-xl font-bold text-amber-700 flex-shrink-0">
                     {getInitials(selectedMember.name)}
                   </div>
                 )}
@@ -914,6 +951,59 @@ export default function KriyaMemberList() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Full Photo Lightbox Modal */}
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div
+            className="relative max-w-2xl w-full max-h-[92vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Toolbar */}
+            <div className="w-full flex items-center justify-between pb-3 text-white">
+              <div>
+                <h4 className="font-bold text-base">{previewPhoto.name || 'Member Photo'}</h4>
+                {previewPhoto.jsp_id && (
+                  <p className="text-xs text-amber-300 font-mono">JSP ID: {previewPhoto.jsp_id}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewPhoto.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  title="Open original image"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                </a>
+                <button
+                  onClick={() => setPreviewPhoto(null)}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  title="Close (Esc)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Photo Preview Container */}
+            <div className="relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-black/40 flex items-center justify-center max-h-[80vh]">
+              <img
+                src={previewPhoto.url}
+                alt={previewPhoto.name || 'Full Member Photo'}
+                className="max-h-[80vh] w-auto max-w-full object-contain rounded-2xl"
+              />
+            </div>
+
+            <p className="text-xs text-gray-400 mt-2">Click outside or press Close to dismiss</p>
+          </div>
+        </div>
       )}
     </div>
   );
