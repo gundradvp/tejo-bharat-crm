@@ -251,6 +251,13 @@ export default function ProspectDetailModal({ prospect, onClose, onUpdate }: Pro
     return Math.max(...billHistory.map((b) => (b.billed_units != null ? Number(b.billed_units) : 0)));
   }, [billHistory]);
 
+  const avgBilledUnits = useMemo(() => {
+    if (!billHistory || billHistory.length === 0) return 0;
+    const valid = billHistory.map((b) => (b.billed_units != null ? Number(b.billed_units) : null)).filter((u): u is number => u != null && u > 0);
+    if (valid.length === 0) return 0;
+    return Math.round(valid.reduce((sum, u) => sum + u, 0) / valid.length);
+  }, [billHistory]);
+
   const formatBillRecordForCopy = (b: ProspectBillRecord, isWhatsApp = false): string => {
     const month = b.bill_month || (b.bill_month_index ? `${MONTH_NAMES[b.bill_month_index - 1]} ${b.bill_year || ''}`.trim() : '-');
     const rawUnits = b.billed_units != null ? Number(b.billed_units) : null;
@@ -581,10 +588,18 @@ export default function ProspectDetailModal({ prospect, onClose, onUpdate }: Pro
 
           {/* EB Bill History from eb_customer_bills */}
           <div className="border-t border-gray-200 pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <Receipt className="w-4 h-4" />
-              EB Billing History ({billHistory.length})
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Receipt className="w-4 h-4" />
+                EB Billing History ({billHistory.length})
+              </h3>
+              {avgBilledUnits > 0 && (
+                <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full ring-1 ring-blue-200 flex items-center gap-1" title={`Average across ${billHistory.filter(b => b.billed_units != null && Number(b.billed_units) > 0).length} month(s)`}>
+                  <Gauge className="w-3 h-3 text-blue-500" />
+                  Avg: {avgBilledUnits.toLocaleString('en-IN')} units
+                </span>
+              )}
+            </div>
             {loadingBills ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />

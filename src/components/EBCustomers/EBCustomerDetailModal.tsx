@@ -213,6 +213,13 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
     return Math.max(...bills.map((b) => (b.billed_units != null ? Number(b.billed_units) : 0)));
   }, [bills]);
 
+  const avgBilledUnits = useMemo(() => {
+    if (!bills || bills.length === 0) return 0;
+    const valid = bills.map((b) => (b.billed_units != null ? Number(b.billed_units) : null)).filter((u): u is number => u != null && u > 0);
+    if (valid.length === 0) return 0;
+    return Math.round(valid.reduce((sum, u) => sum + u, 0) / valid.length);
+  }, [bills]);
+
   const formatBillRecordForCopy = (b: EBBillRecord, isWhatsApp = false): string => {
     const month = b.bill_month || (b.bill_month_index ? `${MONTH_NAMES[b.bill_month_index - 1]} ${b.bill_year || ''}`.trim() : '-');
     const rawUnits = b.billed_units != null ? Number(b.billed_units) : null;
@@ -690,10 +697,18 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
 
           {/* Bill History */}
           <div className="border-t border-gray-200 pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <Receipt className="w-4 h-4" />
-              Bill History ({bills.length})
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Receipt className="w-4 h-4" />
+                Bill History ({bills.length})
+              </h3>
+              {avgBilledUnits > 0 && (
+                <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full ring-1 ring-blue-200 flex items-center gap-1" title={`Average across ${bills.filter(b => b.billed_units != null && Number(b.billed_units) > 0).length} month(s)`}>
+                  <Gauge className="w-3 h-3 text-blue-500" />
+                  Avg: {avgBilledUnits.toLocaleString('en-IN')} units
+                </span>
+              )}
+            </div>
             {loadingBills ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />

@@ -301,6 +301,8 @@ export interface BillFilter {
 }
 
 export type EBSortOption =
+  | 'avg_units_desc'
+  | 'avg_units_asc'
   | 'units_desc'
   | 'units_asc'
   | 'created_at_desc'
@@ -553,8 +555,8 @@ export async function fetchEBCustomers(
   }
 
   // If sorting by billed units and no search/JSP mobile filters are applied, try querying top bills
-  if ((filters.sortBy === 'units_desc' || filters.sortBy === 'units_asc') && !filters.search && !filters.jspMobiles) {
-    const isAsc = filters.sortBy === 'units_asc';
+  if ((filters.sortBy === 'units_desc' || filters.sortBy === 'units_asc' || filters.sortBy === 'avg_units_desc' || filters.sortBy === 'avg_units_asc') && !filters.search && !filters.jspMobiles) {
+    const isAsc = filters.sortBy === 'units_asc' || filters.sortBy === 'avg_units_asc';
     try {
       let billQuery = supabase
         .from('eb_customer_bills')
@@ -1052,6 +1054,10 @@ export interface EBBillSummary {
   recent_bill_amount: number | null;
   recent_bill_month: string | null;
   high_usage: boolean;
+  total_billed_units?: number | null;
+  bill_count?: number;
+  avg_billed_units?: number | null;
+  avg_bill_amount?: number | null;
 }
 
 export const HIGH_USAGE_THRESHOLD = 500;
@@ -1061,39 +1067,63 @@ function billSortKey(year: number | null, monthIndex: number | null): number {
 }
 
 export async function fetchEBBillSummaries(
-  customerIds: string[]
+  customerIds: string[],
+  scNumbers?: string[]
 ): Promise<Map<string, EBBillSummary>> {
   const map = new Map<string, EBBillSummary>();
   const latestKeyMap = new Map<string, number>();
-  if (customerIds.length === 0) return map;
+  const validIds = (customerIds || []).filter(Boolean);
+  const validScs = (scNumbers || []).filter(Boolean);
+  if (validIds.length === 0 && validScs.length === 0) return map;
 
   const BATCH = 50;
-  for (let i = 0; i < customerIds.length; i += BATCH) {
-    const batch = customerIds.slice(i, i + BATCH);
-    const { data, error } = await supabase
+  const maxLen = Math.max(validIds.length, validScs.length);
+
+  for (let i = 0; i < maxLen; i += BATCH) {
+    const batchIds = validIds.slice(i, i + BATCH);
+    const batchScs = validScs.slice(i, i + BATCH);
+
+    let query = supabase
       .from('eb_customer_bills')
       .select(`
         eb_customer_id,
+        sc_number,
         billed_units,
         bill_amount,
         bill_month,
         bill_year,
         bill_month_index
-      `)
-      .in('eb_customer_id', batch);
+      `);
 
+    if (batchIds.length > 0 && batchScs.length > 0) {
+      query = query.or(`eb_customer_id.in.(${batchIds.join(',')}),sc_number.in.(${batchScs.join(',')})`);
+    } else if (batchIds.length > 0) {
+      query = query.in('eb_customer_id', batchIds);
+    } else {
+      query = query.in('sc_number', batchScs);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
 
     for (const row of data || []) {
-      const cid = row.eb_customer_id as string;
+      const cid = (row.eb_customer_id as string) || (row.sc_number as string);
       if (!cid) continue;
-      const units = row.billed_units != null ? Number(row.billed_units) : null;
-      const amount = row.bill_amount != null ? Number(row.bill_amount) : null;
+      const rawUnits = row.billed_units != null ? Number(row.billed_units) : null;
+      const units = rawUnits != null && !isNaN(rawUnits) ? rawUnits : null;
+      const rawAmount = row.bill_amount != null ? Number(row.bill_amount) : null;
+      const amount = rawAmount != null && !isNaN(rawAmount) ? rawAmount : null;
       const month = row.bill_month ?? null;
       const sortKey = billSortKey(row.bill_year as number | null, row.bill_month_index as number | null);
-      const existing = map.get(cid);
+
+      const sc = row.sc_number as string | undefined;
+      const existing = (cid ? map.get(cid) : undefined) || (sc ? map.get(sc) : undefined);
+
+      const hasValidUnit = units != null && units > 0;
+      const hasValidAmount = amount != null && amount > 0;
+
       if (!existing) {
-        map.set(cid, {
+        const summary: EBBillSummary = {
           eb_customer_id: cid,
           max_billed_units: units,
           max_units_bill_amount: amount,
@@ -1105,8 +1135,15 @@ export async function fetchEBBillSummaries(
           recent_bill_amount: amount,
           recent_bill_month: month,
           high_usage: units != null && units > HIGH_USAGE_THRESHOLD,
-        });
+          total_billed_units: hasValidUnit ? units : (units != null ? 0 : 0),
+          bill_count: hasValidUnit ? 1 : (units != null ? 1 : 0),
+          avg_billed_units: units != null ? units : null,
+          avg_bill_amount: amount != null ? amount : null,
+        };
+        map.set(cid, summary);
+        if (sc && sc !== cid) map.set(sc, summary);
         latestKeyMap.set(cid, sortKey);
+        if (sc) latestKeyMap.set(sc, sortKey);
       } else {
         if (units != null) {
           if (existing.max_billed_units == null || units > existing.max_billed_units) {
@@ -1114,13 +1151,16 @@ export async function fetchEBBillSummaries(
             existing.max_units_bill_amount = amount;
           }
           if (units > HIGH_USAGE_THRESHOLD) existing.high_usage = true;
+          existing.total_billed_units = (existing.total_billed_units || 0) + units;
+          existing.bill_count = (existing.bill_count || 0) + 1;
+          existing.avg_billed_units = Math.round(existing.total_billed_units / existing.bill_count);
         }
         if (amount != null) {
           if (existing.max_bill_amount == null || amount > existing.max_bill_amount) {
             existing.max_bill_amount = amount;
           }
         }
-        if (sortKey > 0 && sortKey >= (latestKeyMap.get(cid) ?? 0)) {
+        if (sortKey > 0 && sortKey >= (latestKeyMap.get(cid) ?? latestKeyMap.get(sc || '') ?? 0)) {
           existing.latest_bill_month = month;
           existing.latest_units = units;
           existing.latest_bill_amount = amount;
@@ -1128,7 +1168,10 @@ export async function fetchEBBillSummaries(
           existing.recent_bill_amount = amount;
           existing.recent_bill_month = month;
           latestKeyMap.set(cid, sortKey);
+          if (sc) latestKeyMap.set(sc, sortKey);
         }
+        map.set(cid, existing);
+        if (sc && sc !== cid) map.set(sc, existing);
       }
     }
   }
@@ -1269,7 +1312,21 @@ export async function fetchEBCustomersForExport(
     }
   }
 
-  if (filters.sortBy === 'units_desc') {
+  if (filters.sortBy === 'avg_units_desc') {
+    exportCustomers.sort((a, b) => {
+      const aUnits = billSummaries.get(a.id)?.avg_billed_units ?? 0;
+      const bUnits = billSummaries.get(b.id)?.avg_billed_units ?? 0;
+      return bUnits - aUnits;
+    });
+  } else if (filters.sortBy === 'avg_units_asc') {
+    exportCustomers.sort((a, b) => {
+      const aUnits = billSummaries.get(a.id)?.avg_billed_units ?? 0;
+      const bUnits = billSummaries.get(b.id)?.avg_billed_units ?? 0;
+      if (aUnits === 0 && bUnits > 0) return 1;
+      if (bUnits === 0 && aUnits > 0) return -1;
+      return aUnits - bUnits;
+    });
+  } else if (filters.sortBy === 'units_desc') {
     exportCustomers.sort((a, b) => {
       const aUnits = billSummaries.get(a.id)?.max_billed_units ?? (billSummaries.get(a.id)?.recent_units ?? 0);
       const bUnits = billSummaries.get(b.id)?.max_billed_units ?? (billSummaries.get(b.id)?.recent_units ?? 0);
@@ -1314,6 +1371,8 @@ export async function fetchEBCustomersForExport(
       last_called_at: c.last_called_at,
       solar_already_installed: c.solar_already_installed || false,
       address: [c.address1, c.address2, c.address3, c.address4].filter(Boolean).join(', ') || null,
+      avg_billed_units: summary?.avg_billed_units ?? null,
+      bill_count: summary?.bill_count ?? (bills.length || null),
       max_billed_units: summary?.max_billed_units ?? null,
       max_units_bill_amount: summary?.max_units_bill_amount ?? null,
       max_bill_amount: summary?.max_bill_amount ?? null,

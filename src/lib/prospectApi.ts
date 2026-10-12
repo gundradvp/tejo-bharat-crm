@@ -68,6 +68,8 @@ export interface BillFilter {
 }
 
 export type ProspectSortOption =
+  | 'avg_units_desc'
+  | 'avg_units_asc'
   | 'units_desc'
   | 'units_asc'
   | 'created_at_desc'
@@ -714,6 +716,10 @@ export interface ProspectBillSummary {
   recent_bill_amount: number | null;
   recent_bill_month: string | null;
   high_usage: boolean;
+  total_billed_units?: number | null;
+  bill_count?: number;
+  avg_billed_units?: number | null;
+  avg_bill_amount?: number | null;
 }
 
 export async function fetchProspectBillSummaries(
@@ -721,11 +727,12 @@ export async function fetchProspectBillSummaries(
 ): Promise<Map<string, ProspectBillSummary>> {
   const map = new Map<string, ProspectBillSummary>();
   const latestKeyMap = new Map<string, number>();
-  if (scNumbers.length === 0) return map;
+  const validScs = (scNumbers || []).filter(Boolean);
+  if (validScs.length === 0) return map;
 
   const BATCH = 50;
-  for (let i = 0; i < scNumbers.length; i += BATCH) {
-    const batch = scNumbers.slice(i, i + BATCH);
+  for (let i = 0; i < validScs.length; i += BATCH) {
+    const batch = validScs.slice(i, i + BATCH);
     const { data, error } = await supabase
       .from('eb_customer_bills')
       .select('sc_number, billed_units, bill_amount, bill_month, bill_year, bill_month_index')
@@ -736,11 +743,17 @@ export async function fetchProspectBillSummaries(
     for (const row of data || []) {
       const sc = row.sc_number as string;
       if (!sc) continue;
-      const units = row.billed_units != null ? Number(row.billed_units) : null;
-      const amount = row.bill_amount != null ? Number(row.bill_amount) : null;
+      const rawUnits = row.billed_units != null ? Number(row.billed_units) : null;
+      const units = rawUnits != null && !isNaN(rawUnits) ? rawUnits : null;
+      const rawAmount = row.bill_amount != null ? Number(row.bill_amount) : null;
+      const amount = rawAmount != null && !isNaN(rawAmount) ? rawAmount : null;
       const month = row.bill_month ?? null;
       const sortKey = (row.bill_year ?? 0) * 100 + (row.bill_month_index ?? 0);
       const existing = map.get(sc);
+
+      const hasValidUnit = units != null && units > 0;
+      const hasValidAmount = amount != null && amount > 0;
+
       if (!existing) {
         map.set(sc, {
           sc_number: sc,
@@ -754,6 +767,10 @@ export async function fetchProspectBillSummaries(
           recent_bill_amount: amount,
           recent_bill_month: month,
           high_usage: units != null && units > HIGH_USAGE_THRESHOLD,
+          total_billed_units: hasValidUnit ? units : (units != null ? 0 : 0),
+          bill_count: hasValidUnit ? 1 : (units != null ? 1 : 0),
+          avg_billed_units: units != null ? units : null,
+          avg_bill_amount: amount != null ? amount : null,
         });
         latestKeyMap.set(sc, sortKey);
       } else {
@@ -763,6 +780,9 @@ export async function fetchProspectBillSummaries(
             existing.max_units_bill_amount = amount;
           }
           if (units > HIGH_USAGE_THRESHOLD) existing.high_usage = true;
+          existing.total_billed_units = (existing.total_billed_units || 0) + units;
+          existing.bill_count = (existing.bill_count || 0) + 1;
+          existing.avg_billed_units = Math.round(existing.total_billed_units / existing.bill_count);
         }
         if (amount != null) {
           if (existing.max_bill_amount == null || amount > existing.max_bill_amount) {
@@ -839,6 +859,8 @@ export interface ProspectExportRow {
   recent_bill_amount: number | null;
   recent_bill_month: string | null;
   high_usage: boolean;
+  avg_billed_units: number | null;
+  bill_count: number | null;
 }
 
 export async function fetchProspectsForExport(
@@ -870,7 +892,21 @@ export async function fetchProspectsForExport(
   const scNumbers = exportProspects.map((p) => p.sc_number).filter(Boolean) as string[];
   const billSummaries = scNumbers.length > 0 ? await fetchProspectBillSummaries(scNumbers) : new Map<string, ProspectBillSummary>();
 
-  if (filters.sortBy === 'units_desc') {
+  if (filters.sortBy === 'avg_units_desc') {
+    exportProspects.sort((a, b) => {
+      const aUnits = (a.sc_number ? billSummaries.get(a.sc_number)?.avg_billed_units : null) ?? 0;
+      const bUnits = (b.sc_number ? billSummaries.get(b.sc_number)?.avg_billed_units : null) ?? 0;
+      return bUnits - aUnits;
+    });
+  } else if (filters.sortBy === 'avg_units_asc') {
+    exportProspects.sort((a, b) => {
+      const aUnits = (a.sc_number ? billSummaries.get(a.sc_number)?.avg_billed_units : null) ?? 0;
+      const bUnits = (b.sc_number ? billSummaries.get(b.sc_number)?.avg_billed_units : null) ?? 0;
+      if (aUnits === 0 && bUnits > 0) return 1;
+      if (bUnits === 0 && aUnits > 0) return -1;
+      return aUnits - bUnits;
+    });
+  } else if (filters.sortBy === 'units_desc') {
     exportProspects.sort((a, b) => {
       const aUnits = (a.sc_number ? billSummaries.get(a.sc_number)?.max_billed_units : null) ?? 0;
       const bUnits = (b.sc_number ? billSummaries.get(b.sc_number)?.max_billed_units : null) ?? 0;
@@ -941,6 +977,8 @@ export async function fetchProspectsForExport(
       recent_bill_amount: bs?.recent_bill_amount ?? null,
       recent_bill_month: bs?.recent_bill_month ?? null,
       high_usage: bs?.high_usage ?? false,
+      avg_billed_units: bs?.avg_billed_units ?? null,
+      bill_count: bs?.bill_count ?? null,
     };
   });
 }

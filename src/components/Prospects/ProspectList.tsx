@@ -298,7 +298,25 @@ export default function ProspectList() {
       return true;
     });
 
-    if (sortBy === 'units_desc') {
+    if (sortBy === 'avg_units_desc') {
+      result.sort((a, b) => {
+        const aBs = a.sc_number ? billSummaries.get(a.sc_number) : undefined;
+        const bBs = b.sc_number ? billSummaries.get(b.sc_number) : undefined;
+        const aUnits = aBs?.avg_billed_units ?? 0;
+        const bUnits = bBs?.avg_billed_units ?? 0;
+        return bUnits - aUnits;
+      });
+    } else if (sortBy === 'avg_units_asc') {
+      result.sort((a, b) => {
+        const aBs = a.sc_number ? billSummaries.get(a.sc_number) : undefined;
+        const bBs = b.sc_number ? billSummaries.get(b.sc_number) : undefined;
+        const aUnits = aBs?.avg_billed_units ?? 0;
+        const bUnits = bBs?.avg_billed_units ?? 0;
+        if (aUnits === 0 && bUnits > 0) return 1;
+        if (bUnits === 0 && aUnits > 0) return -1;
+        return aUnits - bUnits;
+      });
+    } else if (sortBy === 'units_desc') {
       result.sort((a, b) => {
         const aBs = a.sc_number ? billSummaries.get(a.sc_number) : undefined;
         const bBs = b.sc_number ? billSummaries.get(b.sc_number) : undefined;
@@ -312,6 +330,8 @@ export default function ProspectList() {
         const bBs = b.sc_number ? billSummaries.get(b.sc_number) : undefined;
         const aUnits = aBs?.max_billed_units ?? (aBs?.recent_units ?? 0);
         const bUnits = bBs?.max_billed_units ?? (bBs?.recent_units ?? 0);
+        if (aUnits === 0 && bUnits > 0) return 1;
+        if (bUnits === 0 && aUnits > 0) return -1;
         return aUnits - bUnits;
       });
     } else if (sortBy === 'load_desc') {
@@ -493,6 +513,8 @@ export default function ProspectList() {
         'Called By': r.called_by_name || '',
         'Surya Ghar Customer': r.is_existing_customer ? 'Yes' : 'No',
         'Imported At': r.created_at ? new Date(r.created_at).toLocaleString('en-IN') : '',
+        'Avg Billed Units': r.avg_billed_units ?? '',
+        'Bill Months Count': r.bill_count ?? '',
         'Max Billed Units': r.max_billed_units ?? '',
         'Max Units Bill Amount': r.max_units_bill_amount ?? '',
         'Max Bill Amount': r.max_bill_amount ?? '',
@@ -647,8 +669,10 @@ export default function ProspectList() {
             >
               <option value="created_at_desc">🕒 Newest First</option>
               <option value="created_at_asc">🕒 Oldest First</option>
-              <option value="units_desc">⚡ Billed Units: High to Low</option>
-              <option value="units_asc">⚡ Billed Units: Low to High</option>
+              <option value="avg_units_desc">📊 Avg Units: High to Low</option>
+              <option value="avg_units_asc">📊 Avg Units: Low to High</option>
+              <option value="units_desc">⚡ Max Units: High to Low</option>
+              <option value="units_asc">⚡ Max Units: Low to High</option>
               <option value="load_desc">☀️ Applied Solar Load: High to Low</option>
               <option value="load_asc">☀️ Applied Solar Load: Low to High</option>
               <option value="name_asc">🔤 Customer Name (A → Z)</option>
@@ -1030,8 +1054,10 @@ export default function ProspectList() {
             >
               <option value="created_at_desc">Newest First</option>
               <option value="created_at_asc">Oldest First</option>
-              <option value="units_desc">⚡ Billed Units: High to Low</option>
-              <option value="units_asc">⚡ Billed Units: Low to High</option>
+              <option value="avg_units_desc">📊 Avg Units: High to Low</option>
+              <option value="avg_units_asc">📊 Avg Units: Low to High</option>
+              <option value="units_desc">⚡ Max Units: High to Low</option>
+              <option value="units_asc">⚡ Max Units: Low to High</option>
               <option value="load_desc">Load: High to Low</option>
               <option value="load_asc">Load: Low to High</option>
               <option value="name_asc">Name (A-Z)</option>
@@ -1152,13 +1178,20 @@ export default function ProspectList() {
                     {(() => {
                       if (!prospect.sc_number) return null;
                       const bs = billSummaries.get(prospect.sc_number);
-                      if (!bs || (bs.max_billed_units == null && bs.max_bill_amount == null && bs.recent_units == null && bs.recent_bill_amount == null)) return null;
+                      if (!bs || (bs.max_billed_units == null && bs.max_bill_amount == null && bs.recent_units == null && bs.recent_bill_amount == null && bs.avg_billed_units == null)) return null;
                       return (
                         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                           {bs.high_usage && (
                             <span className="inline-flex items-center gap-0.5 text-xs font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full ring-1 ring-red-200" title="Latest month billed units exceed 500 — high usage prospect">
                               <Flame className="w-3 h-3 text-red-500" />
                               High Usage
+                            </span>
+                          )}
+                          {bs.avg_billed_units != null && (
+                            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full ring-1 ring-blue-200" title={`Average billed units: ${Number(bs.avg_billed_units).toLocaleString('en-IN')} units across ${bs.bill_count || 1} bill(s)`}>
+                              <Gauge className="w-3 h-3 text-blue-500" />
+                              <span className="font-bold">{Number(bs.avg_billed_units).toLocaleString('en-IN')}</span>
+                              <span className="text-blue-500 font-normal ml-0.5">avg units{bs.bill_count && bs.bill_count > 1 ? ` (${bs.bill_count}m)` : ''}</span>
                             </span>
                           )}
                           {bs.max_billed_units != null && (

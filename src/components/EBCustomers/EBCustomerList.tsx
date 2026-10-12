@@ -340,7 +340,7 @@ export default function EBCustomerList() {
         const customerIds = result.customers.map((c) => c.id);
         const scNumbers = result.customers.map((c) => c.sc_number);
         const mobiles = result.customers.map((c) => c.mobile_number || c.phone).filter(Boolean) as string[];
-        fetchEBBillSummaries(customerIds).then(setBillSummaries).catch((err) => console.error('Error loading bill summaries:', err));
+        fetchEBBillSummaries(customerIds, scNumbers).then(setBillSummaries).catch((err) => console.error('Error loading bill summaries:', err));
         fetchExistingSuryaGharSCNumbers(scNumbers).then(setSuryaGharSCs).catch((err) => console.error('Error loading Surya Ghar matches:', err));
         fetchProspectSCNumbers(scNumbers).then(setProspectSCs).catch((err) => console.error('Error loading prospect matches:', err));
         if (isAdmin && mobiles.length > 0) {
@@ -405,7 +405,7 @@ export default function EBCustomerList() {
       const cleanMobile = (c.mobile_number || c.phone || '').replace(/\D/g, '').slice(-10);
       const jspMember = cleanMobile ? jspMemberMap[cleanMobile] : undefined;
       if (highUsageOnly) {
-        const bs = billSummaries.get(c.id);
+        const bs = billSummaries.get(c.id) || (c.sc_number ? billSummaries.get(c.sc_number) : undefined);
         if (!bs?.high_usage) return false;
       }
       if (volunteerFilter) {
@@ -416,16 +416,40 @@ export default function EBCustomerList() {
       return true;
     });
 
-    if (sortBy === 'units_desc') {
+    if (sortBy === 'avg_units_desc') {
       result.sort((a, b) => {
-        const aUnits = billSummaries.get(a.id)?.max_billed_units ?? (billSummaries.get(a.id)?.recent_units ?? 0);
-        const bUnits = billSummaries.get(b.id)?.max_billed_units ?? (billSummaries.get(b.id)?.recent_units ?? 0);
+        const aBs = billSummaries.get(a.id) || (a.sc_number ? billSummaries.get(a.sc_number) : undefined);
+        const bBs = billSummaries.get(b.id) || (b.sc_number ? billSummaries.get(b.sc_number) : undefined);
+        const aUnits = aBs?.avg_billed_units ?? 0;
+        const bUnits = bBs?.avg_billed_units ?? 0;
+        return bUnits - aUnits;
+      });
+    } else if (sortBy === 'avg_units_asc') {
+      result.sort((a, b) => {
+        const aBs = billSummaries.get(a.id) || (a.sc_number ? billSummaries.get(a.sc_number) : undefined);
+        const bBs = billSummaries.get(b.id) || (b.sc_number ? billSummaries.get(b.sc_number) : undefined);
+        const aUnits = aBs?.avg_billed_units ?? 0;
+        const bUnits = bBs?.avg_billed_units ?? 0;
+        if (aUnits === 0 && bUnits > 0) return 1;
+        if (bUnits === 0 && aUnits > 0) return -1;
+        return aUnits - bUnits;
+      });
+    } else if (sortBy === 'units_desc') {
+      result.sort((a, b) => {
+        const aBs = billSummaries.get(a.id) || (a.sc_number ? billSummaries.get(a.sc_number) : undefined);
+        const bBs = billSummaries.get(b.id) || (b.sc_number ? billSummaries.get(b.sc_number) : undefined);
+        const aUnits = aBs?.max_billed_units ?? (aBs?.recent_units ?? 0);
+        const bUnits = bBs?.max_billed_units ?? (bBs?.recent_units ?? 0);
         return bUnits - aUnits;
       });
     } else if (sortBy === 'units_asc') {
       result.sort((a, b) => {
-        const aUnits = billSummaries.get(a.id)?.max_billed_units ?? (billSummaries.get(a.id)?.recent_units ?? 0);
-        const bUnits = billSummaries.get(b.id)?.max_billed_units ?? (billSummaries.get(b.id)?.recent_units ?? 0);
+        const aBs = billSummaries.get(a.id) || (a.sc_number ? billSummaries.get(a.sc_number) : undefined);
+        const bBs = billSummaries.get(b.id) || (b.sc_number ? billSummaries.get(b.sc_number) : undefined);
+        const aUnits = aBs?.max_billed_units ?? (aBs?.recent_units ?? 0);
+        const bUnits = bBs?.max_billed_units ?? (bBs?.recent_units ?? 0);
+        if (aUnits === 0 && bUnits > 0) return 1;
+        if (bUnits === 0 && aUnits > 0) return -1;
         return aUnits - bUnits;
       });
     } else if (sortBy === 'load_desc') {
@@ -801,8 +825,10 @@ export default function EBCustomerList() {
             >
               <option value="created_at_desc">🕒 Newest First</option>
               <option value="created_at_asc">🕒 Oldest First</option>
-              <option value="units_desc">⚡ Billed Units: High to Low</option>
-              <option value="units_asc">⚡ Billed Units: Low to High</option>
+              <option value="avg_units_desc">📊 Avg Units: High to Low</option>
+              <option value="avg_units_asc">📊 Avg Units: Low to High</option>
+              <option value="units_desc">⚡ Max Units: High to Low</option>
+              <option value="units_asc">⚡ Max Units: Low to High</option>
               <option value="load_desc">🔌 Sanctioned Load: High to Low</option>
               <option value="load_asc">🔌 Sanctioned Load: Low to High</option>
               <option value="name_asc">🔤 Customer Name (A → Z)</option>
@@ -1021,8 +1047,10 @@ export default function EBCustomerList() {
             >
               <option value="created_at_desc">Newest First</option>
               <option value="created_at_asc">Oldest First</option>
-              <option value="units_desc">⚡ Billed Units: High to Low</option>
-              <option value="units_asc">⚡ Billed Units: Low to High</option>
+              <option value="avg_units_desc">📊 Avg Units: High to Low</option>
+              <option value="avg_units_asc">📊 Avg Units: Low to High</option>
+              <option value="units_desc">⚡ Max Units: High to Low</option>
+              <option value="units_asc">⚡ Max Units: Low to High</option>
               <option value="load_desc">Load: High to Low</option>
               <option value="load_asc">Load: Low to High</option>
               <option value="name_asc">Name (A-Z)</option>
@@ -1166,14 +1194,21 @@ export default function EBCustomerList() {
                     </div>
                     {customer.remark && <p className="text-xs text-gray-600 mt-1.5 truncate">"{customer.remark}"</p>}
                     {(() => {
-                      const bs = billSummaries.get(customer.id);
-                      if (!bs || (bs.max_billed_units == null && bs.max_bill_amount == null && bs.recent_units == null && bs.recent_bill_amount == null)) return null;
+                      const bs = billSummaries.get(customer.id) || (customer.sc_number ? billSummaries.get(customer.sc_number) : undefined);
+                      if (!bs || (bs.max_billed_units == null && bs.max_bill_amount == null && bs.recent_units == null && bs.recent_bill_amount == null && bs.avg_billed_units == null)) return null;
                       return (
                         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                           {bs.high_usage && (
                             <span className="inline-flex items-center gap-0.5 text-xs font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full ring-1 ring-red-200" title="Latest month billed units exceed 500 — high usage prospect">
                               <Flame className="w-3 h-3 text-red-500" />
                               High Usage
+                            </span>
+                          )}
+                          {bs.avg_billed_units != null && (
+                            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full ring-1 ring-blue-200" title={`Average billed units: ${Number(bs.avg_billed_units).toLocaleString('en-IN')} units across ${bs.bill_count || 1} bill(s)`}>
+                              <Gauge className="w-3 h-3 text-blue-500" />
+                              <span className="font-bold">{Number(bs.avg_billed_units).toLocaleString('en-IN')}</span>
+                              <span className="text-blue-500 font-normal ml-0.5">avg units{bs.bill_count && bs.bill_count > 1 ? ` (${bs.bill_count}m)` : ''}</span>
                             </span>
                           )}
                           {bs.max_billed_units != null && (
