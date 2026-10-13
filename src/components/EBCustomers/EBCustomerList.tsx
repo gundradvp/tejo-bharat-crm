@@ -26,6 +26,8 @@ import {
   EBSortOption,
   EBImportBatch,
   FilterOperator,
+  BillFilterMetric,
+  doesSummaryMatchBillConditions,
   JSPMemberLink,
   fetchJSPMembersForEBCustomers,
   fetchJSPVolunteers,
@@ -95,6 +97,7 @@ interface SavedFilters {
   billUnitsOp: FilterOperator;
   billUnitsVal: string;
   billUnitsMaxVal: string;
+  billFilterMetric?: BillFilterMetric;
   sortBy?: EBSortOption;
   pageSize: number;
 }
@@ -138,6 +141,7 @@ export default function EBCustomerList() {
   const [billUnitsOp, setBillUnitsOp] = useState<FilterOperator>(saved.billUnitsOp || 'gte');
   const [billUnitsVal, setBillUnitsVal] = useState(saved.billUnitsVal || '');
   const [billUnitsMaxVal, setBillUnitsMaxVal] = useState(saved.billUnitsMaxVal || '');
+  const [billFilterMetric, setBillFilterMetric] = useState<BillFilterMetric>(saved.billFilterMetric || 'avg');
 
   // Applied bill filter state (what actually gets queried)
   const [appliedBillAmount, setAppliedBillAmount] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(
@@ -146,6 +150,7 @@ export default function EBCustomerList() {
   const [appliedBillUnits, setAppliedBillUnits] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(
     saved.billUnitsVal ? { op: saved.billUnitsOp || 'gte', val: saved.billUnitsVal, maxVal: saved.billUnitsMaxVal || '' } : null
   );
+  const [appliedBillFilterMetric, setAppliedBillFilterMetric] = useState<BillFilterMetric>(saved.billFilterMetric || 'avg');
 
   const [showFilters, setShowFilters] = useState(false);
   const [customers, setCustomers] = useState<EBCustomer[]>([]);
@@ -238,11 +243,12 @@ export default function EBCustomerList() {
       dateTo,
       billAmountOp, billAmountVal, billAmountMaxVal,
       billUnitsOp, billUnitsVal, billUnitsMaxVal,
+      billFilterMetric: appliedBillFilterMetric,
       sortBy,
       pageSize,
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
-  }, [appliedSearch, areaCodeSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaSelections, excludeSolar, importBatchId, dateFrom, dateTo, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, sortBy, pageSize]);
+  }, [appliedSearch, areaCodeSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaSelections, excludeSolar, importBatchId, dateFrom, dateTo, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, appliedBillFilterMetric, sortBy, pageSize]);
 
   const loadFilterValues = useCallback(async () => {
     setLoadingFilters(true);
@@ -271,7 +277,9 @@ export default function EBCustomerList() {
   }, []);
 
   const buildBillFilters = useCallback((): EBFilterOptions => {
-    const filters: EBFilterOptions = {};
+    const filters: EBFilterOptions = {
+      billFilterMetric: appliedBillFilterMetric,
+    };
     if (appliedBillAmount && appliedBillAmount.val) {
       filters.billAmount = {
         operator: appliedBillAmount.op,
@@ -291,7 +299,7 @@ export default function EBCustomerList() {
       };
     }
     return filters;
-  }, [appliedBillAmount, appliedBillUnits]);
+  }, [appliedBillAmount, appliedBillUnits, appliedBillFilterMetric]);
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -334,13 +342,13 @@ export default function EBCustomerList() {
       const result = await fetchEBCustomers(filters);
       setCustomers(result.customers);
       setTotal(result.total);
-      setLoading(false);
 
       if (result.customers.length > 0) {
         const customerIds = result.customers.map((c) => c.id);
         const scNumbers = result.customers.map((c) => c.sc_number);
         const mobiles = result.customers.map((c) => c.mobile_number || c.phone).filter(Boolean) as string[];
-        fetchEBBillSummaries(customerIds, scNumbers).then(setBillSummaries).catch((err) => console.error('Error loading bill summaries:', err));
+        const summaries = await fetchEBBillSummaries(customerIds, scNumbers);
+        setBillSummaries(summaries);
         fetchExistingSuryaGharSCNumbers(scNumbers).then(setSuryaGharSCs).catch((err) => console.error('Error loading Surya Ghar matches:', err));
         fetchProspectSCNumbers(scNumbers).then(setProspectSCs).catch((err) => console.error('Error loading prospect matches:', err));
         if (isAdmin && mobiles.length > 0) {
@@ -359,7 +367,7 @@ export default function EBCustomerList() {
     } finally {
       setLoading(false);
     }
-  }, [appliedSearch, areaCodeSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaSelections, excludeSolar, importBatchId, dateFrom, dateTo, buildBillFilters, page, pageSize, statFilter, jspOnlyFilter, volunteerFilter, volunteerAssembly, sortBy]);
+  }, [appliedSearch, areaCodeSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaSelections, excludeSolar, importBatchId, dateFrom, dateTo, buildBillFilters, page, pageSize, statFilter, jspOnlyFilter, volunteerFilter, volunteerAssembly, sortBy, isAdmin]);
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
   useEffect(() => { loadStats(); }, [loadStats]);
@@ -407,6 +415,31 @@ export default function EBCustomerList() {
       if (highUsageOnly) {
         const bs = billSummaries.get(c.id) || (c.sc_number ? billSummaries.get(c.sc_number) : undefined);
         if (!bs?.high_usage) return false;
+      }
+      if (appliedBillAmount || appliedBillUnits) {
+        const conditions: { column: string; op: FilterOperator; value: number; maxValue?: number }[] = [];
+        if (appliedBillAmount && parseFloat(appliedBillAmount.val) > 0) {
+          conditions.push({
+            column: 'bill_amount',
+            op: appliedBillAmount.op,
+            value: parseFloat(appliedBillAmount.val),
+            maxValue: appliedBillAmount.maxVal ? parseFloat(appliedBillAmount.maxVal) : undefined,
+          });
+        }
+        if (appliedBillUnits && parseFloat(appliedBillUnits.val) > 0) {
+          conditions.push({
+            column: 'billed_units',
+            op: appliedBillUnits.op,
+            value: parseFloat(appliedBillUnits.val),
+            maxValue: appliedBillUnits.maxVal ? parseFloat(appliedBillUnits.maxVal) : undefined,
+          });
+        }
+        if (conditions.length > 0) {
+          const bs = billSummaries.get(c.id) || (c.sc_number ? billSummaries.get(c.sc_number) : undefined);
+          if (bs && !doesSummaryMatchBillConditions(bs, conditions, appliedBillFilterMetric)) {
+            return false;
+          }
+        }
       }
       if (volunteerFilter) {
         if (!jspMember || jspMember.volunteername !== volunteerFilter) return false;
@@ -475,7 +508,7 @@ export default function EBCustomerList() {
     }
 
     return result;
-  }, [customers, highUsageOnly, billSummaries, jspOnlyFilter, jspMemberMap, volunteerFilter, volunteerAssembly, excludeSolar, suryaGharSCs, sortBy]);
+  }, [customers, highUsageOnly, billSummaries, appliedBillAmount, appliedBillUnits, appliedBillFilterMetric, jspOnlyFilter, jspMemberMap, volunteerFilter, volunteerAssembly, excludeSolar, suryaGharSCs, sortBy]);
 
   const totalPages = Math.ceil(total / pageSize);
   const highUsageCount = Array.from(billSummaries.values()).filter((bs) => bs.high_usage).length;
@@ -497,6 +530,7 @@ export default function EBCustomerList() {
     (excludeSolar ? 1 : 0) + (importBatchId ? 1 : 0) + (dateFrom || dateTo ? 1 : 0) + (jspOnlyFilter ? 1 : 0) + (volunteerFilter ? 1 : 0);
 
   const hasPendingBillFilter =
+    billFilterMetric !== appliedBillFilterMetric ||
     (!!billAmountVal !== !!appliedBillAmount ||
      (appliedBillAmount && (billAmountOp !== appliedBillAmount.op || billAmountVal !== appliedBillAmount.val || billAmountMaxVal !== appliedBillAmount.maxVal)) ||
      !!billUnitsVal !== !!appliedBillUnits ||
@@ -511,6 +545,8 @@ export default function EBCustomerList() {
     setDateFrom(''); setDateTo('');
     setBillAmountOp('gte'); setBillAmountVal(''); setBillAmountMaxVal('');
     setBillUnitsOp('gte'); setBillUnitsVal(''); setBillUnitsMaxVal('');
+    setBillFilterMetric('avg');
+    setAppliedBillFilterMetric('avg');
     setAppliedBillAmount(null); setAppliedBillUnits(null);
     setJspOnlyFilter(false); setVolunteerFilter('');
     setSearchTerm(''); setDebouncedSearch('');
@@ -519,6 +555,7 @@ export default function EBCustomerList() {
   };
 
   const applyBillFilters = () => {
+    setAppliedBillFilterMetric(billFilterMetric);
     setAppliedBillAmount(billAmountVal ? { op: billAmountOp, val: billAmountVal, maxVal: billAmountMaxVal } : null);
     setAppliedBillUnits(billUnitsVal ? { op: billUnitsOp, val: billUnitsVal, maxVal: billUnitsMaxVal } : null);
     setPage(1);
@@ -985,16 +1022,57 @@ export default function EBCustomerList() {
             </div>
 
             <div className="pt-3 border-t border-gray-100">
-              <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                <Receipt className="w-3.5 h-3.5" /> Filter by Bill Amount / Units
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                <p className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5" /> Filter by Bill Amount / Units
+                </p>
+                <div className="inline-flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setBillFilterMetric('avg')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      billFilterMetric === 'avg'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    📊 Avg Usage (7m)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillFilterMetric('max')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      billFilterMetric === 'max'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    ⚡ Max Month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillFilterMetric('latest')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      billFilterMetric === 'latest'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    📅 Latest Month
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <OperatorFilterInput label="Bill Amount" icon={<IndianRupee className="w-3.5 h-3.5 text-gray-400" />}
+                <OperatorFilterInput
+                  label={billFilterMetric === 'avg' ? 'Avg Bill Amount' : billFilterMetric === 'max' ? 'Max Bill Amount' : 'Latest Bill Amount'}
+                  icon={<IndianRupee className="w-3.5 h-3.5 text-gray-400" />}
                   operator={billAmountOp} onOperatorChange={(v) => setBillAmountOp(v)}
                   value={billAmountVal} onValueChange={setBillAmountVal}
                   maxValue={billAmountMaxVal} onMaxValueChange={setBillAmountMaxVal}
                   showBetween={billAmountOp === 'between'} placeholder="Enter amount" />
-                <OperatorFilterInput label="Billed Units" icon={<Gauge className="w-3.5 h-3.5 text-gray-400" />}
+                <OperatorFilterInput
+                  label={billFilterMetric === 'avg' ? 'Avg Billed Units' : billFilterMetric === 'max' ? 'Max Billed Units' : 'Latest Billed Units'}
+                  icon={<Gauge className="w-3.5 h-3.5 text-gray-400" />}
                   operator={billUnitsOp} onOperatorChange={(v) => setBillUnitsOp(v)}
                   value={billUnitsVal} onValueChange={setBillUnitsVal}
                   maxValue={billUnitsMaxVal} onMaxValueChange={setBillUnitsMaxVal}
@@ -1009,7 +1087,7 @@ export default function EBCustomerList() {
                   <span className="text-xs text-orange-600 font-medium">Changes not yet applied</span>
                 )}
                 {(appliedBillAmount || appliedBillUnits) && (
-                  <button onClick={() => { setAppliedBillAmount(null); setAppliedBillUnits(null); setBillAmountVal(''); setBillAmountMaxVal(''); setBillUnitsVal(''); setBillUnitsMaxVal(''); setPage(1); }}
+                  <button onClick={() => { setAppliedBillAmount(null); setAppliedBillUnits(null); setBillAmountVal(''); setBillAmountMaxVal(''); setBillUnitsVal(''); setBillUnitsMaxVal(''); setBillFilterMetric('avg'); setAppliedBillFilterMetric('avg'); setPage(1); }}
                     className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium">
                     <RotateCcw className="w-3.5 h-3.5" /> Clear bill filters
                   </button>

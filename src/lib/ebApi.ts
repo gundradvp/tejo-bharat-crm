@@ -312,6 +312,8 @@ export type EBSortOption =
   | 'load_desc'
   | 'load_asc';
 
+export type BillFilterMetric = 'avg' | 'max' | 'latest';
+
 export interface EBFilterOptions {
   search?: string;
   eros?: string[];
@@ -333,12 +335,58 @@ export interface EBFilterOptions {
   billUnitsMax?: number | null;
   billAmount?: BillFilter | null;
   billUnits?: BillFilter | null;
+  billFilterMetric?: BillFilterMetric;
   followUpDue?: boolean;
   calledOnly?: boolean;
   jspMobiles?: string[];
   sortBy?: EBSortOption;
   page?: number;
   pageSize?: number;
+}
+
+export function matchesValueCondition(
+  val: number | null | undefined,
+  op: FilterOperator,
+  target: number,
+  maxTarget?: number
+): boolean {
+  if (val == null || isNaN(val)) return false;
+  if (op === 'gte') return val >= target;
+  if (op === 'gt') return val > target;
+  if (op === 'lte') return val <= target;
+  if (op === 'lt') return val < target;
+  if (op === 'eq') return val === target;
+  if (op === 'between') {
+    if (maxTarget != null && !isNaN(maxTarget)) {
+      return val >= target && val <= maxTarget;
+    }
+    return val >= target;
+  }
+  return true;
+}
+
+export function doesSummaryMatchBillConditions(
+  summary: EBBillSummary | undefined,
+  billConditions: { column: string; op: FilterOperator; value: number; maxValue?: number }[],
+  metric: BillFilterMetric = 'avg'
+): boolean {
+  if (!summary) return false;
+  for (const cond of billConditions) {
+    let val: number | null | undefined = null;
+    if (cond.column === 'billed_units') {
+      if (metric === 'avg') val = summary.avg_billed_units ?? summary.max_billed_units ?? summary.recent_units;
+      else if (metric === 'max') val = summary.max_billed_units ?? summary.avg_billed_units ?? summary.recent_units;
+      else if (metric === 'latest') val = summary.latest_units ?? summary.recent_units ?? summary.avg_billed_units;
+    } else if (cond.column === 'bill_amount') {
+      if (metric === 'avg') val = summary.avg_bill_amount ?? summary.max_bill_amount ?? summary.recent_bill_amount;
+      else if (metric === 'max') val = summary.max_bill_amount ?? summary.avg_bill_amount ?? summary.recent_bill_amount;
+      else if (metric === 'latest') val = summary.latest_bill_amount ?? summary.recent_bill_amount ?? summary.avg_bill_amount;
+    }
+    if (!matchesValueCondition(val, cond.op, cond.value, cond.maxValue)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function expandCategoryFilter(selectedCategories: string[]): string[] {
@@ -441,34 +489,47 @@ export async function fetchEBCustomers(
     billConditions.push({ column: 'billed_units', op: filters.billUnits.operator, value: filters.billUnits.value, maxValue: filters.billUnits.maxValue });
 
   const hasBillCond = billConditions.length > 0;
+  const billMetric: BillFilterMetric = filters.billFilterMetric || 'avg';
 
   if (hasBillCond) {
     try {
-      let query = supabase
+      // Step 1: Fetch lightweight candidate customers whose bills intersect the target range
+      let candQuery = supabase
         .from('eb_customers')
         .select(`
-          *,
-          called_by_profile:profiles!eb_customers_called_by_fkey(id, full_name),
+          id,
+          sc_number,
+          created_at,
+          customer_name,
+          sur_name,
+          contracted_load,
           eb_customer_bills!inner(billed_units, bill_amount)
-        `, { count: 'exact' })
-        .range(offset, offset + pageSize - 1);
+        `)
+        .range(0, 999);
 
-      // Apply bill conditions on eb_customer_bills
       for (const cond of billConditions) {
         if (cond.op === 'gte') {
-          query = query.gte(`eb_customer_bills.${cond.column}`, cond.value);
+          candQuery = candQuery.gte(`eb_customer_bills.${cond.column}`, cond.value);
         } else if (cond.op === 'gt') {
-          query = query.gt(`eb_customer_bills.${cond.column}`, cond.value);
+          candQuery = candQuery.gt(`eb_customer_bills.${cond.column}`, cond.value);
         } else if (cond.op === 'lte') {
-          query = query.lte(`eb_customer_bills.${cond.column}`, cond.value);
+          candQuery = candQuery.lte(`eb_customer_bills.${cond.column}`, cond.value);
         } else if (cond.op === 'lt') {
-          query = query.lt(`eb_customer_bills.${cond.column}`, cond.value);
+          candQuery = candQuery.lt(`eb_customer_bills.${cond.column}`, cond.value);
         } else if (cond.op === 'eq') {
-          query = query.eq(`eb_customer_bills.${cond.column}`, cond.value);
+          if (billMetric === 'avg') {
+            candQuery = candQuery
+              .gte(`eb_customer_bills.${cond.column}`, Math.floor(cond.value * 0.8))
+              .lte(`eb_customer_bills.${cond.column}`, Math.ceil(cond.value * 1.2));
+          } else {
+            candQuery = candQuery.eq(`eb_customer_bills.${cond.column}`, cond.value);
+          }
         } else if (cond.op === 'between') {
-          query = query.gte(`eb_customer_bills.${cond.column}`, cond.value);
+          const minBound = billMetric === 'avg' ? Math.floor(cond.value * 0.8) : cond.value;
+          candQuery = candQuery.gte(`eb_customer_bills.${cond.column}`, minBound);
           if (cond.maxValue != null) {
-            query = query.lte(`eb_customer_bills.${cond.column}`, cond.maxValue);
+            const maxBound = billMetric === 'avg' ? Math.ceil(cond.maxValue * 1.2) : cond.maxValue;
+            candQuery = candQuery.lte(`eb_customer_bills.${cond.column}`, maxBound);
           }
         }
       }
@@ -481,71 +542,149 @@ export async function fetchEBCustomers(
           const areaConds = matchedAreaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
           searchCond += `,${areaConds}`;
         }
-        query = query.or(searchCond);
+        candQuery = candQuery.or(searchCond);
       }
       if (filters.areaCodes && filters.areaCodes.length > 0) {
         if (filters.areaCodes.length === 1) {
-          query = query.or(`area_name.eq.${filters.areaCodes[0]},sc_number.like.%${filters.areaCodes[0]}______`);
+          candQuery = candQuery.or(`area_name.eq.${filters.areaCodes[0]},sc_number.like.%${filters.areaCodes[0]}______`);
         } else {
           const orConds = filters.areaCodes.map((c) => `area_name.eq.${c},sc_number.like.%${c}______`).join(',');
-          query = query.or(orConds);
+          candQuery = candQuery.or(orConds);
         }
       }
       if (filters.jspMobiles && filters.jspMobiles.length > 0) {
         const mobilesCsv = filters.jspMobiles.join(',');
-        query = query.or(`mobile_number.in.(${mobilesCsv}),phone.in.(${mobilesCsv})`);
+        candQuery = candQuery.or(`mobile_number.in.(${mobilesCsv}),phone.in.(${mobilesCsv})`);
       }
-      if (filters.eros && filters.eros.length > 0) query = query.in('ero_name', filters.eros);
-      if (filters.sections && filters.sections.length > 0) query = query.in('section_name', filters.sections);
-      if (filters.statuses && filters.statuses.length > 0) query = query.in('status', filters.statuses);
-      if (filters.callStatuses && filters.callStatuses.length > 0) query = query.in('call_status', filters.callStatuses);
+      if (filters.eros && filters.eros.length > 0) candQuery = candQuery.in('ero_name', filters.eros);
+      if (filters.sections && filters.sections.length > 0) candQuery = candQuery.in('section_name', filters.sections);
+      if (filters.statuses && filters.statuses.length > 0) candQuery = candQuery.in('status', filters.statuses);
+      if (filters.callStatuses && filters.callStatuses.length > 0) candQuery = candQuery.in('call_status', filters.callStatuses);
       if (filters.categories && filters.categories.length > 0) {
         const expandedCats = expandCategoryFilter(filters.categories);
-        query = query.in('category', expandedCats);
+        candQuery = candQuery.in('category', expandedCats);
       }
-      if (filters.mandals && filters.mandals.length > 0) query = query.in('mandal_name', filters.mandals);
-      if (filters.subStations && filters.subStations.length > 0) query = query.in('sub_station_name', filters.subStations);
-      if (filters.areas && filters.areas.length > 0) query = query.in('area_name', filters.areas);
+      if (filters.mandals && filters.mandals.length > 0) candQuery = candQuery.in('mandal_name', filters.mandals);
+      if (filters.subStations && filters.subStations.length > 0) candQuery = candQuery.in('sub_station_name', filters.subStations);
+      if (filters.areas && filters.areas.length > 0) candQuery = candQuery.in('area_name', filters.areas);
       if (filters.excludeSolar) {
-        query = query
-            .not('solar_already_installed', 'is', true)
+        candQuery = candQuery
+          .not('solar_already_installed', 'is', true)
           .or('call_status.is.null,call_status.neq.solar_already_installed');
       }
-      if (filters.importBatchId) query = query.eq('import_batch_id', filters.importBatchId);
-      if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom);
-      if (filters.dateTo) query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+      if (filters.importBatchId) candQuery = candQuery.eq('import_batch_id', filters.importBatchId);
+      if (filters.dateFrom) candQuery = candQuery.gte('created_at', filters.dateFrom);
+      if (filters.dateTo) candQuery = candQuery.lte('created_at', filters.dateTo + 'T23:59:59');
       if (filters.followUpDue) {
         const today = new Date().toISOString().split('T')[0];
-        query = query.lte('follow_up_date', today);
+        candQuery = candQuery.lte('follow_up_date', today);
       }
       if (filters.calledOnly) {
-        query = query.neq('call_status', 'not_called');
+        candQuery = candQuery.neq('call_status', 'not_called');
       }
 
-      // Sorting
       const sortBy = filters.sortBy || 'created_at_desc';
       if (sortBy === 'created_at_asc') {
-        query = query.order('created_at', { ascending: true });
+        candQuery = candQuery.order('created_at', { ascending: true });
       } else if (sortBy === 'name_asc') {
-        query = query.order('customer_name', { ascending: true, nullsFirst: false });
+        candQuery = candQuery.order('customer_name', { ascending: true, nullsFirst: false });
       } else if (sortBy === 'name_desc') {
-        query = query.order('customer_name', { ascending: false, nullsFirst: false });
+        candQuery = candQuery.order('customer_name', { ascending: false, nullsFirst: false });
       } else if (sortBy === 'load_desc') {
-        query = query.order('contracted_load', { ascending: false, nullsFirst: false });
+        candQuery = candQuery.order('contracted_load', { ascending: false, nullsFirst: false });
       } else if (sortBy === 'load_asc') {
-        query = query.order('contracted_load', { ascending: true, nullsFirst: false });
+        candQuery = candQuery.order('contracted_load', { ascending: true, nullsFirst: false });
       } else {
-        query = query.order('created_at', { ascending: false });
+        candQuery = candQuery.order('created_at', { ascending: false });
       }
 
-      const { data, error, count } = await query;
-      if (error) throw error;
+      const { data: candData, error: candError } = await candQuery;
+      if (candError) throw candError;
 
-      const customers = (data as any) || [];
-      const total = count ?? customers.length;
+      const rawCandidates = (candData as any[]) || [];
+      if (rawCandidates.length === 0) {
+        return { customers: [], total: 0 };
+      }
+
+      // Deduplicate candidates by customer ID
+      const uniqueCandidateMap = new Map<string, any>();
+      for (const c of rawCandidates) {
+        if (c.id && !uniqueCandidateMap.has(c.id)) {
+          uniqueCandidateMap.set(c.id, c);
+        }
+      }
+      const uniqueCandidates = Array.from(uniqueCandidateMap.values());
+      const candIds = uniqueCandidates.map((c) => c.id);
+      const candScs = uniqueCandidates.map((c) => c.sc_number).filter(Boolean);
+
+      // Step 2: Fetch full bill summaries for candidates and strictly verify against the selected metric (avg / max / latest)
+      const summaryMap = await fetchEBBillSummaries(candIds, candScs);
+
+      const matchingCandidates = uniqueCandidates.filter((c) => {
+        const bs = summaryMap.get(c.id) || (c.sc_number ? summaryMap.get(c.sc_number) : undefined);
+        return doesSummaryMatchBillConditions(bs, billConditions, billMetric);
+      });
+
+      // Step 3: Sort matching candidates globally before pagination
+      if (sortBy === 'avg_units_desc') {
+        matchingCandidates.sort((a, b) => {
+          const aBs = summaryMap.get(a.id) || (a.sc_number ? summaryMap.get(a.sc_number) : undefined);
+          const bBs = summaryMap.get(b.id) || (b.sc_number ? summaryMap.get(b.sc_number) : undefined);
+          return (bBs?.avg_billed_units ?? 0) - (aBs?.avg_billed_units ?? 0);
+        });
+      } else if (sortBy === 'avg_units_asc') {
+        matchingCandidates.sort((a, b) => {
+          const aBs = summaryMap.get(a.id) || (a.sc_number ? summaryMap.get(a.sc_number) : undefined);
+          const bBs = summaryMap.get(b.id) || (b.sc_number ? summaryMap.get(b.sc_number) : undefined);
+          const aU = aBs?.avg_billed_units ?? 0;
+          const bU = bBs?.avg_billed_units ?? 0;
+          if (aU === 0 && bU > 0) return 1;
+          if (bU === 0 && aU > 0) return -1;
+          return aU - bU;
+        });
+      } else if (sortBy === 'units_desc') {
+        matchingCandidates.sort((a, b) => {
+          const aBs = summaryMap.get(a.id) || (a.sc_number ? summaryMap.get(a.sc_number) : undefined);
+          const bBs = summaryMap.get(b.id) || (b.sc_number ? summaryMap.get(b.sc_number) : undefined);
+          return (bBs?.max_billed_units ?? aBs?.recent_units ?? 0) - (aBs?.max_billed_units ?? aBs?.recent_units ?? 0);
+        });
+      } else if (sortBy === 'units_asc') {
+        matchingCandidates.sort((a, b) => {
+          const aBs = summaryMap.get(a.id) || (a.sc_number ? summaryMap.get(a.sc_number) : undefined);
+          const bBs = summaryMap.get(b.id) || (b.sc_number ? summaryMap.get(b.sc_number) : undefined);
+          const aU = aBs?.max_billed_units ?? aBs?.recent_units ?? 0;
+          const bU = bBs?.max_billed_units ?? bBs?.recent_units ?? 0;
+          if (aU === 0 && bU > 0) return 1;
+          if (bU === 0 && aU > 0) return -1;
+          return aU - bU;
+        });
+      }
+
+      const total = matchingCandidates.length;
+      const pageWinners = matchingCandidates.slice(offset, offset + pageSize);
+      if (pageWinners.length === 0) {
+        return { customers: [], total };
+      }
+
+      const winnerIds = pageWinners.map((c) => c.id);
+      const { data: fullData, error: fullError } = await supabase
+        .from('eb_customers')
+        .select('*, called_by_profile:profiles!eb_customers_called_by_fkey(id, full_name)')
+        .in('id', winnerIds);
+
+      if (fullError) throw fullError;
+
+      const fullById = new Map<string, EBCustomer>();
+      for (const row of (fullData as any[]) || []) {
+        fullById.set(row.id, row);
+      }
+
+      const orderedCustomers = winnerIds
+        .map((id) => fullById.get(id))
+        .filter(Boolean) as EBCustomer[];
 
       return {
-        customers,
+        customers: orderedCustomers,
         total,
       };
     } catch (err) {
@@ -1066,22 +1205,51 @@ function billSortKey(year: number | null, monthIndex: number | null): number {
   return (year ?? 0) * 100 + (monthIndex ?? 0);
 }
 
+const ebBillSummaryCache = new Map<string, EBBillSummary>();
+
+export function clearEBBillSummaryCache(): void {
+  ebBillSummaryCache.clear();
+}
+
 export async function fetchEBBillSummaries(
   customerIds: string[],
   scNumbers?: string[]
 ): Promise<Map<string, EBBillSummary>> {
   const map = new Map<string, EBBillSummary>();
-  const latestKeyMap = new Map<string, number>();
-  const validIds = (customerIds || []).filter(Boolean);
-  const validScs = (scNumbers || []).filter(Boolean);
+  const validIds = Array.from(new Set((customerIds || []).filter(Boolean)));
+  const validScs = Array.from(new Set((scNumbers || []).filter(Boolean)));
   if (validIds.length === 0 && validScs.length === 0) return map;
 
-  const BATCH = 50;
-  const maxLen = Math.max(validIds.length, validScs.length);
+  // Check in-memory cache first
+  const missingIds: string[] = [];
+  const missingScs: string[] = [];
+
+  for (const id of validIds) {
+    const cached = ebBillSummaryCache.get(id);
+    if (cached) map.set(id, cached);
+    else missingIds.push(id);
+  }
+  for (const sc of validScs) {
+    const cached = ebBillSummaryCache.get(sc);
+    if (cached) map.set(sc, cached);
+    else missingScs.push(sc);
+  }
+
+  if (missingIds.length === 0 && missingScs.length === 0) {
+    return map;
+  }
+
+  const latestKeyMap = new Map<string, number>();
+  const amountTotalMap = new Map<string, { total: number; count: number }>();
+  const seenBillKeys = new Set<string>();
+
+  const BATCH = 60;
+  const maxLen = Math.max(missingIds.length, missingScs.length);
+  const batchQueries: any[] = [];
 
   for (let i = 0; i < maxLen; i += BATCH) {
-    const batchIds = validIds.slice(i, i + BATCH);
-    const batchScs = validScs.slice(i, i + BATCH);
+    const batchIds = missingIds.slice(i, i + BATCH);
+    const batchScs = missingScs.slice(i, i + BATCH);
 
     let query = supabase
       .from('eb_customer_bills')
@@ -1103,78 +1271,110 @@ export async function fetchEBBillSummaries(
       query = query.in('sc_number', batchScs);
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
+    batchQueries.push(query);
+  }
 
-    for (const row of data || []) {
-      const cid = (row.eb_customer_id as string) || (row.sc_number as string);
-      if (!cid) continue;
-      const rawUnits = row.billed_units != null ? Number(row.billed_units) : null;
-      const units = rawUnits != null && !isNaN(rawUnits) ? rawUnits : null;
-      const rawAmount = row.bill_amount != null ? Number(row.bill_amount) : null;
-      const amount = rawAmount != null && !isNaN(rawAmount) ? rawAmount : null;
-      const month = row.bill_month ?? null;
-      const sortKey = billSortKey(row.bill_year as number | null, row.bill_month_index as number | null);
+  // Run in parallel chunks of 6
+  for (let i = 0; i < batchQueries.length; i += 6) {
+    const chunk = batchQueries.slice(i, i + 6);
+    const results = await Promise.all(chunk);
 
-      const sc = row.sc_number as string | undefined;
-      const existing = (cid ? map.get(cid) : undefined) || (sc ? map.get(sc) : undefined);
+    for (const res of results) {
+      if (res.error) throw res.error;
+      for (const row of res.data || []) {
+        const cid = (row.eb_customer_id as string) || (row.sc_number as string);
+        if (!cid) continue;
+        const sc = row.sc_number as string | undefined;
 
-      const hasValidUnit = units != null && units > 0;
-      const hasValidAmount = amount != null && amount > 0;
+        const rawUnits = row.billed_units != null ? Number(row.billed_units) : null;
+        const units = rawUnits != null && !isNaN(rawUnits) ? rawUnits : null;
+        const rawAmount = row.bill_amount != null ? Number(row.bill_amount) : null;
+        const amount = rawAmount != null && !isNaN(rawAmount) ? rawAmount : null;
+        const month = row.bill_month ?? null;
+        const sortKey = billSortKey(row.bill_year as number | null, row.bill_month_index as number | null);
 
-      if (!existing) {
-        const summary: EBBillSummary = {
-          eb_customer_id: cid,
-          max_billed_units: units,
-          max_units_bill_amount: amount,
-          max_bill_amount: amount,
-          latest_bill_month: month,
-          latest_units: units,
-          latest_bill_amount: amount,
-          recent_units: units,
-          recent_bill_amount: amount,
-          recent_bill_month: month,
-          high_usage: units != null && units > HIGH_USAGE_THRESHOLD,
-          total_billed_units: hasValidUnit ? units : (units != null ? 0 : 0),
-          bill_count: hasValidUnit ? 1 : (units != null ? 1 : 0),
-          avg_billed_units: units != null ? units : null,
-          avg_bill_amount: amount != null ? amount : null,
-        };
-        map.set(cid, summary);
-        if (sc && sc !== cid) map.set(sc, summary);
-        latestKeyMap.set(cid, sortKey);
-        if (sc) latestKeyMap.set(sc, sortKey);
-      } else {
-        if (units != null) {
-          if (existing.max_billed_units == null || units > existing.max_billed_units) {
-            existing.max_billed_units = units;
-            existing.max_units_bill_amount = amount;
-          }
-          if (units > HIGH_USAGE_THRESHOLD) existing.high_usage = true;
-          existing.total_billed_units = (existing.total_billed_units || 0) + units;
-          existing.bill_count = (existing.bill_count || 0) + 1;
-          existing.avg_billed_units = Math.round(existing.total_billed_units / existing.bill_count);
-        }
-        if (amount != null) {
-          if (existing.max_bill_amount == null || amount > existing.max_bill_amount) {
-            existing.max_bill_amount = amount;
-          }
-        }
-        if (sortKey > 0 && sortKey >= (latestKeyMap.get(cid) ?? latestKeyMap.get(sc || '') ?? 0)) {
-          existing.latest_bill_month = month;
-          existing.latest_units = units;
-          existing.latest_bill_amount = amount;
-          existing.recent_units = units;
-          existing.recent_bill_amount = amount;
-          existing.recent_bill_month = month;
+        // Deduplicate exact duplicate rows for same customer and month
+        const rowDedupeKey = `${cid}_${month || ''}_${sortKey}_${units}_${amount}`;
+        if (seenBillKeys.has(rowDedupeKey)) continue;
+        seenBillKeys.add(rowDedupeKey);
+
+        const existing = (cid ? map.get(cid) : undefined) || (sc ? map.get(sc) : undefined);
+        const hasValidUnit = units != null && units > 0;
+        const hasValidAmount = amount != null && amount > 0;
+
+        if (!existing) {
+          const summary: EBBillSummary = {
+            eb_customer_id: cid,
+            max_billed_units: units,
+            max_units_bill_amount: amount,
+            max_bill_amount: amount,
+            latest_bill_month: month,
+            latest_units: units,
+            latest_bill_amount: amount,
+            recent_units: units,
+            recent_bill_amount: amount,
+            recent_bill_month: month,
+            high_usage: units != null && units > HIGH_USAGE_THRESHOLD,
+            total_billed_units: hasValidUnit ? units : 0,
+            bill_count: hasValidUnit ? 1 : 0,
+            avg_billed_units: hasValidUnit ? units : (units != null ? units : null),
+            avg_bill_amount: hasValidAmount ? amount : (amount != null ? amount : null),
+          };
+          amountTotalMap.set(cid, {
+            total: hasValidAmount ? amount : 0,
+            count: hasValidAmount ? 1 : 0,
+          });
+          map.set(cid, summary);
+          if (sc && sc !== cid) map.set(sc, summary);
           latestKeyMap.set(cid, sortKey);
           if (sc) latestKeyMap.set(sc, sortKey);
+        } else {
+          if (units != null) {
+            if (existing.max_billed_units == null || units > existing.max_billed_units) {
+              existing.max_billed_units = units;
+              existing.max_units_bill_amount = amount;
+            }
+            if (units > HIGH_USAGE_THRESHOLD) existing.high_usage = true;
+            if (hasValidUnit) {
+              existing.total_billed_units = (existing.total_billed_units || 0) + units;
+              existing.bill_count = (existing.bill_count || 0) + 1;
+              existing.avg_billed_units = Math.round(existing.total_billed_units / existing.bill_count);
+            }
+          }
+          if (amount != null) {
+            if (existing.max_bill_amount == null || amount > existing.max_bill_amount) {
+              existing.max_bill_amount = amount;
+            }
+            if (hasValidAmount) {
+              const amtState = amountTotalMap.get(cid) || { total: 0, count: 0 };
+              amtState.total += amount;
+              amtState.count += 1;
+              amountTotalMap.set(cid, amtState);
+              existing.avg_bill_amount = Math.round(amtState.total / amtState.count);
+            }
+          }
+          if (sortKey > 0 && sortKey >= (latestKeyMap.get(cid) ?? latestKeyMap.get(sc || '') ?? 0)) {
+            existing.latest_bill_month = month;
+            existing.latest_units = units;
+            existing.latest_bill_amount = amount;
+            existing.recent_units = units;
+            existing.recent_bill_amount = amount;
+            existing.recent_bill_month = month;
+            latestKeyMap.set(cid, sortKey);
+            if (sc) latestKeyMap.set(sc, sortKey);
+          }
+          map.set(cid, existing);
+          if (sc && sc !== cid) map.set(sc, existing);
         }
-        map.set(cid, existing);
-        if (sc && sc !== cid) map.set(sc, existing);
       }
     }
   }
+
+  // Populate cache
+  for (const [key, val] of map.entries()) {
+    ebBillSummaryCache.set(key, val);
+  }
+
   return map;
 }
 

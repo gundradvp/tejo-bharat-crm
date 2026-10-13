@@ -25,6 +25,8 @@ import {
   ProspectFilterOptions,
   ProspectSortOption,
   FilterOperator,
+  BillFilterMetric,
+  doesProspectSummaryMatchBillConditions,
   fetchProspectsForExport,
   fetchProspectSCOnlyForExport,
   extractAreaCode,
@@ -67,6 +69,7 @@ interface SavedFilters {
   billUnitsOp: FilterOperator;
   billUnitsVal: string;
   billUnitsMaxVal: string;
+  billFilterMetric?: BillFilterMetric;
   importBatchId: string | null;
   dateFrom: string;
   dateTo: string;
@@ -111,6 +114,7 @@ export default function ProspectList() {
   const [billUnitsOp, setBillUnitsOp] = useState<FilterOperator>(saved.billUnitsOp || 'gte');
   const [billUnitsVal, setBillUnitsVal] = useState(saved.billUnitsVal || '');
   const [billUnitsMaxVal, setBillUnitsMaxVal] = useState(saved.billUnitsMaxVal || '');
+  const [billFilterMetric, setBillFilterMetric] = useState<BillFilterMetric>(saved.billFilterMetric || 'avg');
 
   // Applied bill filter state
   const [appliedBillAmount, setAppliedBillAmount] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(
@@ -119,6 +123,7 @@ export default function ProspectList() {
   const [appliedBillUnits, setAppliedBillUnits] = useState<{ op: FilterOperator; val: string; maxVal: string } | null>(
     saved.billUnitsVal ? { op: saved.billUnitsOp || 'gte', val: saved.billUnitsVal, maxVal: saved.billUnitsMaxVal || '' } : null
   );
+  const [appliedBillFilterMetric, setAppliedBillFilterMetric] = useState<BillFilterMetric>(saved.billFilterMetric || 'avg');
 
   const [showFilters, setShowFilters] = useState(false);
   const [prospects, setProspects] = useState<LeadProspect[]>([]);
@@ -183,13 +188,14 @@ export default function ProspectList() {
       hideSolarInstalled,
       billAmountOp, billAmountVal, billAmountMaxVal,
       billUnitsOp, billUnitsVal, billUnitsMaxVal,
+      billFilterMetric: appliedBillFilterMetric,
       importBatchId,
       dateFrom, dateTo,
       sortBy,
       pageSize,
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
-  }, [appliedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, importBatchId, dateFrom, dateTo, sortBy, pageSize]);
+  }, [appliedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, appliedBillFilterMetric, importBatchId, dateFrom, dateTo, sortBy, pageSize]);
 
   const loadFilterValues = useCallback(async () => {
     try {
@@ -210,7 +216,9 @@ export default function ProspectList() {
   }, []);
 
   const buildBillFilters = useCallback((): ProspectFilterOptions => {
-    const filters: ProspectFilterOptions = {};
+    const filters: ProspectFilterOptions = {
+      billFilterMetric: appliedBillFilterMetric,
+    };
     if (appliedBillAmount && appliedBillAmount.val) {
       filters.billAmount = {
         operator: appliedBillAmount.op,
@@ -230,7 +238,7 @@ export default function ProspectList() {
       };
     }
     return filters;
-  }, [appliedBillAmount, appliedBillUnits]);
+  }, [appliedBillAmount, appliedBillUnits, appliedBillFilterMetric]);
 
   const loadProspects = useCallback(async () => {
     setLoading(true);
@@ -267,11 +275,11 @@ export default function ProspectList() {
       const result = await fetchProspects(filters);
       setProspects(result.prospects);
       setTotal(result.total);
-      setLoading(false);
 
       if (result.prospects.length > 0) {
         const scNumbers = result.prospects.map((p) => p.sc_number).filter(Boolean) as string[];
-        fetchProspectBillSummaries(scNumbers).then(setBillSummaries).catch((err) => console.error('Error loading bill summaries:', err));
+        const summaries = await fetchProspectBillSummaries(scNumbers);
+        setBillSummaries(summaries);
       } else {
         setBillSummaries(new Map());
       }
@@ -294,6 +302,31 @@ export default function ProspectList() {
         if (!p.sc_number) return false;
         const bs = billSummaries.get(p.sc_number);
         return bs?.high_usage;
+      }
+      if (appliedBillAmount || appliedBillUnits) {
+        const conditions: { column: string; op: FilterOperator; value: number; maxValue?: number }[] = [];
+        if (appliedBillAmount && parseFloat(appliedBillAmount.val) > 0) {
+          conditions.push({
+            column: 'bill_amount',
+            op: appliedBillAmount.op,
+            value: parseFloat(appliedBillAmount.val),
+            maxValue: appliedBillAmount.maxVal ? parseFloat(appliedBillAmount.maxVal) : undefined,
+          });
+        }
+        if (appliedBillUnits && parseFloat(appliedBillUnits.val) > 0) {
+          conditions.push({
+            column: 'billed_units',
+            op: appliedBillUnits.op,
+            value: parseFloat(appliedBillUnits.val),
+            maxValue: appliedBillUnits.maxVal ? parseFloat(appliedBillUnits.maxVal) : undefined,
+          });
+        }
+        if (conditions.length > 0 && p.sc_number) {
+          const bs = billSummaries.get(p.sc_number);
+          if (bs && !doesProspectSummaryMatchBillConditions(bs, conditions, appliedBillFilterMetric)) {
+            return false;
+          }
+        }
       }
       return true;
     });
@@ -349,7 +382,7 @@ export default function ProspectList() {
     }
 
     return result;
-  }, [prospects, highUsageOnly, hideSuryaGhar, hideSolarInstalled, billSummaries, sortBy]);
+  }, [prospects, highUsageOnly, hideSuryaGhar, hideSolarInstalled, billSummaries, appliedBillAmount, appliedBillUnits, appliedBillFilterMetric, sortBy]);
 
   const totalPages = Math.ceil(total / pageSize);
   const highUsageCount = Array.from(billSummaries.values()).filter((bs) => bs.high_usage).length;
@@ -368,6 +401,7 @@ export default function ProspectList() {
     (importBatchId ? 1 : 0) + (dateFrom || dateTo ? 1 : 0);
 
   const hasPendingBillFilter =
+    billFilterMetric !== appliedBillFilterMetric ||
     (!!billAmountVal !== !!appliedBillAmount ||
      (appliedBillAmount && (billAmountOp !== appliedBillAmount.op || billAmountVal !== appliedBillAmount.val || billAmountMaxVal !== appliedBillAmount.maxVal)) ||
      !!billUnitsVal !== !!appliedBillUnits ||
@@ -383,6 +417,8 @@ export default function ProspectList() {
     setHideSolarInstalled(false);
     setBillAmountOp('gte'); setBillAmountVal(''); setBillAmountMaxVal('');
     setBillUnitsOp('gte'); setBillUnitsVal(''); setBillUnitsMaxVal('');
+    setBillFilterMetric('avg');
+    setAppliedBillFilterMetric('avg');
     setAppliedBillAmount(null); setAppliedBillUnits(null);
     setImportBatchId(null);
     setDateFrom(''); setDateTo('');
@@ -392,6 +428,7 @@ export default function ProspectList() {
   };
 
   const applyBillFilters = () => {
+    setAppliedBillFilterMetric(billFilterMetric);
     setAppliedBillAmount(billAmountVal ? { op: billAmountOp, val: billAmountVal, maxVal: billAmountMaxVal } : null);
     setAppliedBillUnits(billUnitsVal ? { op: billUnitsOp, val: billUnitsVal, maxVal: billUnitsMaxVal } : null);
     setPage(1);
@@ -889,16 +926,57 @@ export default function ProspectList() {
 
             {/* Bill range filters */}
             <div className="pt-3 border-t border-gray-100">
-              <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                <Receipt className="w-3.5 h-3.5" /> Filter by Bill Amount / Units (from EB billing history)
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                <p className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5" /> Filter by Bill Amount / Units (from EB billing history)
+                </p>
+                <div className="inline-flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setBillFilterMetric('avg')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      billFilterMetric === 'avg'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    📊 Avg Usage (7m)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillFilterMetric('max')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      billFilterMetric === 'max'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    ⚡ Max Month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillFilterMetric('latest')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      billFilterMetric === 'latest'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    📅 Latest Month
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <OperatorFilterInput label="Bill Amount" icon={<IndianRupee className="w-3.5 h-3.5 text-gray-400" />}
+                <OperatorFilterInput
+                  label={billFilterMetric === 'avg' ? 'Avg Bill Amount' : billFilterMetric === 'max' ? 'Max Bill Amount' : 'Latest Bill Amount'}
+                  icon={<IndianRupee className="w-3.5 h-3.5 text-gray-400" />}
                   operator={billAmountOp} onOperatorChange={(v) => setBillAmountOp(v)}
                   value={billAmountVal} onValueChange={setBillAmountVal}
                   maxValue={billAmountMaxVal} onMaxValueChange={setBillAmountMaxVal}
                   showBetween={billAmountOp === 'between'} placeholder="Enter amount" />
-                <OperatorFilterInput label="Billed Units" icon={<Gauge className="w-3.5 h-3.5 text-gray-400" />}
+                <OperatorFilterInput
+                  label={billFilterMetric === 'avg' ? 'Avg Billed Units' : billFilterMetric === 'max' ? 'Max Billed Units' : 'Latest Billed Units'}
+                  icon={<Gauge className="w-3.5 h-3.5 text-gray-400" />}
                   operator={billUnitsOp} onOperatorChange={(v) => setBillUnitsOp(v)}
                   value={billUnitsVal} onValueChange={setBillUnitsVal}
                   maxValue={billUnitsMaxVal} onMaxValueChange={setBillUnitsMaxVal}
@@ -913,7 +991,7 @@ export default function ProspectList() {
                   <span className="text-xs text-orange-600 font-medium">Changes not yet applied</span>
                 )}
                 {(appliedBillAmount || appliedBillUnits) && (
-                  <button onClick={() => { setAppliedBillAmount(null); setAppliedBillUnits(null); setBillAmountVal(''); setBillAmountMaxVal(''); setBillUnitsVal(''); setBillUnitsMaxVal(''); setPage(1); }}
+                  <button onClick={() => { setAppliedBillAmount(null); setAppliedBillUnits(null); setBillAmountVal(''); setBillAmountMaxVal(''); setBillUnitsVal(''); setBillUnitsMaxVal(''); setBillFilterMetric('avg'); setAppliedBillFilterMetric('avg'); setPage(1); }}
                     className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium">
                     <RotateCcw className="w-3.5 h-3.5" /> Clear bill filters
                   </button>

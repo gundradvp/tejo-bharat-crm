@@ -1,8 +1,9 @@
 import { supabase } from './supabase';
 import { extractAreaCode, findAreaCodesForQuery, KAKINADA_AREA_CODES } from './areaCodeCatalog';
 import { JSP_LOCATION_HIERARCHY } from './jspLocationData';
-import { expandCategoryFilter } from './ebApi';
+import { expandCategoryFilter, BillFilterMetric, matchesValueCondition } from './ebApi';
 export { extractAreaCode, findAreaCodesForQuery };
+export type { BillFilterMetric };
 
 export const HIGH_USAGE_THRESHOLD = 500;
 
@@ -96,6 +97,7 @@ export interface ProspectFilterOptions {
   hideSolarInstalled?: boolean;
   billAmount?: BillFilter | null;
   billUnits?: BillFilter | null;
+  billFilterMetric?: BillFilterMetric;
   importBatchId?: string | null;
   dateFrom?: string | null;
   dateTo?: string | null;
@@ -353,6 +355,30 @@ export async function loadAllProspects(): Promise<LeadProspect[]> {
   return all;
 }
 
+export function doesProspectSummaryMatchBillConditions(
+  summary: ProspectBillSummary | undefined,
+  billConditions: { column: string; op: FilterOperator; value: number; maxValue?: number }[],
+  metric: BillFilterMetric = 'avg'
+): boolean {
+  if (!summary) return false;
+  for (const cond of billConditions) {
+    let val: number | null | undefined = null;
+    if (cond.column === 'billed_units') {
+      if (metric === 'avg') val = summary.avg_billed_units ?? summary.max_billed_units ?? summary.recent_units;
+      else if (metric === 'max') val = summary.max_billed_units ?? summary.avg_billed_units ?? summary.recent_units;
+      else if (metric === 'latest') val = summary.latest_units ?? summary.recent_units ?? summary.avg_billed_units;
+    } else if (cond.column === 'bill_amount') {
+      if (metric === 'avg') val = summary.avg_bill_amount ?? summary.max_bill_amount ?? summary.recent_bill_amount;
+      else if (metric === 'max') val = summary.max_bill_amount ?? summary.avg_bill_amount ?? summary.recent_bill_amount;
+      else if (metric === 'latest') val = summary.latest_bill_amount ?? summary.recent_bill_amount ?? summary.avg_bill_amount;
+    }
+    if (!matchesValueCondition(val, cond.op, cond.value, cond.maxValue)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export async function fetchProspects(
   filters: ProspectFilterOptions
 ): Promise<ProspectPaginatedResult> {
@@ -367,8 +393,23 @@ export async function fetchProspects(
     billConditions.push({ column: 'billed_units', op: filters.billUnits.operator, value: filters.billUnits.value, maxValue: filters.billUnits.maxValue });
 
   const hasBillCond = billConditions.length > 0;
+  const billMetric: BillFilterMetric = filters.billFilterMetric || 'avg';
 
   if (hasBillCond) {
+    const rpcBillConditions = billConditions.map((c) => {
+      let val = c.value;
+      let maxVal = c.maxValue ?? null;
+      if (billMetric === 'avg') {
+        if (c.op === 'between') {
+          val = Math.floor(c.value * 0.8);
+          maxVal = c.maxValue != null ? Math.ceil(c.maxValue * 1.2) : null;
+        } else if (c.op === 'eq') {
+          return { column: c.column, operator: 'between' as FilterOperator, value: Math.floor(c.value * 0.8), max_value: Math.ceil(c.value * 1.2) };
+        }
+      }
+      return { column: c.column, operator: c.op, value: val, max_value: maxVal };
+    });
+
     const rpcParams = {
       p_search: filters.search || null,
       p_circle: filters.circles && filters.circles.length > 0 ? filters.circles.join(',') : null,
@@ -383,9 +424,9 @@ export async function fetchProspects(
       p_sub_station: filters.subStations && filters.subStations.length > 0 ? filters.subStations.join(',') : null,
       p_date_from: filters.dateFrom || null,
       p_date_to: filters.dateTo || null,
-      bill_conditions: billConditions.map((c) => ({ column: c.column, operator: c.op, value: c.value, max_value: c.maxValue ?? null })),
-      p_page_size: pageSize,
-      p_page_offset: offset,
+      bill_conditions: rpcBillConditions,
+      p_page_size: 1000,
+      p_page_offset: 0,
     };
 
     try {
@@ -393,19 +434,15 @@ export async function fetchProspects(
       if (!rpcError && rpcData && rpcData.length > 0) {
         const result = rpcData[0];
         let rows = (result.rows || []) as LeadProspect[];
-        const rpcTotal = Number(result.total_count) || 0;
-        let total = rpcTotal > 0 ? rpcTotal : rows.length;
 
         if (filters.areaCodes && filters.areaCodes.length > 0) {
           rows = rows.filter((p) => {
             const code = extractAreaCode(p.sc_number);
             return code && filters.areaCodes!.includes(code);
           });
-          if (rpcTotal === 0) total = rows.length;
         }
         if (filters.hideSuryaGhar) {
           rows = rows.filter((p) => !p.is_existing_customer);
-          if (rpcTotal === 0) total = rows.length;
         }
         if (filters.hideSolarInstalled) {
           rows = rows.filter((p) => {
@@ -414,11 +451,56 @@ export async function fetchProspects(
             if (p.existing_solar_load_kw != null && p.existing_solar_load_kw > 0) return false;
             return true;
           });
-          if (rpcTotal === 0) total = rows.length;
         }
-        if (rows.length > 0 || rpcTotal > 0) {
-          return { prospects: rows, total: Math.max(total, rows.length) };
+
+        // Fetch bill summaries for these candidate prospects to strictly filter by average/max/latest
+        const scNumbers = rows.map((p) => p.sc_number).filter(Boolean) as string[];
+        const summaryMap = await fetchProspectBillSummaries(scNumbers);
+
+        rows = rows.filter((p) => {
+          const bs = p.sc_number ? summaryMap.get(p.sc_number) : undefined;
+          return doesProspectSummaryMatchBillConditions(bs, billConditions, billMetric);
+        });
+
+        // Sort candidates
+        const sortBy = filters.sortBy || 'created_at_desc';
+        if (sortBy === 'avg_units_desc') {
+          rows.sort((a, b) => {
+            const aBs = a.sc_number ? summaryMap.get(a.sc_number) : undefined;
+            const bBs = b.sc_number ? summaryMap.get(b.sc_number) : undefined;
+            return (bBs?.avg_billed_units ?? 0) - (aBs?.avg_billed_units ?? 0);
+          });
+        } else if (sortBy === 'avg_units_asc') {
+          rows.sort((a, b) => {
+            const aBs = a.sc_number ? summaryMap.get(a.sc_number) : undefined;
+            const bBs = b.sc_number ? summaryMap.get(b.sc_number) : undefined;
+            const aU = aBs?.avg_billed_units ?? 0;
+            const bU = bBs?.avg_billed_units ?? 0;
+            if (aU === 0 && bU > 0) return 1;
+            if (bU === 0 && aU > 0) return -1;
+            return aU - bU;
+          });
+        } else if (sortBy === 'units_desc') {
+          rows.sort((a, b) => {
+            const aBs = a.sc_number ? summaryMap.get(a.sc_number) : undefined;
+            const bBs = b.sc_number ? summaryMap.get(b.sc_number) : undefined;
+            return (bBs?.max_billed_units ?? bBs?.recent_units ?? 0) - (aBs?.max_billed_units ?? aBs?.recent_units ?? 0);
+          });
+        } else if (sortBy === 'units_asc') {
+          rows.sort((a, b) => {
+            const aBs = a.sc_number ? summaryMap.get(a.sc_number) : undefined;
+            const bBs = b.sc_number ? summaryMap.get(b.sc_number) : undefined;
+            const aU = aBs?.max_billed_units ?? aBs?.recent_units ?? 0;
+            const bU = bBs?.max_billed_units ?? bBs?.recent_units ?? 0;
+            if (aU === 0 && bU > 0) return 1;
+            if (bU === 0 && aU > 0) return -1;
+            return aU - bU;
+          });
         }
+
+        const total = rows.length;
+        const pageWinners = rows.slice(offset, offset + pageSize);
+        return { prospects: pageWinners, total };
       }
     } catch (err) {
       console.warn('search_prospects RPC failed:', err);
@@ -722,85 +804,136 @@ export interface ProspectBillSummary {
   avg_bill_amount?: number | null;
 }
 
+const prospectBillSummaryCache = new Map<string, ProspectBillSummary>();
+
+export function clearProspectBillSummaryCache(): void {
+  prospectBillSummaryCache.clear();
+}
+
 export async function fetchProspectBillSummaries(
   scNumbers: string[]
 ): Promise<Map<string, ProspectBillSummary>> {
   const map = new Map<string, ProspectBillSummary>();
-  const latestKeyMap = new Map<string, number>();
-  const validScs = (scNumbers || []).filter(Boolean);
+  const validScs = Array.from(new Set((scNumbers || []).filter(Boolean)));
   if (validScs.length === 0) return map;
 
-  const BATCH = 50;
-  for (let i = 0; i < validScs.length; i += BATCH) {
-    const batch = validScs.slice(i, i + BATCH);
-    const { data, error } = await supabase
-      .from('eb_customer_bills')
-      .select('sc_number, billed_units, bill_amount, bill_month, bill_year, bill_month_index')
-      .in('sc_number', batch);
+  const missingScs: string[] = [];
+  for (const sc of validScs) {
+    const cached = prospectBillSummaryCache.get(sc);
+    if (cached) map.set(sc, cached);
+    else missingScs.push(sc);
+  }
 
-    if (error) throw error;
+  if (missingScs.length === 0) {
+    return map;
+  }
 
-    for (const row of data || []) {
-      const sc = row.sc_number as string;
-      if (!sc) continue;
-      const rawUnits = row.billed_units != null ? Number(row.billed_units) : null;
-      const units = rawUnits != null && !isNaN(rawUnits) ? rawUnits : null;
-      const rawAmount = row.bill_amount != null ? Number(row.bill_amount) : null;
-      const amount = rawAmount != null && !isNaN(rawAmount) ? rawAmount : null;
-      const month = row.bill_month ?? null;
-      const sortKey = (row.bill_year ?? 0) * 100 + (row.bill_month_index ?? 0);
-      const existing = map.get(sc);
+  const latestKeyMap = new Map<string, number>();
+  const amountTotalMap = new Map<string, { total: number; count: number }>();
+  const seenBillKeys = new Set<string>();
 
-      const hasValidUnit = units != null && units > 0;
-      const hasValidAmount = amount != null && amount > 0;
+  const BATCH = 60;
+  const batchQueries: any[] = [];
+  for (let i = 0; i < missingScs.length; i += BATCH) {
+    const batch = missingScs.slice(i, i + BATCH);
+    batchQueries.push(
+      supabase
+        .from('eb_customer_bills')
+        .select('sc_number, billed_units, bill_amount, bill_month, bill_year, bill_month_index')
+        .in('sc_number', batch)
+    );
+  }
 
-      if (!existing) {
-        map.set(sc, {
-          sc_number: sc,
-          max_billed_units: units,
-          max_units_bill_amount: amount,
-          max_bill_amount: amount,
-          latest_units: units,
-          latest_bill_amount: amount,
-          latest_bill_month: month,
-          recent_units: units,
-          recent_bill_amount: amount,
-          recent_bill_month: month,
-          high_usage: units != null && units > HIGH_USAGE_THRESHOLD,
-          total_billed_units: hasValidUnit ? units : (units != null ? 0 : 0),
-          bill_count: hasValidUnit ? 1 : (units != null ? 1 : 0),
-          avg_billed_units: units != null ? units : null,
-          avg_bill_amount: amount != null ? amount : null,
-        });
-        latestKeyMap.set(sc, sortKey);
-      } else {
-        if (units != null) {
-          if (existing.max_billed_units == null || units > existing.max_billed_units) {
-            existing.max_billed_units = units;
-            existing.max_units_bill_amount = amount;
-          }
-          if (units > HIGH_USAGE_THRESHOLD) existing.high_usage = true;
-          existing.total_billed_units = (existing.total_billed_units || 0) + units;
-          existing.bill_count = (existing.bill_count || 0) + 1;
-          existing.avg_billed_units = Math.round(existing.total_billed_units / existing.bill_count);
-        }
-        if (amount != null) {
-          if (existing.max_bill_amount == null || amount > existing.max_bill_amount) {
-            existing.max_bill_amount = amount;
-          }
-        }
-        if (sortKey > 0 && sortKey >= (latestKeyMap.get(sc) ?? 0)) {
-          existing.latest_units = units;
-          existing.latest_bill_amount = amount;
-          existing.latest_bill_month = month;
-          existing.recent_units = units;
-          existing.recent_bill_amount = amount;
-          existing.recent_bill_month = month;
+  for (let i = 0; i < batchQueries.length; i += 6) {
+    const chunk = batchQueries.slice(i, i + 6);
+    const results = await Promise.all(chunk);
+
+    for (const res of results) {
+      if (res.error) throw res.error;
+      for (const row of res.data || []) {
+        const sc = row.sc_number as string;
+        if (!sc) continue;
+        const rawUnits = row.billed_units != null ? Number(row.billed_units) : null;
+        const units = rawUnits != null && !isNaN(rawUnits) ? rawUnits : null;
+        const rawAmount = row.bill_amount != null ? Number(row.bill_amount) : null;
+        const amount = rawAmount != null && !isNaN(rawAmount) ? rawAmount : null;
+        const month = row.bill_month ?? null;
+        const sortKey = (row.bill_year ?? 0) * 100 + (row.bill_month_index ?? 0);
+
+        const rowDedupeKey = `${sc}_${month || ''}_${sortKey}_${units}_${amount}`;
+        if (seenBillKeys.has(rowDedupeKey)) continue;
+        seenBillKeys.add(rowDedupeKey);
+
+        const existing = map.get(sc);
+        const hasValidUnit = units != null && units > 0;
+        const hasValidAmount = amount != null && amount > 0;
+
+        if (!existing) {
+          map.set(sc, {
+            sc_number: sc,
+            max_billed_units: units,
+            max_units_bill_amount: amount,
+            max_bill_amount: amount,
+            latest_units: units,
+            latest_bill_amount: amount,
+            latest_bill_month: month,
+            recent_units: units,
+            recent_bill_amount: amount,
+            recent_bill_month: month,
+            high_usage: units != null && units > HIGH_USAGE_THRESHOLD,
+            total_billed_units: hasValidUnit ? units : 0,
+            bill_count: hasValidUnit ? 1 : 0,
+            avg_billed_units: hasValidUnit ? units : (units != null ? units : null),
+            avg_bill_amount: hasValidAmount ? amount : (amount != null ? amount : null),
+          });
+          amountTotalMap.set(sc, {
+            total: hasValidAmount ? amount : 0,
+            count: hasValidAmount ? 1 : 0,
+          });
           latestKeyMap.set(sc, sortKey);
+        } else {
+          if (units != null) {
+            if (existing.max_billed_units == null || units > existing.max_billed_units) {
+              existing.max_billed_units = units;
+              existing.max_units_bill_amount = amount;
+            }
+            if (units > HIGH_USAGE_THRESHOLD) existing.high_usage = true;
+            if (hasValidUnit) {
+              existing.total_billed_units = (existing.total_billed_units || 0) + units;
+              existing.bill_count = (existing.bill_count || 0) + 1;
+              existing.avg_billed_units = Math.round(existing.total_billed_units / existing.bill_count);
+            }
+          }
+          if (amount != null) {
+            if (existing.max_bill_amount == null || amount > existing.max_bill_amount) {
+              existing.max_bill_amount = amount;
+            }
+            if (hasValidAmount) {
+              const amtState = amountTotalMap.get(sc) || { total: 0, count: 0 };
+              amtState.total += amount;
+              amtState.count += 1;
+              amountTotalMap.set(sc, amtState);
+              existing.avg_bill_amount = Math.round(amtState.total / amtState.count);
+            }
+          }
+          if (sortKey > 0 && sortKey >= (latestKeyMap.get(sc) ?? 0)) {
+            existing.latest_units = units;
+            existing.latest_bill_amount = amount;
+            existing.latest_bill_month = month;
+            existing.recent_units = units;
+            existing.recent_bill_amount = amount;
+            existing.recent_bill_month = month;
+            latestKeyMap.set(sc, sortKey);
+          }
         }
       }
     }
   }
+
+  for (const [key, val] of map.entries()) {
+    prospectBillSummaryCache.set(key, val);
+  }
+
   return map;
 }
 
