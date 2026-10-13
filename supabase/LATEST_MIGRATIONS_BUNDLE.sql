@@ -2053,3 +2053,16 @@ WHERE
   AND (customer_lifecycle_status IS DISTINCT FROM 'lost');
 
 
+-- >>> FILE: 20261013214500_add_aadhar_and_jsp_id_indexes_to_jsp_kriya_members.sql <<<
+-- Add missing B-tree indexes on jsp_kriya_members for sub-10ms Aadhaar and JSP ID lookups
+CREATE INDEX IF NOT EXISTS idx_jsp_kriya_members_aadhar
+  ON jsp_kriya_members(aadhar_number);
+
+CREATE INDEX IF NOT EXISTS idx_jsp_kriya_members_nominee_aadhar
+  ON jsp_kriya_members(nominee_aadhar_number);
+
+CREATE INDEX IF NOT EXISTS idx_jsp_kriya_members_jsp_id
+  ON jsp_kriya_members(jsp_id);
+
+
+

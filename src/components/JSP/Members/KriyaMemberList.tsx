@@ -432,8 +432,8 @@ export default function KriyaMemberList() {
         // Fast index lookup for 10-digit mobile
         q = q.eq('mobile', cleanDigits);
       } else if (cleanDigits.length === 12) {
-        // Aadhar lookup
-        q = q.eq('aadhar_number', cleanDigits);
+        // Fast Aadhar lookup (search both member aadhar and nominee aadhar)
+        q = q.or(`aadhar_number.eq.${cleanDigits},nominee_aadhar_number.eq.${cleanDigits}`);
       } else if (/^\d{3}-\d{5}$/.test(term)) {
         // Exact JSP ID format
         q = q.eq('jsp_id', term);
@@ -554,14 +554,14 @@ export default function KriyaMemberList() {
     const fetchMembers = async () => {
       setLoading(true);
       try {
-        // Count query (head-only, separate builder)
-        let countQuery = supabase.from('jsp_kriya_members').select('*', { count: 'exact', head: true });
-        countQuery = applyFilters(countQuery);
-        const { count, error: countError } = await countQuery;
-        if (countError) throw countError;
-        setTotalCount(count ?? 0);
+        const term = activeSearch.trim();
+        const cleanDigits = term.replace(/\D/g, '');
+        const isExactIdentifier =
+          cleanDigits.length === 12 ||
+          cleanDigits.length === 10 ||
+          /^\d{3}-\d{5}$/.test(term);
 
-        // Data query (separate builder)
+        // 1. Data query (runs FIRST)
         let dataQuery = supabase.from('jsp_kriya_members').select(MEMBER_COLS);
         dataQuery = applyFilters(dataQuery);
         const { data, error } = await dataQuery
@@ -569,7 +569,49 @@ export default function KriyaMemberList() {
           .order('id', { ascending: false });
 
         if (error) throw error;
-        setMembers((data || []) as KriyaMember[]);
+        let fetchedMembers = (data || []) as KriyaMember[];
+
+        // 2. Global fallback for exact identifiers if filtered search yielded 0 results
+        if (
+          isExactIdentifier &&
+          fetchedMembers.length === 0 &&
+          (assemblyFilter || districtFilter || mandalFilter || panchayatFilter || volunteerFilter || sadhakFilter)
+        ) {
+          let fallbackQuery = supabase.from('jsp_kriya_members').select(MEMBER_COLS);
+          if (cleanDigits.length === 12) {
+            fallbackQuery = fallbackQuery.or(`aadhar_number.eq.${cleanDigits},nominee_aadhar_number.eq.${cleanDigits}`);
+          } else if (cleanDigits.length === 10) {
+            fallbackQuery = fallbackQuery.eq('mobile', cleanDigits);
+          } else if (/^\d{3}-\d{5}$/.test(term)) {
+            fallbackQuery = fallbackQuery.eq('jsp_id', term);
+          }
+          const { data: fallbackData } = await fallbackQuery.limit(PAGE_SIZE);
+          if (fallbackData && fallbackData.length > 0) {
+            fetchedMembers = fallbackData as KriyaMember[];
+          }
+        }
+
+        setMembers(fetchedMembers);
+
+        // 3. Exact identifier lookups don't need a heavy count query on 2.45M rows
+        if (isExactIdentifier) {
+          setTotalCount(fetchedMembers.length);
+          return;
+        }
+
+        // 4. Broad searches/browse: compute total count safely without breaking results on timeout
+        try {
+          let countQuery = supabase.from('jsp_kriya_members').select('*', { count: 'exact', head: true });
+          countQuery = applyFilters(countQuery);
+          const { count, error: countError } = await countQuery;
+          if (!countError && count !== null) {
+            setTotalCount(count);
+          } else {
+            setTotalCount(fetchedMembers.length);
+          }
+        } catch {
+          setTotalCount(fetchedMembers.length);
+        }
       } catch (err) {
         console.error('Member list error:', err);
         setMembers([]);
@@ -677,6 +719,14 @@ export default function KriyaMemberList() {
                   setSearchInput(e.target.value);
                   if (e.target.value === '' && activeSearch !== '') {
                     setActiveSearch('');
+                  }
+                }}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData('text').trim();
+                  const digits = pasted.replace(/\D/g, '');
+                  if (digits.length === 12 || digits.length === 10) {
+                    setSearchInput(pasted);
+                    setActiveSearch(pasted);
                   }
                 }}
                 className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
