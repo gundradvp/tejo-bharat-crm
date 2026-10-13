@@ -75,10 +75,10 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
       "capacity": null
     },
     "is_gst_invoiced": true,
-    "invoice_file": "adapa_venkata_ramalakshmi_Invoice_TB_25_26_307001",
-    "invoice_number": "TB_25_26_307001",
-    "invoice_date": null,
-    "notes": ""
+    "invoice_file": "ADAPA_VENKATA_RAMANA_Invoice_TB_25_26_110501.pdf",
+    "invoice_number": "TB/25-26/110501",
+    "invoice_date": "11-05-2026",
+    "notes": "Invoice in Customers/self/Adapa_Venkata_Ramana"
   },
   {
     "id": "both-3",
@@ -493,13 +493,13 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
       "consumerNumber": "1452520501025707",
       "phone": "8125558122",
       "district": "Kakinada",
-      "capacity": null
+      "capacity": "3 kW"
     },
-    "is_gst_invoiced": false,
-    "invoice_file": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "notes": ""
+    "is_gst_invoiced": true,
+    "invoice_file": "DULAPALLI_NAGA_NAVEEN_Invoice_TB_25_26_602001.pdf",
+    "invoice_number": "TB/25-26/602001",
+    "invoice_date": "06-02-2026",
+    "notes": "Invoice found in gst/Filing/Feb"
   },
   {
     "id": "both-18",
@@ -525,9 +525,9 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
       "capacity": null
     },
     "is_gst_invoiced": true,
-    "invoice_file": "GANGIREDLA_AMMAJI_Invoice_TB_25_26_317002 (1)",
-    "invoice_number": "TB_25_26_317002 (1)",
-    "invoice_date": null,
+    "invoice_file": "GANGIREDLA_VARAPRASAD_Invoice_TB_25_26_317001.pdf",
+    "invoice_number": "TB/25-26/317001",
+    "invoice_date": "17-03-2026",
     "notes": ""
   },
   {
@@ -1707,11 +1707,11 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
       "district": "Annamayya",
       "capacity": null
     },
-    "is_gst_invoiced": false,
-    "invoice_file": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "notes": ""
+    "is_gst_invoiced": true,
+    "invoice_file": "Tamilisetti_Durga_Venkata_Satyanarayana_Invoice_TB_26_27_05_13_1_ORIGINAL_FOR_RECIPIENT.pdf",
+    "invoice_number": "TB/26-27/05/13/1",
+    "invoice_date": "13-05-2026",
+    "notes": "Invoice found in Customers/GST/May for Tamilisetti Durga Venkata Satyanarayana"
   },
   {
     "id": "both-61",
@@ -1816,11 +1816,11 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
       "district": "Kakinada",
       "capacity": null
     },
-    "is_gst_invoiced": false,
-    "invoice_file": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "notes": ""
+    "is_gst_invoiced": true,
+    "invoice_file": "ummidi_bodakonda_Invoice_TB_25_26_502002.pdf",
+    "invoice_number": "TB/25-26/502002",
+    "invoice_date": "20-03-2026",
+    "notes": "Invoice found in gst/Filing/Feb"
   },
   {
     "id": "both-65",
@@ -1961,9 +1961,9 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
       "district": "Annamayya",
       "capacity": null
     },
-    "is_gst_invoiced": true,
-    "invoice_file": "adapa_venkata_ramalakshmi_Invoice_TB_25_26_307001",
-    "invoice_number": "TB_25_26_307001",
+    "is_gst_invoiced": false,
+    "invoice_file": null,
+    "invoice_number": null,
     "invoice_date": null,
     "notes": ""
   },
@@ -1990,9 +1990,9 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
       "district": "Annamayya",
       "capacity": null
     },
-    "is_gst_invoiced": true,
-    "invoice_file": "adapa_venkata_ramalakshmi_Invoice_TB_25_26_307001",
-    "invoice_number": "TB_25_26_307001",
+    "is_gst_invoiced": false,
+    "invoice_file": null,
+    "invoice_number": null,
     "invoice_date": null,
     "notes": ""
   },
@@ -2012,18 +2012,18 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
     "status": "Both Tranches Received",
     "customer_id": "ccd9f1ca-d37f-4c88-8d3a-ed16f5236713",
     "matched_customer": {
-      "id": "ccd9f1ca-d37f-4c88-8d3a-ed16f5236713",
-      "name": "VENU VENKATESH",
+      "id": "venu-venkatesh",
+      "name": "VENKATESH VENU",
       "consumerNumber": "1452520501020643",
-      "phone": "9100047764",
+      "phone": null,
       "district": "Kakinada",
-      "capacity": null
+      "capacity": "3 kW"
     },
-    "is_gst_invoiced": false,
-    "invoice_file": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "notes": ""
+    "is_gst_invoiced": true,
+    "invoice_file": "Venu_Venkatesh_Invoice_TB_25_26_602003.pdf",
+    "invoice_number": "TB/25-26/602003",
+    "invoice_date": "06-02-2026",
+    "notes": "Invoice found in gst/Filing/Feb"
   },
   {
     "id": "both-72",
@@ -2041,11 +2041,11 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
     "status": "Both Tranches Received",
     "customer_id": null,
     "matched_customer": null,
-    "is_gst_invoiced": false,
-    "invoice_file": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "notes": ""
+    "is_gst_invoiced": true,
+    "invoice_file": "Devarakonda_Venkateswararao_Invoice_TB_25_26_316001.pdf",
+    "invoice_number": "TB/25-26/316001",
+    "invoice_date": "16-03-2026",
+    "notes": "Invoice found in Customers/GST/Mar/TG"
   },
   {
     "id": "both-73",
@@ -2687,9 +2687,9 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
       "district": "Kakinada",
       "capacity": null
     },
-    "is_gst_invoiced": true,
-    "invoice_file": "CHINTAPALLI_SURYA_PRAKASA_REDDY_Invoice_TB_26_27_304001",
-    "invoice_number": "TB_26_27_304001",
+    "is_gst_invoiced": false,
+    "invoice_file": null,
+    "invoice_number": null,
     "invoice_date": null,
     "notes": ""
   },
@@ -3086,11 +3086,11 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
     "status": "Pending 2nd Tranche",
     "customer_id": null,
     "matched_customer": null,
-    "is_gst_invoiced": false,
-    "invoice_file": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "notes": ""
+    "is_gst_invoiced": true,
+    "invoice_file": "KADIMISETTY_RAMAKRISHNA_Invoice_TB_25_26_602004.pdf",
+    "invoice_number": "TB/25-26/602004",
+    "invoice_date": "06-02-2026",
+    "notes": "Invoice found in gst/Filing/Feb for Kadimisetti Ramakrishna"
   },
   {
     "id": "single-110",
@@ -3152,11 +3152,11 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
     "status": "Pending 2nd Tranche",
     "customer_id": null,
     "matched_customer": null,
-    "is_gst_invoiced": false,
-    "invoice_file": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "notes": ""
+    "is_gst_invoiced": true,
+    "invoice_file": "BALLIPALLI_SURYAVATHI_Invoice_TB_25_26_310003_ORIGINAL_FOR_RECIPIENT.pdf",
+    "invoice_number": "TB/25-26/310003",
+    "invoice_date": "10-03-2026",
+    "notes": "Invoice found in Customers/GST/mar3"
   },
   {
     "id": "lump-113",
@@ -3785,11 +3785,11 @@ export const INITIAL_GST_TRANCHE_DISBURSALS: GSTTrancheDisbursalItem[] = [
     "status": "Full Lump-Sum Disbursed",
     "customer_id": null,
     "matched_customer": null,
-    "is_gst_invoiced": false,
-    "invoice_file": null,
-    "invoice_number": null,
-    "invoice_date": null,
-    "notes": ""
+    "is_gst_invoiced": true,
+    "invoice_file": "K_SURYA_CHAKRAM_Invoice_TB_25_26_311002.pdf",
+    "invoice_number": "TB/25-26/311002",
+    "invoice_date": "11-03-2026",
+    "notes": "Invoice found in Customers/GST/Mar/TG for K Surya Chakram"
   },
   {
     "id": "lump-137",

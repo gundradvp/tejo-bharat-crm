@@ -35,7 +35,7 @@ type StatusFilter = 'all' | 'pending' | 'invoiced';
 type SortField = 'date' | 'amount' | 'name' | 'status';
 type SortOrder = 'desc' | 'asc';
 
-const LOCAL_STORAGE_KEY = 'tejo_gst_tranche_disbursements_v1';
+const LOCAL_STORAGE_KEY = 'tejo_gst_tranche_disbursements_v2';
 
 // Helper to parse DD-MM-YYYY dates
 function parseDateValue(dateStr: string | null | undefined): number {
