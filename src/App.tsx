@@ -56,6 +56,7 @@ import LocationManagement from './components/Settings/LocationManagement';
 import TenantManagement from './components/SuperAdmin/TenantManagement';
 import ItemsManagement from './components/Items/ItemsManagement';
 import GSTInputTaxCreditHub from './components/GST/GSTInputTaxCreditHub';
+import GSTDisbursalManager from './components/Admin/GSTDisbursalManager';
 import LeadGeneratorManagement from './components/LeadGenerators/LeadGeneratorManagement';
 import WorkflowManagement from './components/Workflow/WorkflowManagement';
 import ProspectList from './components/Prospects/ProspectList';
@@ -165,6 +166,8 @@ function ProtectedRoutes() {
           <Route path="/customers/:id/finance" element={<CustomerFinancePage />} />
           <Route path="/customers/second-tranche" element={<SecondTranchePendingList />} />
           <Route path="/customers/tranches" element={<SecondTranchePendingList />} />
+          <Route path="/admin/gst-disbursals" element={<GSTDisbursalManager />} />
+          <Route path="/gst/disbursals" element={<GSTDisbursalManager />} />
           <Route path="/gst/itc" element={<GSTInputTaxCreditHub />} />
           <Route path="/billing/*" element={<BillingModule />} />
           <Route path="/quotations" element={<QuotationsList />} />

@@ -2065,4 +2065,50 @@ CREATE INDEX IF NOT EXISTS idx_jsp_kriya_members_jsp_id
   ON jsp_kriya_members(jsp_id);
 
 
+-- >>> FILE: 20261013223000_create_gst_tranche_disbursements_table.sql <<<
+-- Create gst_tranche_disbursements Table for Admin Loan Tranche & GST Invoice Tracking
+CREATE TABLE IF NOT EXISTS gst_tranche_disbursements (
+  id text PRIMARY KEY,
+  customer_name text NOT NULL,
+  category text NOT NULL,
+  bank_name text,
+  t1_date text,
+  t1_amount numeric DEFAULT 0,
+  t1_utr text,
+  t2_date text,
+  t2_amount numeric DEFAULT 0,
+  t2_utr text,
+  total_amount numeric DEFAULT 0,
+  est_pending numeric DEFAULT 0,
+  status text,
+  customer_id uuid REFERENCES customers(id) ON DELETE SET NULL,
+  is_gst_invoiced boolean DEFAULT false,
+  invoice_file text,
+  invoice_number text,
+  invoice_date text,
+  notes text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gtd_category ON gst_tranche_disbursements(category);
+CREATE INDEX IF NOT EXISTS idx_gtd_customer_id ON gst_tranche_disbursements(customer_id);
+CREATE INDEX IF NOT EXISTS idx_gtd_is_gst_invoiced ON gst_tranche_disbursements(is_gst_invoiced);
+
+ALTER TABLE gst_tranche_disbursements ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins full access to gst_tranche_disbursements" ON gst_tranche_disbursements;
+CREATE POLICY "Admins full access to gst_tranche_disbursements"
+  ON gst_tranche_disbursements FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND (profiles.role = 'admin' OR 'admin' = ANY(profiles.roles))
+    )
+  );
+
+
+
 

@@ -298,6 +298,7 @@ export default function Sidebar() {
                   </p>
                 )}
                 <div className="space-y-1">
+                  {isAdmin && renderNavItem('/admin/gst-disbursals', 'GST Tranches & Invoices', DollarSign, 'special')}
                   {isAdmin && renderNavItem('/gst/itc', 'GST ITC Hub', Receipt)}
                   {renderNavItem('/customers/second-tranche', '2nd Tranches', Layers)}
                   {renderNavItem('/financial', 'Financial Reports', DollarSign)}
