@@ -39,8 +39,73 @@ import {
   X,
   User,
   Building2,
-  Truck
+  Truck,
+  Copy,
+  Check,
+  Bookmark,
+  Save,
+  Trash2,
+  BookmarkPlus
 } from 'lucide-react';
+
+export interface BomPreset {
+  id: string;
+  name: string;
+  inverter_brand: string;
+  inverter_phase: string;
+  structure_grid: string;
+  structure_height: string;
+  structure_type: string;
+  panel_brand: string;
+  cables_brand: string;
+}
+
+export const DEFAULT_BOM_PRESETS: BomPreset[] = [
+  {
+    id: 'preset-3kw',
+    name: '3kW Residential Standard',
+    inverter_brand: 'Deye Inverter',
+    inverter_phase: 'Single Phase (1-Phase)',
+    structure_grid: '3x5 (15 Modules Table)',
+    structure_height: 'Elevated Superstructure (6ft–10ft Height)',
+    structure_type: 'Hot-Dip Galvanized (HDG) Steel Superstructure (80+ Micron Zinc)',
+    panel_brand: 'Waaree (500+ W TopCon / DCR Mono)',
+    cables_brand: 'Polycab Solar DC & Armored AC Cables'
+  },
+  {
+    id: 'preset-5kw',
+    name: '5kW Elevated High-Yield',
+    inverter_brand: 'Deye Inverter',
+    inverter_phase: 'Single Phase (1-Phase)',
+    structure_grid: '4x6 (24 Modules Table)',
+    structure_height: 'Elevated Superstructure (10ft Height)',
+    structure_type: 'Hot-Dip Galvanized (HDG) Steel Superstructure (80+ Micron Zinc)',
+    panel_brand: 'Premier Energies (500+ W Bi-facial / TopCon)',
+    cables_brand: 'KEI Industries Solar Cables'
+  },
+  {
+    id: 'preset-10kw',
+    name: '10kW Commercial 3-Phase',
+    inverter_brand: 'Solis String Inverter',
+    inverter_phase: 'Three Phase (3-Phase)',
+    structure_grid: '4x6 (24 Modules Table)',
+    structure_height: 'Elevated Superstructure (10ft Height)',
+    structure_type: 'Hot-Dip Galvanized (HDG) Steel Superstructure (80+ Micron Zinc)',
+    panel_brand: 'Adani Solar (500+ W Mono PERC)',
+    cables_brand: 'Polycab Solar DC & Armored AC Cables'
+  },
+  {
+    id: 'preset-hybrid',
+    name: 'Hybrid Battery Storage System',
+    inverter_brand: 'Deye Inverter',
+    inverter_phase: 'Single Phase (1-Phase)',
+    structure_grid: '3x5 (15 Modules Table)',
+    structure_height: 'Elevated Superstructure (6ft–10ft Height)',
+    structure_type: 'Hot-Dip Galvanized (HDG) Steel Superstructure (80+ Micron Zinc)',
+    panel_brand: 'Waaree (500+ W TopCon / DCR Mono)',
+    cables_brand: 'Polycab Solar DC & Armored AC Cables'
+  }
+];
 
 interface QuotationFormProps {
   branches: Branch[];
@@ -133,6 +198,100 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
       const updatedOptions = { ...bomOptions, [categoryKey]: updatedList };
       handleSaveBomOptions(updatedOptions);
     }
+  };
+
+  // BOM Presets State & Management
+  const [bomPresets, setBomPresets] = useState<BomPreset[]>(() => {
+    const saved = localStorage.getItem('tb_bom_presets');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    return DEFAULT_BOM_PRESETS;
+  });
+
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopyText = (text: string, fieldId: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldId);
+    setTimeout(() => setCopiedField(null), 1800);
+  };
+
+  const handleCopyFullBOM = () => {
+    const lines = [
+      `📋 TEJO BHARAT SOLAR - BILL OF MATERIALS (BOM) & SPECIFICATIONS`,
+      `⚡ Inverter Brand / Make: ${quotation.inverter_brand || bomOptions.inverterBrands[0]}`,
+      `🔌 Inverter Phase: ${quotation.inverter_phase || bomOptions.inverterPhases[0]}`,
+      `📐 Structure Layout Grid: ${quotation.structure_grid || bomOptions.structureGrids[0]}`,
+      `📏 Structure Height: ${quotation.structure_height || bomOptions.structureHeights[0]}`,
+      `🔩 Structure Material & Spec: ${quotation.structure_type || bomOptions.structureTypes[0]}`,
+      `☀️ Solar Modules / Panels: ${quotation.panel_brand || bomOptions.panelBrands[0]}`,
+      `🛡️ DC / AC Cables Brand: ${quotation.cables_brand || bomOptions.cableBrands[0]}`
+    ];
+    handleCopyText(lines.join('\n'), 'all_bom');
+  };
+
+  const handleSaveCurrentAsPreset = () => {
+    const defaultName = `${quotation.system_capacity_kw || 5}kW ${quotation.inverter_brand ? quotation.inverter_brand.split(' ')[0] : 'Solar'} Package`;
+    const name = prompt('Enter a name to save this BOM configuration preset:', defaultName);
+    if (!name || !name.trim()) return;
+
+    const newPreset: BomPreset = {
+      id: `preset-${Date.now()}`,
+      name: name.trim(),
+      inverter_brand: quotation.inverter_brand || bomOptions.inverterBrands[0],
+      inverter_phase: quotation.inverter_phase || bomOptions.inverterPhases[0],
+      structure_grid: quotation.structure_grid || bomOptions.structureGrids[0],
+      structure_height: quotation.structure_height || bomOptions.structureHeights[0],
+      structure_type: quotation.structure_type || bomOptions.structureTypes[0],
+      panel_brand: quotation.panel_brand || bomOptions.panelBrands[0],
+      cables_brand: quotation.cables_brand || bomOptions.cableBrands[0]
+    };
+
+    const updated = [...bomPresets, newPreset];
+    setBomPresets(updated);
+    localStorage.setItem('tb_bom_presets', JSON.stringify(updated));
+    setSelectedPresetId(newPreset.id);
+    handleCopyText(newPreset.name, 'saved_preset');
+  };
+
+  const handleSelectPreset = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    if (!presetId) return;
+    const preset = bomPresets.find(p => p.id === presetId);
+    if (preset) {
+      onChangeQuotation({
+        ...quotation,
+        inverter_brand: preset.inverter_brand,
+        inverter_phase: preset.inverter_phase,
+        structure_grid: preset.structure_grid,
+        structure_height: preset.structure_height,
+        structure_type: preset.structure_type,
+        panel_brand: preset.panel_brand,
+        cables_brand: preset.cables_brand
+      });
+      handleCopyText(preset.name, 'preset_loaded');
+    }
+  };
+
+  const handleDeletePreset = (presetId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (DEFAULT_BOM_PRESETS.some(p => p.id === presetId)) {
+      alert('Built-in factory presets cannot be deleted.');
+      return;
+    }
+    if (!window.confirm('Delete this saved BOM preset?')) return;
+    const updated = bomPresets.filter(p => p.id !== presetId);
+    setBomPresets(updated);
+    localStorage.setItem('tb_bom_presets', JSON.stringify(updated));
+    if (selectedPresetId === presetId) setSelectedPresetId('');
   };
 
   // Popup Party Form Modal State
@@ -1085,35 +1244,135 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
 
       {/* BILL OF MATERIALS (BOM) & EQUIPMENT SELECTION CONTROLS CARD */}
       <div className="bg-slate-900 text-white p-4 rounded-xl shadow-sm border border-slate-700 space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+        <div className="flex items-center justify-between border-b border-slate-700 pb-2.5 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="text-teal-400 text-base">🔩</span>
-            <h2 className="text-xs font-black uppercase tracking-wider text-teal-400">
-              Bill of Materials (BOM) & Equipment Specifications
-            </h2>
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-wider text-teal-400 flex items-center gap-2">
+                <span>Bill of Materials (BOM) & Equipment Specifications</span>
+                <span className="text-[10px] bg-teal-950 text-teal-300 font-extrabold px-2 py-0.5 rounded-full border border-teal-800">
+                  Copy & Save
+                </span>
+              </h2>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Copy Full BOM Specifications */}
+            <button
+              type="button"
+              onClick={handleCopyFullBOM}
+              className="px-2.5 py-1 bg-teal-950/80 hover:bg-teal-900 text-teal-300 hover:text-white text-[11px] font-extrabold rounded-lg border border-teal-700/80 flex items-center gap-1.5 transition-all shadow-xs"
+              title="Copy all 7 equipment specifications to clipboard"
+            >
+              {copiedField === 'all_bom' ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-400">✓ Copied All Specs!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-teal-400" />
+                  <span>📋 Copy BOM Specs</span>
+                </>
+              )}
+            </button>
+
+            {/* Load Preset Dropdown */}
+            <div className="flex items-center bg-slate-800 border border-slate-600 rounded-lg overflow-hidden">
+              <span className="pl-2 pr-1 text-amber-400">
+                <Bookmark className="w-3.5 h-3.5" />
+              </span>
+              <select
+                value={selectedPresetId}
+                onChange={(e) => handleSelectPreset(e.target.value)}
+                className="bg-transparent py-1 pr-2 text-[11px] font-extrabold text-amber-300 focus:outline-none cursor-pointer"
+                title="Load a pre-configured BOM combination"
+              >
+                <option value="" className="bg-slate-900 text-slate-300">⚡ Load Preset BOM...</option>
+                {bomPresets.map((preset) => (
+                  <option key={preset.id} value={preset.id} className="bg-slate-900 text-white font-medium">
+                    {preset.name}
+                  </option>
+                ))}
+              </select>
+              {selectedPresetId && !DEFAULT_BOM_PRESETS.some(p => p.id === selectedPresetId) && (
+                <button
+                  type="button"
+                  onClick={(e) => handleDeletePreset(selectedPresetId, e)}
+                  className="px-1.5 py-1 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40"
+                  title="Delete this custom preset"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Save Current Combination as Preset */}
+            <button
+              type="button"
+              onClick={handleSaveCurrentAsPreset}
+              className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-extrabold rounded-lg border border-amber-500/40 flex items-center gap-1.5 transition-all shadow-xs"
+              title="Save the current combination of 7 dropdowns as a reusable preset"
+            >
+              <Save className="w-3.5 h-3.5 text-amber-400" />
+              <span>💾 Save Preset</span>
+            </button>
+
+            {/* Manage Dropdowns Options Modal */}
             <button
               type="button"
               onClick={() => setIsManageDropdownsOpen(true)}
               className="px-2.5 py-1 bg-teal-900/80 hover:bg-teal-800 text-amber-300 text-[11px] font-extrabold rounded-lg border border-teal-600 flex items-center gap-1.5 transition-all shadow-xs"
+              title="Add, edit, copy, or remove dropdown values"
             >
               <Settings className="w-3.5 h-3.5 text-amber-400" />
-              <span>⚙️ Manage Dropdown Options</span>
+              <span>⚙️ Manage Options</span>
             </button>
-            <span className="text-[10px] text-slate-400 font-mono hidden md:inline">
-              Customizable dropdowns & presets
-            </span>
           </div>
         </div>
 
+        {/* 7 BOM DROPDOWNS GRID */}
         <div className="grid grid-cols-12 gap-3">
-          {/* Solar Inverter Brand */}
+          
+          {/* 1. Solar Inverter Brand */}
           <div className="col-span-3">
-            <label className="text-[11px] font-bold text-slate-300 block mb-1">
-              Inverter Brand / Make
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-300">
+                Inverter Brand / Make
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(quotation.inverter_brand || bomOptions.inverterBrands[0], 'inverter_brand')}
+                  className="text-[10px] text-slate-400 hover:text-teal-300 flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-slate-800 transition-all font-semibold"
+                  title="Copy selected Inverter Brand to clipboard"
+                >
+                  {copiedField === 'inverter_brand' ? (
+                    <span className="text-emerald-400 text-[9px] font-extrabold">✓ Copied</span>
+                  ) : (
+                    <>
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const custom = prompt('Enter new Inverter Brand / Model to save to dropdown list (e.g. Microtek Hybrid / Deye 12kW):');
+                    if (custom && custom.trim()) {
+                      handleAddCustomValueInline('inverterBrands', custom);
+                      onChangeQuotation({ ...quotation, inverter_brand: custom.trim() });
+                    }
+                  }}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 px-1 py-0.5 rounded hover:bg-amber-950/40 transition-all font-extrabold"
+                  title="Save new Inverter option to dropdown list"
+                >
+                  +Save
+                </button>
+              </div>
+            </div>
             <select
               value={quotation.inverter_brand || bomOptions.inverterBrands[0]}
               onChange={(e) => {
@@ -1139,11 +1398,44 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
             </select>
           </div>
 
-          {/* Inverter Phase */}
+          {/* 2. Inverter Phase */}
           <div className="col-span-3">
-            <label className="text-[11px] font-bold text-slate-300 block mb-1">
-              Inverter Phase
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-300">
+                Inverter Phase
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(quotation.inverter_phase || bomOptions.inverterPhases[0], 'inverter_phase')}
+                  className="text-[10px] text-slate-400 hover:text-teal-300 flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-slate-800 transition-all font-semibold"
+                  title="Copy selected Inverter Phase to clipboard"
+                >
+                  {copiedField === 'inverter_phase' ? (
+                    <span className="text-emerald-400 text-[9px] font-extrabold">✓ Copied</span>
+                  ) : (
+                    <>
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const custom = prompt('Enter new Inverter Phase option to save to dropdown:');
+                    if (custom && custom.trim()) {
+                      handleAddCustomValueInline('inverterPhases', custom);
+                      onChangeQuotation({ ...quotation, inverter_phase: custom.trim() });
+                    }
+                  }}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 px-1 py-0.5 rounded hover:bg-amber-950/40 transition-all font-extrabold"
+                  title="Save new Inverter Phase option"
+                >
+                  +Save
+                </button>
+              </div>
+            </div>
             <select
               value={quotation.inverter_phase || bomOptions.inverterPhases[0]}
               onChange={(e) => {
@@ -1169,11 +1461,44 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
             </select>
           </div>
 
-          {/* Structure Table Grid */}
+          {/* 3. Structure Table Grid */}
           <div className="col-span-3">
-            <label className="text-[11px] font-bold text-slate-300 block mb-1">
-              Structure Layout Grid
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-300">
+                Structure Layout Grid
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(quotation.structure_grid || bomOptions.structureGrids[0], 'structure_grid')}
+                  className="text-[10px] text-slate-400 hover:text-teal-300 flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-slate-800 transition-all font-semibold"
+                  title="Copy selected Structure Grid to clipboard"
+                >
+                  {copiedField === 'structure_grid' ? (
+                    <span className="text-emerald-400 text-[9px] font-extrabold">✓ Copied</span>
+                  ) : (
+                    <>
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const custom = prompt('Enter new Structure Layout Grid to save to dropdown (e.g. 3x6 Table / 4x5 Table):');
+                    if (custom && custom.trim()) {
+                      handleAddCustomValueInline('structureGrids', custom);
+                      onChangeQuotation({ ...quotation, structure_grid: custom.trim() });
+                    }
+                  }}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 px-1 py-0.5 rounded hover:bg-amber-950/40 transition-all font-extrabold"
+                  title="Save new Structure Layout Grid"
+                >
+                  +Save
+                </button>
+              </div>
+            </div>
             <select
               value={quotation.structure_grid || bomOptions.structureGrids[0]}
               onChange={(e) => {
@@ -1199,11 +1524,44 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
             </select>
           </div>
 
-          {/* Structure Height */}
+          {/* 4. Structure Height */}
           <div className="col-span-3">
-            <label className="text-[11px] font-bold text-slate-300 block mb-1">
-              Structure Height (ft)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-300">
+                Structure Height (ft)
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(quotation.structure_height || bomOptions.structureHeights[0], 'structure_height')}
+                  className="text-[10px] text-slate-400 hover:text-teal-300 flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-slate-800 transition-all font-semibold"
+                  title="Copy selected Structure Height to clipboard"
+                >
+                  {copiedField === 'structure_height' ? (
+                    <span className="text-emerald-400 text-[9px] font-extrabold">✓ Copied</span>
+                  ) : (
+                    <>
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const custom = prompt('Enter new Structure Height option to save (e.g. Elevated 14ft Height):');
+                    if (custom && custom.trim()) {
+                      handleAddCustomValueInline('structureHeights', custom);
+                      onChangeQuotation({ ...quotation, structure_height: custom.trim() });
+                    }
+                  }}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 px-1 py-0.5 rounded hover:bg-amber-950/40 transition-all font-extrabold"
+                  title="Save new Structure Height option"
+                >
+                  +Save
+                </button>
+              </div>
+            </div>
             <select
               value={quotation.structure_height || bomOptions.structureHeights[0]}
               onChange={(e) => {
@@ -1229,11 +1587,44 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
             </select>
           </div>
 
-          {/* Mounting Structure Material */}
+          {/* 5. Mounting Structure Material */}
           <div className="col-span-4">
-            <label className="text-[11px] font-bold text-slate-300 block mb-1">
-              Structure Material & Spec
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-300">
+                Structure Material & Spec
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(quotation.structure_type || bomOptions.structureTypes[0], 'structure_type')}
+                  className="text-[10px] text-slate-400 hover:text-teal-300 flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-slate-800 transition-all font-semibold"
+                  title="Copy selected Structure Material to clipboard"
+                >
+                  {copiedField === 'structure_type' ? (
+                    <span className="text-emerald-400 text-[9px] font-extrabold">✓ Copied</span>
+                  ) : (
+                    <>
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const custom = prompt('Enter new Structure Material & Spec to save:');
+                    if (custom && custom.trim()) {
+                      handleAddCustomValueInline('structureTypes', custom);
+                      onChangeQuotation({ ...quotation, structure_type: custom.trim() });
+                    }
+                  }}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 px-1 py-0.5 rounded hover:bg-amber-950/40 transition-all font-extrabold"
+                  title="Save new Structure Material spec"
+                >
+                  +Save
+                </button>
+              </div>
+            </div>
             <select
               value={quotation.structure_type || bomOptions.structureTypes[0]}
               onChange={(e) => {
@@ -1259,11 +1650,44 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
             </select>
           </div>
 
-          {/* Solar Panel Brand */}
+          {/* 6. Solar Panel Brand */}
           <div className="col-span-4">
-            <label className="text-[11px] font-bold text-slate-300 block mb-1">
-              Solar Modules / Panels Brand
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-300">
+                Solar Modules / Panels Brand
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(quotation.panel_brand || bomOptions.panelBrands[0], 'panel_brand')}
+                  className="text-[10px] text-slate-400 hover:text-teal-300 flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-slate-800 transition-all font-semibold"
+                  title="Copy selected Solar Module brand to clipboard"
+                >
+                  {copiedField === 'panel_brand' ? (
+                    <span className="text-emerald-400 text-[9px] font-extrabold">✓ Copied</span>
+                  ) : (
+                    <>
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const custom = prompt('Enter new Solar Panel Brand / Spec to save (e.g. Waaree 600W TOPCon):');
+                    if (custom && custom.trim()) {
+                      handleAddCustomValueInline('panelBrands', custom);
+                      onChangeQuotation({ ...quotation, panel_brand: custom.trim() });
+                    }
+                  }}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 px-1 py-0.5 rounded hover:bg-amber-950/40 transition-all font-extrabold"
+                  title="Save new Solar Panel brand"
+                >
+                  +Save
+                </button>
+              </div>
+            </div>
             <select
               value={quotation.panel_brand || bomOptions.panelBrands[0]}
               onChange={(e) => {
@@ -1289,11 +1713,44 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
             </select>
           </div>
 
-          {/* Cables Brand */}
+          {/* 7. Cables Brand */}
           <div className="col-span-4">
-            <label className="text-[11px] font-bold text-slate-300 block mb-1">
-              DC / AC Cables Brand
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-300">
+                DC / AC Cables Brand
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(quotation.cables_brand || bomOptions.cableBrands[0], 'cables_brand')}
+                  className="text-[10px] text-slate-400 hover:text-teal-300 flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-slate-800 transition-all font-semibold"
+                  title="Copy selected Cables Brand to clipboard"
+                >
+                  {copiedField === 'cables_brand' ? (
+                    <span className="text-emerald-400 text-[9px] font-extrabold">✓ Copied</span>
+                  ) : (
+                    <>
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const custom = prompt('Enter new Cable Make / Brand to save (e.g. APAR Solar Cables):');
+                    if (custom && custom.trim()) {
+                      handleAddCustomValueInline('cableBrands', custom);
+                      onChangeQuotation({ ...quotation, cables_brand: custom.trim() });
+                    }
+                  }}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 px-1 py-0.5 rounded hover:bg-amber-950/40 transition-all font-extrabold"
+                  title="Save new Cable brand"
+                >
+                  +Save
+                </button>
+              </div>
+            </div>
             <select
               value={quotation.cables_brand || bomOptions.cableBrands[0]}
               onChange={(e) => {
@@ -1319,13 +1776,33 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
             </select>
           </div>
 
-          {/* Summary Badge */}
+          {/* Summary Badge with Quick Copy */}
           <div className="col-span-12 flex items-end">
-            <div className="w-full bg-slate-800 px-3.5 py-2 rounded-lg border border-slate-700 text-xs flex justify-between items-center">
-              <span className="text-slate-400 font-bold">Selected BOM Configuration Summary:</span>
-              <span className="font-extrabold text-amber-300">
-                Inverter: {quotation.inverter_brand || 'Deye'} ({quotation.inverter_phase || '1-Phase'}) • Structure: {quotation.structure_grid ? quotation.structure_grid.split(' ')[0] : '3x5'} Layout ({quotation.structure_height || 'Elevated'})
-              </span>
+            <div className="w-full bg-slate-800/90 px-3.5 py-2.5 rounded-lg border border-slate-700 text-xs flex justify-between items-center flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 font-bold">Selected BOM Summary:</span>
+                <span className="font-extrabold text-amber-300">
+                  Inverter: {quotation.inverter_brand || bomOptions.inverterBrands[0]} ({quotation.inverter_phase || bomOptions.inverterPhases[0]}) • Structure: {quotation.structure_grid ? quotation.structure_grid.split(' ')[0] : '3x5'} Layout ({quotation.structure_height ? quotation.structure_height.split(' ')[0] : 'Elevated'}) • Panels: {quotation.panel_brand ? quotation.panel_brand.split(' ')[0] : 'Waaree'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const summaryText = `Inverter: ${quotation.inverter_brand || bomOptions.inverterBrands[0]} (${quotation.inverter_phase || bomOptions.inverterPhases[0]}) | Structure: ${quotation.structure_grid || bomOptions.structureGrids[0]} (${quotation.structure_height || bomOptions.structureHeights[0]}) | Panels: ${quotation.panel_brand || bomOptions.panelBrands[0]} | Cables: ${quotation.cables_brand || bomOptions.cableBrands[0]}`;
+                  handleCopyText(summaryText, 'summary_text');
+                }}
+                className="px-2 py-0.5 text-[11px] text-teal-400 hover:text-white bg-slate-900 border border-slate-600 hover:border-teal-500 rounded font-bold transition-all flex items-center gap-1"
+                title="Copy single-line BOM summary to clipboard"
+              >
+                {copiedField === 'summary_text' ? (
+                  <span className="text-emerald-400 font-extrabold">✓ Copied Summary</span>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 text-teal-400" />
+                    <span>Copy Summary</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
