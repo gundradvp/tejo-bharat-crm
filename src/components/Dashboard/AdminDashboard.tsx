@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Users, ListTodo, CheckCircle, UsersRound, Settings, GitBranch } from 'lucide-react';
+import { Users, ListTodo, CheckCircle, UsersRound, Settings, GitBranch, Receipt } from 'lucide-react';
 import StatCard from './StatCard';
 import { useNavigate } from 'react-router-dom';
 import BulkImport from '../Customers/BulkImport';
@@ -103,7 +103,22 @@ export default function AdminDashboard() {
         <ProspectFollowupsWidget />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <button
+          onClick={() => navigate('/billing')}
+          className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all text-left group cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
+              <Receipt className="w-6 h-6 text-purple-600" />
+            </div>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
+            Quotation & Billing
+          </h3>
+          <p className="text-gray-600 text-sm mt-1">Create proposals, GST tax invoices & solar estimates</p>
+        </button>
+
         <button
           onClick={() => navigate('/users')}
           className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all text-left group"

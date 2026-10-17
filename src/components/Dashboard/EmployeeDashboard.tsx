@@ -111,7 +111,7 @@ export default function EmployeeDashboard() {
         </button>
 
         <button
-          onClick={() => navigate('/quotations')}
+          onClick={() => navigate('/billing')}
           className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all text-left group cursor-pointer"
         >
           <div className="flex items-center justify-between mb-3">

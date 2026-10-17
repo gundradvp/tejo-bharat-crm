@@ -784,15 +784,9 @@ export default function CustomerOverview() {
               onClick={() => navigate(`/customers/${id}/print`)}
             />
             <QuickAction
-              label="Quotation"
-              icon={<FileText className="w-5 h-5" />}
-              color="bg-amber-50 text-amber-700 hover:bg-amber-100"
-              onClick={() => navigate(`/customers/${id}/quotation-manage`)}
-            />
-            <QuickAction
-              label="Billing App Quote"
+              label="Quotation Maker"
               icon={<Receipt className="w-5 h-5 text-purple-600" />}
-              color="bg-purple-50 text-purple-700 hover:bg-purple-100"
+              color="bg-purple-50 text-purple-700 hover:bg-purple-100 font-semibold"
               onClick={() => {
                 const params = new URLSearchParams();
                 if (customer.customer_name) params.set('customer_name', customer.customer_name);

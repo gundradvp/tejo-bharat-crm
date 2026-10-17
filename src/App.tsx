@@ -170,11 +170,9 @@ function ProtectedRoutes() {
           <Route path="/gst/disbursals" element={<GSTDisbursalManager />} />
           <Route path="/gst/itc" element={<GSTInputTaxCreditHub />} />
           <Route path="/billing/*" element={<BillingModule />} />
-          <Route path="/quotations" element={<QuotationsList />} />
-          <Route path="/quotations/create" element={<QuotationForm />} />
-          <Route path="/quotations/:id/edit" element={<QuotationForm />} />
-          <Route path="/quotations/:id/view" element={<QuotationForm />} />
-          <Route path="/quotations/:id/print" element={<QuotationForm />} />
+          <Route path="/quotations" element={<Navigate to="/billing/quotations" replace />} />
+          <Route path="/quotations/create" element={<Navigate to="/billing/create?docType=Quotation" replace />} />
+          <Route path="/quotations/*" element={<Navigate to="/billing" replace />} />
           <Route path="/documents/upload" element={<CentralUploadCenter />} />
           <Route path="/documents/manage" element={<DocumentManagementDashboard />} />
           <Route path="/documents/solar-upload" element={<SolarDocumentUpload />} />

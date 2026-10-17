@@ -58,15 +58,22 @@ export default function Sidebar() {
   const isFinanceUser = profile?.roles?.includes('finance') || profile?.role === 'finance';
   const isNagarjuna = isNagarjunaUser(profile as Profile | null);
   const showSolarNav = isSolarUser(profile as Profile | null);
-  const showJspNav = isAdmin && isJSPUser(profile as Profile | null);
+  
+  // A pure JSP user has JSP roles, but is NOT an admin and does NOT have Solar CRM roles
+  const isPureJspUser = !isAdmin && isJSPUser(profile as Profile | null) && !showSolarNav;
+  const canAccessSolar = isAdmin || showSolarNav || isEmployee || isLeadGen || isFinanceUser;
+  const canAccessJsp = isJSPUser(profile as Profile | null) || (isAdmin && isJSPUser(profile as Profile | null));
   const showJspIncharges =
-    showJspNav && (isJSPAdmin(profile as Profile | null) || hasAnyRole(profile as Profile | null, ['jsp_assembly_incharge']));
-  const showJspReports = showJspNav && isJSPAdmin(profile as Profile | null);
+    canAccessJsp && (isJSPAdmin(profile as Profile | null) || hasAnyRole(profile as Profile | null, ['jsp_assembly_incharge']));
+  const showJspReports = canAccessJsp && isJSPAdmin(profile as Profile | null);
   const canAccessWhatsApp = canAccessWhatsAppHub(profile as Profile | null);
   const canShowSuperAdmin = isSuperAdmin && !isNagarjuna && isAdmin;
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
+    if (path === '/billing') {
+      return location.pathname === '/billing' || (location.pathname.startsWith('/billing') && !location.pathname.startsWith('/billing/quotations'));
+    }
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
@@ -213,60 +220,80 @@ export default function Sidebar() {
           </div>
         )}
 
-        {showJspNav ? (
-          <>
-            {/* JSP Section */}
-            <div>
-              {!isCollapsed && (
-                <p className="px-3 pb-1.5 text-[10px] font-bold text-amber-600 uppercase tracking-wider">
-                  JSP Election System
-                </p>
-              )}
-              <div className="space-y-1">
-                {renderNavItem('/jsp', 'Dashboard', Home)}
-                {renderNavItem('/jsp/members', 'Members', UsersIcon)}
-                {renderNavItem('/jsp/hierarchy', 'Hierarchy', Layers)}
-                {showJspIncharges && renderNavItem('/jsp/incharges', 'Incharges', Network)}
-                {showJspReports && renderNavItem('/jsp/reports', 'Reports', BarChart3)}
-                {showJspReports && renderNavItem('/jsp/import', 'Import Members', Upload)}
-              </div>
+        {isPureJspUser ? (
+          <div>
+            {!isCollapsed && (
+              <p className="px-3 pb-1.5 text-[10px] font-bold text-amber-600 uppercase tracking-wider">
+                JSP Election System
+              </p>
+            )}
+            <div className="space-y-1">
+              {renderNavItem('/jsp', 'Dashboard', Home)}
+              {renderNavItem('/jsp/members', 'Members', UsersIcon)}
+              {renderNavItem('/jsp/hierarchy', 'Hierarchy', Layers)}
+              {showJspIncharges && renderNavItem('/jsp/incharges', 'Incharges', Network)}
+              {showJspReports && renderNavItem('/jsp/reports', 'Reports', BarChart3)}
+              {showJspReports && renderNavItem('/jsp/import', 'Import Members', Upload)}
             </div>
-          </>
+          </div>
         ) : (
           <>
             {/* Core & Sales */}
-            <div>
-              {!isCollapsed && (
-                <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  Core & Sales
-                </p>
-              )}
-              <div className="space-y-1">
-                {renderNavItem('/', 'Dashboard', Home)}
+            {canAccessSolar && (
+              <div>
+                {!isCollapsed && (
+                  <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Core & Sales
+                  </p>
+                )}
+                <div className="space-y-1">
+                  {renderNavItem('/', 'Dashboard', Home)}
 
-                {(isAdmin || isLeadGen || isFinanceUser) &&
-                  renderNavItem('/documents/solar-upload', 'Quick Add Customer', Upload, 'special')}
+                  {(isAdmin || isLeadGen || isFinanceUser) &&
+                    renderNavItem('/documents/solar-upload', 'Quick Add Customer', Upload, 'special')}
 
-                {renderNavItem('/customers', 'Customers', UsersIcon)}
+                  {renderNavItem('/customers', 'Customers', UsersIcon)}
 
-                {(isAdmin || isLeadGen || isFinanceUser) &&
-                  renderNavItem('/billing', 'Billing & Quotes Suite', Receipt, 'purple')}
+                  {(isAdmin || isEmployee || isLeadGen || isFinanceUser) &&
+                    renderNavItem('/billing', 'Billing & Quotes Suite', Receipt, 'purple')}
 
-                {(isAdmin || isLeadGen || isFinanceUser) &&
-                  renderNavItem('/quotations', 'Quotations History', DollarSign)}
+                  {(isAdmin || isEmployee || isLeadGen || isFinanceUser) &&
+                    renderNavItem('/billing/quotations', 'Quotations History', DollarSign)}
 
-                {isAdmin && renderNavItem('/items', 'Items & Products', Package)}
+                  {isAdmin && renderNavItem('/items', 'Items & Products', Package)}
 
-                {(isAdmin || isEmployee || isLeadGen || isNagarjuna) &&
-                  renderNavItem('/prospects', 'Lead Prospects', Phone)}
+                  {(isAdmin || isEmployee || isLeadGen || isNagarjuna) &&
+                    renderNavItem('/prospects', 'Lead Prospects', Phone)}
 
-                {(isAdmin || isEmployee || isLeadGen || isFinanceUser) &&
-                  renderNavItem('/eb-customers', 'EB Customers', Zap)}
+                  {(isAdmin || isEmployee || isLeadGen || isFinanceUser) &&
+                    renderNavItem('/eb-customers', 'EB Customers', Zap)}
 
-                {(isAdmin || isLeadGen || isFinanceUser) &&
-                  renderNavItem('/documents/upload', 'Upload Documents', Upload)}
+                  {(isAdmin || isLeadGen || isFinanceUser) &&
+                    renderNavItem('/documents/upload', 'Upload Documents', Upload)}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* JSP Section for Admin or Incharges */}
+            {canAccessJsp && (
+              <div>
+                {!isCollapsed && (
+                  <p className="px-3 pb-1.5 text-[10px] font-bold text-amber-600 uppercase tracking-wider">
+                    JSP Election System
+                  </p>
+                )}
+                <div className="space-y-1">
+                  {renderNavItem('/jsp', 'Dashboard', Home)}
+                  {renderNavItem('/jsp/members', 'Members', UsersIcon)}
+                  {renderNavItem('/jsp/hierarchy', 'Hierarchy', Layers)}
+                  {showJspIncharges && renderNavItem('/jsp/incharges', 'Incharges', Network)}
+                  {showJspReports && renderNavItem('/jsp/reports', 'Reports', BarChart3)}
+                  {showJspReports && renderNavItem('/jsp/import', 'Import Members', Upload)}
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
             {/* Operations */}
             <div>
@@ -464,8 +491,6 @@ export default function Sidebar() {
                 </div>
               </div>
             )}
-          </>
-        )}
       </div>
 
       {/* Sidebar Footer */}

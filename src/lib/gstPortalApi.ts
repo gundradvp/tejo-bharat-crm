@@ -57,7 +57,17 @@ export function parseGSTR2BJSON(jsonContent: string | object, defaultPeriod?: st
   const data = typeof jsonContent === 'string' ? JSON.parse(jsonContent) : jsonContent;
   const parsedInvoices: ParsedGSTInvoice[] = [];
 
-  const period = data.fp || data.rtn_prd || defaultPeriod || new Date().toISOString().slice(0, 7);
+  // Auto-detect return period (e.g., '082026' -> '08-2026')
+  let period = defaultPeriod || '';
+  const rawRtnPrd = data.data?.rtnprd || data.rtnprd || data.rtn_prd || data.fp;
+  if (rawRtnPrd && String(rawRtnPrd).length === 6) {
+    const s = String(rawRtnPrd);
+    period = `${s.slice(0, 2)}-${s.slice(2)}`;
+  } else if (rawRtnPrd) {
+    period = String(rawRtnPrd);
+  } else if (!period) {
+    period = new Date().toISOString().slice(0, 7);
+  }
 
   // Parse B2B Section
   const b2bList = data.data?.docdata?.b2b || data.b2b || [];
@@ -68,7 +78,7 @@ export function parseGSTR2BJSON(jsonContent: string | object, defaultPeriod?: st
     const invList = supplier.inv || [];
     for (const inv of invList) {
       const invNo = inv.inum || inv.doc_num || 'N/A';
-      const invDate = formatDate(inv.idt || inv.doc_dt);
+      const invDate = formatDate(inv.dt || inv.idt || inv.doc_dt);
       const invVal = Number(inv.val || inv.tot_val || 0);
       const invType = inv.typ || 'R';
       const itcAvail = inv.itc_avl || inv.itcavl || 'Y';
@@ -82,18 +92,19 @@ export function parseGSTR2BJSON(jsonContent: string | object, defaultPeriod?: st
       const items = inv.items || [];
       for (const item of items) {
         taxable += Number(item.txval || 0);
-        igst += Number(item.iamt || 0);
-        cgst += Number(item.camt || 0);
-        sgst += Number(item.samt || 0);
-        cess += Number(item.csamt || 0);
+        igst += Number(item.iamt || item.igst || 0);
+        cgst += Number(item.camt || item.cgst || 0);
+        sgst += Number(item.samt || item.sgst || 0);
+        cess += Number(item.csamt || item.cess || 0);
       }
 
-      // If items were flat on invoice level
+      // If items were flat on invoice level (standard in official GSTR-2B JSON)
       if (items.length === 0) {
         taxable = Number(inv.txval || 0);
-        igst = Number(inv.iamt || 0);
-        cgst = Number(inv.camt || 0);
-        sgst = Number(inv.samt || 0);
+        igst = Number(inv.igst || inv.iamt || 0);
+        cgst = Number(inv.cgst || inv.camt || 0);
+        sgst = Number(inv.sgst || inv.samt || 0);
+        cess = Number(inv.cess || inv.csamt || 0);
       }
 
       const totalTax = igst + cgst + sgst + cess;
@@ -126,11 +137,11 @@ export function parseGSTR2BJSON(jsonContent: string | object, defaultPeriod?: st
 
     const notes = supplier.nt || [];
     for (const note of notes) {
-      const docNo = note.nt_num || note.doc_num || 'N/A';
-      const docDate = formatDate(note.nt_dt || note.doc_dt);
+      const docNo = note.ntnum || note.nt_num || note.doc_num || 'N/A';
+      const docDate = formatDate(note.dt || note.nt_dt || note.doc_dt);
       const docVal = Number(note.val || 0);
-      const docType = note.ntty || 'C'; // C = Credit Note, D = Debit Note
-      const itcAvail = note.itc_avl || 'Y';
+      const docType = note.typ || note.ntty || 'C'; // C = Credit Note, D = Debit Note
+      const itcAvail = note.itc_avl || note.itcavl || 'Y';
 
       let taxable = 0;
       let igst = 0;
@@ -138,12 +149,21 @@ export function parseGSTR2BJSON(jsonContent: string | object, defaultPeriod?: st
       let sgst = 0;
       let cess = 0;
 
-      for (const item of (note.items || [])) {
+      const items = note.items || [];
+      for (const item of items) {
         taxable += Number(item.txval || 0);
-        igst += Number(item.iamt || 0);
-        cgst += Number(item.camt || 0);
-        sgst += Number(item.samt || 0);
-        cess += Number(item.csamt || 0);
+        igst += Number(item.iamt || item.igst || 0);
+        cgst += Number(item.camt || item.cgst || 0);
+        sgst += Number(item.samt || item.sgst || 0);
+        cess += Number(item.csamt || item.cess || 0);
+      }
+
+      if (items.length === 0) {
+        taxable = Number(note.txval || 0);
+        igst = Number(note.igst || note.iamt || 0);
+        cgst = Number(note.cgst || note.camt || 0);
+        sgst = Number(note.sgst || note.samt || 0);
+        cess = Number(note.cess || note.csamt || 0);
       }
 
       const mult = docType === 'C' ? -1 : 1;

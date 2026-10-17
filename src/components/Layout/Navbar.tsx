@@ -44,7 +44,9 @@ export default function Navbar() {
   const isFinanceUser = profile?.roles?.includes('finance') || profile?.role === 'finance';
   const isNagarjuna = isNagarjunaUser(profile as Profile | null);
   const showSolarNav = isSolarUser(profile as Profile | null);
-  const showJspNav = isAdmin && isJSPUser(profile as Profile | null);
+  const isPureJspUser = !isAdmin && isJSPUser(profile as Profile | null) && !showSolarNav;
+  const isJspRoute = location.pathname.startsWith('/jsp');
+  const showJspNav = isPureJspUser || isJspRoute;
   const showJspIncharges = showJspNav && (isJSPAdmin(profile as Profile | null) || hasAnyRole(profile as Profile | null, ['jsp_assembly_incharge']));
   const showJspReports = showJspNav && isJSPAdmin(profile as Profile | null);
   const canAccessWhatsApp = canAccessWhatsAppHub(profile as Profile | null);
@@ -430,8 +432,11 @@ export default function Navbar() {
                   <button onClick={() => { navigate('/documents/solar-upload'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors">
                     <Upload className="w-5 h-5" /> Quick Add Customer
                   </button>
-                  <button onClick={() => { navigate('/quotations'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
-                    <DollarSign className="w-5 h-5" /> Quotations
+                  <button onClick={() => { navigate('/billing'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200 font-medium">
+                    <Receipt className="w-5 h-5 text-purple-600" /> Billing & Quotes Suite
+                  </button>
+                  <button onClick={() => { navigate('/billing/quotations'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
+                    <DollarSign className="w-5 h-5" /> Quotations History
                   </button>
                   {isAdmin && (
                     <>
