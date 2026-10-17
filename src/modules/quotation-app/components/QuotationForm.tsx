@@ -14,7 +14,9 @@ import {
   STRUCTURE_TYPES,
   CABLE_BRANDS,
   ScopeItem,
-  DEFAULT_SCOPE_ITEMS
+  DEFAULT_SCOPE_ITEMS,
+  BomPreset,
+  DEFAULT_BOM_PRESETS
 } from '../types/quotation';
 import { generateQuotationNumber, getNextSequentialNumber, NumberFormatType } from '../lib/quoteNumberGenerator';
 import { fetchGSTDetails } from '../lib/gstLookup';
@@ -47,65 +49,6 @@ import {
   Trash2,
   BookmarkPlus
 } from 'lucide-react';
-
-export interface BomPreset {
-  id: string;
-  name: string;
-  inverter_brand: string;
-  inverter_phase: string;
-  structure_grid: string;
-  structure_height: string;
-  structure_type: string;
-  panel_brand: string;
-  cables_brand: string;
-}
-
-export const DEFAULT_BOM_PRESETS: BomPreset[] = [
-  {
-    id: 'preset-3kw',
-    name: '3kW Residential Standard',
-    inverter_brand: 'Deye Inverter',
-    inverter_phase: 'Single Phase (1-Phase)',
-    structure_grid: '3x5 (15 Modules Table)',
-    structure_height: 'Elevated Superstructure (6ft–10ft Height)',
-    structure_type: 'Hot-Dip Galvanized (HDG) Steel Superstructure (80+ Micron Zinc)',
-    panel_brand: 'Waaree (500+ W TopCon / DCR Mono)',
-    cables_brand: 'Polycab Solar DC & Armored AC Cables'
-  },
-  {
-    id: 'preset-5kw',
-    name: '5kW Elevated High-Yield',
-    inverter_brand: 'Deye Inverter',
-    inverter_phase: 'Single Phase (1-Phase)',
-    structure_grid: '4x6 (24 Modules Table)',
-    structure_height: 'Elevated Superstructure (10ft Height)',
-    structure_type: 'Hot-Dip Galvanized (HDG) Steel Superstructure (80+ Micron Zinc)',
-    panel_brand: 'Premier Energies (500+ W Bi-facial / TopCon)',
-    cables_brand: 'KEI Industries Solar Cables'
-  },
-  {
-    id: 'preset-10kw',
-    name: '10kW Commercial 3-Phase',
-    inverter_brand: 'Solis String Inverter',
-    inverter_phase: 'Three Phase (3-Phase)',
-    structure_grid: '4x6 (24 Modules Table)',
-    structure_height: 'Elevated Superstructure (10ft Height)',
-    structure_type: 'Hot-Dip Galvanized (HDG) Steel Superstructure (80+ Micron Zinc)',
-    panel_brand: 'Adani Solar (500+ W Mono PERC)',
-    cables_brand: 'Polycab Solar DC & Armored AC Cables'
-  },
-  {
-    id: 'preset-hybrid',
-    name: 'Hybrid Battery Storage System',
-    inverter_brand: 'Deye Inverter',
-    inverter_phase: 'Single Phase (1-Phase)',
-    structure_grid: '3x5 (15 Modules Table)',
-    structure_height: 'Elevated Superstructure (6ft–10ft Height)',
-    structure_type: 'Hot-Dip Galvanized (HDG) Steel Superstructure (80+ Micron Zinc)',
-    panel_brand: 'Waaree (500+ W TopCon / DCR Mono)',
-    cables_brand: 'Polycab Solar DC & Armored AC Cables'
-  }
-];
 
 interface QuotationFormProps {
   branches: Branch[];
