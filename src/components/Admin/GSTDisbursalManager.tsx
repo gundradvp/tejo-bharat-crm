@@ -25,10 +25,13 @@ import {
   Database,
   RefreshCw,
   X,
-  Edit2
+  Edit2,
+  Receipt,
+  Sparkles
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { INITIAL_GST_TRANCHE_DISBURSALS, GSTTrancheDisbursalItem } from '../../data/gstTrancheInitialData';
+import BankStatementPartyLedger from './BankStatementPartyLedger';
 
 type CategoryFilter = 'all' | 'both_tranches' | 'single_tranche' | 'lumpsum';
 type StatusFilter = 'all' | 'pending' | 'invoiced';
@@ -62,6 +65,9 @@ export default function GSTDisbursalManager() {
   const [dbSynced, setDbSynced] = useState(false);
   const [syncingDb, setSyncingDb] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Top Level Mode: Statement & Party Ledger vs GST Tranches
+  const [activeMainTab, setActiveMainTab] = useState<'statement' | 'tranches'>('statement');
 
   // Filters & Sorting
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,12 +170,26 @@ export default function GSTDisbursalManager() {
 
   useEffect(() => {
     loadData();
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener('tb_gst_tranche_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      window.removeEventListener('tb_gst_tranche_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, [loadData]);
 
   // Save changes locally and to Supabase if available
   const persistItems = useCallback(async (updated: GSTTrancheDisbursalItem[]) => {
     setItems(updated);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('tb_gst_tranche_updated'));
+    } catch {}
 
     // Best-effort push to Supabase
     try {
@@ -583,6 +603,42 @@ export default function GSTDisbursalManager() {
         </div>
       </div>
 
+      {/* Top Main Tabs: Bank Statement vs GST Loan Tranches */}
+      <div className="flex flex-wrap items-center bg-gray-100 p-1.5 rounded-2xl text-xs font-semibold text-gray-700 w-fit gap-1 shadow-2xs">
+        <button
+          onClick={() => setActiveMainTab('statement')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition cursor-pointer ${
+            activeMainTab === 'statement'
+              ? 'bg-white text-emerald-800 shadow-sm font-bold'
+              : 'hover:text-gray-900'
+          }`}
+        >
+          <Receipt className="w-4 h-4 text-emerald-600" />
+          <span>Kotak Bank Statement & Party Ledger (KM256518330)</span>
+          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-mono">
+            287 txs
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveMainTab('tranches')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition cursor-pointer ${
+            activeMainTab === 'tranches'
+              ? 'bg-white text-blue-700 shadow-sm font-bold'
+              : 'hover:text-gray-900'
+          }`}
+        >
+          <Layers className="w-4 h-4 text-blue-600" />
+          <span>GST Loan Tranches & Invoices</span>
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[10px] font-mono">
+            {items.length} records
+          </span>
+        </button>
+      </div>
+
+      {activeMainTab === 'statement' ? (
+        <BankStatementPartyLedger />
+      ) : (
+        <>
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Disbursed */}
@@ -699,10 +755,10 @@ export default function GSTDisbursalManager() {
             onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
             className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
           >
-            <option value="all">All Disbursal Categories</option>
-            <option value="both_tranches">Both Tranches (55)</option>
-            <option value="single_tranche">Single Tranche - 2nd Pending (35)</option>
-            <option value="lumpsum">Full Lump-sum (22)</option>
+            <option value="all">All Categories ({items.length})</option>
+            <option value="both_tranches">Both Tranches ({items.filter((i) => i.category === 'both_tranches').length})</option>
+            <option value="single_tranche">Single Tranche - 2nd Pending ({items.filter((i) => i.category === 'single_tranche').length})</option>
+            <option value="lumpsum">Full Lump-sum & B2B Channels ({items.filter((i) => i.category === 'lumpsum').length})</option>
           </select>
 
           {/* Sort Controls (DATE IS DEFAULT!) */}
@@ -957,6 +1013,8 @@ export default function GSTDisbursalManager() {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* Customer Link Modal */}
       {linkingItem && (

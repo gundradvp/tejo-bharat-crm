@@ -48,6 +48,7 @@ Options:
   --all                 Sync ALL 11 circles across entire APEPDCL (same as --circle=ALL)
   --circle=<NAME>       Specific circle name (default: KAKINADA)
   --file=<PATH>         Import from a local downloaded HTML file (e.g. pmsurya_all_circles.html)
+  --fetch-snumbers      Also download full Ground Reports (panel & inverter serials) for S-numbers
   --dry-run             Parse HTML without writing to database
   --help, -h            Show this documentation
 
@@ -92,6 +93,7 @@ const circle = rawCircle;
 const isAll = circle === 'ALL';
 const localFile = getArg('file', null);
 const isDryRun = args.includes('--dry-run');
+const shouldFetchSNumbers = args.includes('--fetch-snumbers');
 
 const ENDPOINT_URL = `https://epccbopn.apeasternpower.com/jw/corporatedashboard/PMSuryadet.jsp?&CmtType=PMSREG&Circle=${encodeURIComponent(circle)}&Divisionval=ALL&SubDivval=ALL&AglType=&Secval=ALL&Pentype=&AppTyp=ALL`;
 
@@ -391,6 +393,73 @@ async function syncToDatabase(records) {
   return { newCount: insertedCount, updatedCount };
 }
 
+// 5b. Fetch and enrich ground reports for S-numbers
+async function fetchAndEnrichGroundReports(records) {
+  const sRecords = records.filter((r) => r.ep_registration_number && String(r.ep_registration_number).startsWith('S'));
+  if (sRecords.length === 0) return 0;
+
+  console.log(`\n⚡ Downloading Ground Reports for ${sRecords.length} S-numbers (panel & inverter serials)...`);
+  const sNumbers = [...new Set(sRecords.map((r) => r.ep_registration_number))];
+  let enriched = 0;
+  const candidateOffices = ['4000-20', '9000-138'];
+
+  async function fetchOne(snum) {
+    for (const office of candidateOffices) {
+      try {
+        const url = `https://epccbopn.apeasternpower.com/jw/web/json/plugin/com.phoenix.services.WebserviceRevisedSolarP3GroundReport/service?complain_no=${snum}&office_id=${office}&user_id=2000-526`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (data && data.status !== 'false' && (data.COMP_NO || data.SOLAR_PANEL_PRODUCT_SERIAL_NUMBER)) {
+          return data;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  const concurrency = 10;
+  let done = 0;
+  await asyncPool(concurrency, sNumbers, async (snum) => {
+    const data = await fetchOne(snum);
+    done++;
+    if (data) {
+      const serials = data.SOLAR_PANEL_PRODUCT_SERIAL_NUMBER || null;
+      const meterNo = data.NEW_MTR_SNO || null;
+      const vendor = data.VENDOR_NAME && data.VENDOR_NAME !== '-' ? data.VENDOR_NAME : null;
+      const invMake = data.INVERTER_PRODUCT_MANUFACTURER || null;
+      const invSerial = data.INVERTER_PRODUCT_SERIAL_NUMBER || null;
+
+      const updateData = {
+        updated_at: new Date().toISOString(),
+      };
+      if (meterNo) updateData.meter_no = meterNo;
+      if (data.COMP_NAME) updateData.customer_name = data.COMP_NAME;
+
+      const { error } = await supabase
+        .from('lead_prospects')
+        .update({
+          ...updateData,
+          panel_serial_numbers: serials,
+          inverter_manufacturer: invMake,
+          inverter_serial_number: invSerial,
+          vendor_name: vendor,
+          ground_report: data,
+        })
+        .eq('ep_registration_number', snum);
+
+      if (error) {
+        await supabase.from('lead_prospects').update(updateData).eq('ep_registration_number', snum);
+      }
+      enriched++;
+    }
+    process.stdout.write(`\r   Ground Reports Enriched: ${enriched} / ${done} of ${sNumbers.length}`);
+  });
+
+  console.log(`\n✅ Ground Reports complete: ${enriched} S-numbers enriched.`);
+  return enriched;
+}
+
 // 6. Main runner
 async function main() {
   console.log('====================================================');
@@ -408,12 +477,20 @@ async function main() {
 
     const { newCount, updatedCount } = await syncToDatabase(records);
 
+    let enrichedSCount = 0;
+    if (shouldFetchSNumbers) {
+      enrichedSCount = await fetchAndEnrichGroundReports(records);
+    }
+
     console.log('\n====================================================');
     console.log('📊 SYNC SUMMARY');
     console.log('====================================================');
     console.log(`Total Portal Records:    ${records.length.toLocaleString('en-IN')}`);
     console.log(`New Prospects Added:     ${newCount.toLocaleString('en-IN')} (Stamped with today's date)`);
     console.log(`Status Changes Updated:  ${updatedCount.toLocaleString('en-IN')}`);
+    if (shouldFetchSNumbers) {
+      console.log(`Ground Reports Enriched: ${enrichedSCount.toLocaleString('en-IN')} (Panel & Inverter serials)`);
+    }
     console.log('====================================================');
     console.log('🎉 Sync completed successfully!');
   } catch (err) {

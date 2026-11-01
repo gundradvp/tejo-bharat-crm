@@ -2417,6 +2417,111 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
             </div>
           </div>
 
+          {/* DYNAMIC PM SURYA GHAR SUBSIDY & 40% ACCELERATED DEPRECIATION BENEFIT CARD */}
+          {((quotation.category || '').toLowerCase().includes('residential') || (quotation.category || '').toLowerCase().includes('home')) ? (
+            <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-2.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-extrabold text-emerald-950">🏛️ PM Surya Ghar Central Subsidy (DBT):</span>
+                </div>
+                <div className="flex items-center gap-1 bg-white border border-emerald-300 rounded-lg px-2 py-1">
+                  <span className="text-[10px] font-bold text-emerald-700">- ₹</span>
+                  <input
+                    type="number"
+                    value={quotation.subsidy_amount !== undefined ? quotation.subsidy_amount : (
+                      (quotation.system_capacity_kw || 3) <= 1 ? 33000 : (quotation.system_capacity_kw || 3) <= 2 ? 66000 : 78000
+                    )}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      onChangeQuotation({
+                        ...quotation,
+                        subsidy_amount: val,
+                        net_payable: Math.max(0, grandTotal - val)
+                      });
+                    }}
+                    className="w-24 text-right font-mono font-bold text-xs text-emerald-900 bg-transparent focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Subsidy Slabs */}
+              <div className="flex items-center gap-1 text-[10px]">
+                <span className="text-emerald-700 font-semibold">Slabs:</span>
+                <button
+                  type="button"
+                  onClick={() => onChangeQuotation({ ...quotation, subsidy_amount: 33000, net_payable: Math.max(0, grandTotal - 33000) })}
+                  className={`px-1.5 py-0.5 rounded font-bold border transition-colors ${
+                    quotation.subsidy_amount === 33000
+                      ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                      : 'bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-900'
+                  }`}
+                >
+                  1kW (₹33k)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChangeQuotation({ ...quotation, subsidy_amount: 66000, net_payable: Math.max(0, grandTotal - 66000) })}
+                  className={`px-1.5 py-0.5 rounded font-bold border transition-colors ${
+                    quotation.subsidy_amount === 66000
+                      ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                      : 'bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-900'
+                  }`}
+                >
+                  2kW (₹66k)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChangeQuotation({ ...quotation, subsidy_amount: 78000, net_payable: Math.max(0, grandTotal - 78000) })}
+                  className={`px-1.5 py-0.5 rounded font-bold border transition-colors ${
+                    quotation.subsidy_amount === 78000
+                      ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                      : 'bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-900'
+                  }`}
+                >
+                  3kW+ (₹78k)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChangeQuotation({ ...quotation, subsidy_amount: 0, net_payable: grandTotal })}
+                  className={`px-1.5 py-0.5 rounded font-bold border transition-colors ml-auto ${
+                    quotation.subsidy_amount === 0
+                      ? 'bg-slate-800 text-white border-slate-900 shadow-xs'
+                      : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700'
+                  }`}
+                >
+                  No Subsidy
+                </button>
+              </div>
+
+              <div className="flex justify-between items-center pt-1 border-t border-emerald-200">
+                <span className="text-xs font-black text-emerald-950 uppercase tracking-tight">Net Customer Investment:</span>
+                <span className="font-mono font-black text-sm text-emerald-800">
+                  ₹ {Math.max(0, grandTotal - (quotation.subsidy_amount !== undefined ? quotation.subsidy_amount : (
+                    (quotation.system_capacity_kw || 3) <= 1 ? 33000 : (quotation.system_capacity_kw || 3) <= 2 ? 66000 : 78000
+                  ))).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-2.5 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-blue-950">💼 Commercial 40% AD Tax Shield (Sec 32):</span>
+                <span className="font-mono font-bold text-blue-800">
+                  Save ₹ {Math.round(grandTotal * 0.40 * 0.25).toLocaleString('en-IN')}
+                </span>
+              </div>
+              <p className="text-[10px] text-blue-700 leading-tight">
+                40% Year-1 Accelerated Depreciation on ₹{grandTotal.toLocaleString('en-IN')} yields ₹{Math.round(grandTotal * 0.40 * 0.25).toLocaleString('en-IN')} cash tax shield at 25% tax slab.
+              </p>
+              <div className="flex justify-between items-center pt-1 border-t border-blue-200 text-xs">
+                <span className="font-bold text-slate-700">Net Effective Outlay:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  ₹ {Math.round(grandTotal - (grandTotal * 0.40 * 0.25)).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* TOTAL AMOUNT RECEIVED & PAYMENT TYPE */}
           <div className="pt-2 space-y-2 border-t border-slate-100">
             <div className="flex items-center justify-between font-bold text-slate-600">

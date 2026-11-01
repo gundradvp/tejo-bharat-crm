@@ -363,19 +363,30 @@ export default function EBCustomerDetailModal({ customer, onClose, onUpdate }: P
             <button
               onClick={() => {
                 const params = new URLSearchParams();
-                if (customer.consumer_name) params.set('customer_name', customer.consumer_name);
-                if (customer.mobile) params.set('customer_phone', customer.mobile);
-                if (customer.address) params.set('customer_address', customer.address);
-                if (customer.solar_capacity) params.set('capacity_kw', String(customer.solar_capacity));
+                const custName = [customer.sur_name, customer.customer_name].filter(Boolean).join(' ').trim() || customer.customer_name || '';
+                const custPhone = (customer.mobile_number || customer.phone || '').replace(/\D/g, '').slice(-10);
+                const custAddress = fullAddress || '';
+                const suggestedKw = customer.contracted_load || customer.connected_load || (avgBilledUnits > 0 ? Math.max(1, Math.round(avgBilledUnits / 125)) : 3);
+                const isCommercial = (customer.category || '').toUpperCase().includes('2') || 
+                                     (customer.category || '').toUpperCase().includes('COMMERCIAL') || 
+                                     (customer.category || '').toUpperCase().includes('LT-II') ||
+                                     (customer.category || '').toUpperCase().includes('3');
+
+                if (custName) params.set('customer_name', custName);
+                if (custPhone) params.set('customer_phone', custPhone);
+                if (custAddress) params.set('customer_address', custAddress);
+                if (suggestedKw) params.set('capacity_kw', String(suggestedKw));
+                params.set('category', isCommercial ? 'Commercial / Institutional' : 'Residential / Home');
                 params.set('docType', 'Quotation');
+
                 onClose();
                 navigate(`/billing/create?${params.toString()}`);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors cursor-pointer"
-              title="Open in Billing Suite to create Quotation with prefilled customer data"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-800 hover:from-teal-100 hover:to-emerald-100 border border-teal-300 transition-all shadow-xs cursor-pointer"
+              title="Open in Billing Suite to create Solar Quotation with prefilled customer data"
             >
-              <Receipt className="w-4 h-4 text-purple-600" />
-              <span>Create Quote</span>
+              <Zap className="w-4 h-4 text-teal-600" />
+              <span>⚡ Generate Solar Quote</span>
             </button>
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
               <X className="w-5 h-5 text-gray-500" />

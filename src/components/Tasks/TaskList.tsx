@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase, Task, Customer, Profile, TaskCustomer } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Plus, AlertCircle, CheckCircle, Clock, XCircle, Loader2, MessageSquare, FileText, CreditCard as Edit2, ChevronDown, ChevronRight, Trash2, Bell, User, Calendar, Phone } from 'lucide-react';
+import { Plus, AlertCircle, CheckCircle, Clock, XCircle, Loader2, MessageSquare, FileText, CreditCard as Edit2, ChevronDown, ChevronRight, Trash2, Bell, User, Calendar, Phone, CheckSquare, LayoutGrid } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TaskForm from './TaskForm';
 import TaskTimer from './TaskTimer';
+import MicrosoftToDoHub from './MicrosoftToDo/MicrosoftToDoHub';
 
 const priorityColors = {
   low: 'bg-gray-100 text-gray-700',
@@ -46,6 +47,9 @@ type TaskWithDetails = Task & {
 export default function TaskList() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState<'todo' | 'classic'>(() => {
+    return (localStorage.getItem('tejo_tasks_view_mode') as 'todo' | 'classic') || 'todo';
+  });
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -53,6 +57,15 @@ export default function TaskList() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [taskReminders, setTaskReminders] = useState<Set<string>>(new Set());
+
+  const handleSetViewMode = (mode: 'todo' | 'classic') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('tejo_tasks_view_mode', mode);
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     loadTasks();
@@ -191,6 +204,14 @@ export default function TaskList() {
     }
   };
 
+  if (viewMode === 'todo') {
+    return (
+      <MicrosoftToDoHub
+        onSwitchToClassic={() => handleSetViewMode('classic')}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -203,7 +224,24 @@ export default function TaskList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Tasks</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-gray-900">Tasks</h2>
+            <div className="flex items-center bg-gray-100 p-0.5 rounded-lg text-xs font-semibold">
+              <button
+                onClick={() => handleSetViewMode('todo')}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+                <span>To Do View</span>
+              </button>
+              <button
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white text-blue-700 shadow-2xs font-bold"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Classic Table</span>
+              </button>
+            </div>
+          </div>
           <p className="text-gray-600 mt-1">{filteredTasks.length} tasks</p>
         </div>
         {((profile?.roles?.includes('admin') || profile?.roles?.includes('lead_generator')) || (profile?.role === 'admin' || profile?.role === 'lead_generator')) && (

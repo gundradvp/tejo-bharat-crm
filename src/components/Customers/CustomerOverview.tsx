@@ -387,6 +387,22 @@ export default function CustomerOverview() {
               {copiedJSON ? 'Copied!' : 'Copy JSON'}
             </button>
             <button
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (customer.customer_name) params.set('customer_name', customer.customer_name);
+                if (customer.phone) params.set('customer_phone', customer.phone);
+                if (customer.address || customer.district) params.set('customer_address', [customer.address, customer.district].filter(Boolean).join(', '));
+                if (customer.total_capacity_kw) params.set('capacity_kw', String(customer.total_capacity_kw));
+                params.set('docType', 'Quotation');
+                navigate(`/billing/create?${params.toString()}`);
+              }}
+              className="flex items-center gap-2 px-3.5 py-2 border border-purple-200 bg-purple-50 text-purple-800 rounded-lg text-sm hover:bg-purple-100 transition-colors font-medium"
+              title="Generate or edit solar quotation proposal for this customer in Billing Suite"
+            >
+              <FileText className="w-4 h-4 text-purple-600" />
+              Quotation
+            </button>
+            <button
               onClick={() => navigate(`/customers/${id}/finance?tab=inventory`)}
               className="flex items-center gap-2 px-3.5 py-2 border border-teal-200 bg-teal-50 text-teal-800 rounded-lg text-sm hover:bg-teal-100 transition-colors font-medium"
               title="Manage site materials, stock deduction & serial numbers"

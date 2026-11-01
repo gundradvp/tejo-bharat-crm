@@ -58,6 +58,7 @@ export default function Navbar() {
     if (pathname.startsWith('/customers')) return 'Customers';
     if (pathname.startsWith('/prospects')) return 'Lead Prospects';
     if (pathname.startsWith('/eb-customers')) return 'EB Customers';
+    if (pathname.startsWith('/s-numbers')) return 'S-Numbers Hub';
     if (pathname.startsWith('/quotations')) return 'Quotations';
     if (pathname.startsWith('/items')) return 'Items & Products';
     if (pathname.startsWith('/gst/itc')) return 'GST ITC Hub';

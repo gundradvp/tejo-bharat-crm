@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase, Profile, isJSPAdmin, hasAnyRole } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Search, Download, X, ChevronLeft, ChevronRight, Users, Filter, Phone, MapPin, CreditCard, Calendar, UserCircle, ZoomIn, ExternalLink, MessageCircle, UserCheck, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Search, Download, X, ChevronLeft, ChevronRight, Users, Filter, Phone, MapPin, CreditCard, Calendar, UserCircle, ZoomIn, ExternalLink, MessageCircle, UserCheck, CheckCircle2, ChevronDown, Loader2 } from 'lucide-react';
 import { JSP_LOCATION_HIERARCHY } from '../../../lib/jspLocationData';
 import { isVolunteerNameMatch } from '../../../lib/ebApi';
 import Pagination from '../../Common/Pagination';
@@ -95,6 +95,8 @@ export default function KriyaMemberList() {
   const [page, setPage] = useState(0);
   const [selectedMember, setSelectedMember] = useState<KriyaMember | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; name?: string; jsp_id?: string } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportCount, setExportCount] = useState(0);
 
   // Volunteer stats & roster modal states
   const [volunteerStats, setVolunteerStats] = useState<{
@@ -269,7 +271,7 @@ export default function KriyaMemberList() {
         .select(MEMBER_COLS)
         .eq('volunteername', vName.trim())
         .order('id', { ascending: false })
-        .limit(300);
+        .limit(5000);
 
       if (error) throw error;
       setRosterMembers((data || []) as KriyaMember[]);
@@ -316,7 +318,7 @@ export default function KriyaMemberList() {
       m.volunteername || '', m.volunteer_mobile || '', m.created_date || '',
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -625,24 +627,116 @@ export default function KriyaMemberList() {
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  const exportCSV = useCallback(() => {
-    if (members.length === 0) return;
-    const headers = ['ID', 'JSP ID', 'Name', 'Mobile', 'Age', 'Gender', 'Mandal', 'Panchayat', 'Booth', 'Ward', 'Phase', 'Status', 'Membership Type', 'Payment Status', 'Volunteer', 'Volunteer Mobile', 'Created Date'];
-    const rows = members.map((m) => [
-      m.id, m.jsp_id || '', m.name || '', m.mobile || '', m.age || '', m.gender || '',
-      m.mandal_name || '', m.panchayat_name || '', m.polling_booth_number || '', m.ward_no || '',
-      m.phase || '', m.status || '', m.membership_type || '', m.payment_status || '',
-      m.volunteername || '', m.volunteer_mobile || '', m.created_date || '',
-    ]);
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kriya_members_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [members]);
+  const exportCSV = useCallback(async () => {
+    if (members.length === 0 && totalCount === 0) return;
+    setIsExporting(true);
+    setExportCount(0);
+
+    try {
+      const BATCH_SIZE = 1000;
+      let allRecords: KriyaMember[] = [];
+      let offset = 0;
+      const maxRows = Math.min(totalCount || 50000, 50000);
+
+      while (true) {
+        let exportQuery = supabase.from('jsp_kriya_members').select(MEMBER_COLS);
+        exportQuery = applyFilters(exportQuery);
+        const { data, error } = await exportQuery
+          .range(offset, offset + BATCH_SIZE - 1)
+          .order('id', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching export batch:', error);
+          break;
+        }
+
+        if (!data || data.length === 0) {
+          break;
+        }
+
+        allRecords = allRecords.concat(data as KriyaMember[]);
+        setExportCount(allRecords.length);
+
+        if (data.length < BATCH_SIZE || allRecords.length >= maxRows) {
+          break;
+        }
+
+        offset += BATCH_SIZE;
+      }
+
+      // If database batch export failed or returned empty, fallback to currently loaded members
+      const exportList = allRecords.length > 0 ? allRecords : members;
+      if (exportList.length === 0) {
+        setIsExporting(false);
+        return;
+      }
+
+      const headers = [
+        'ID',
+        'JSP ID',
+        'Name',
+        'Mobile',
+        'Aadhar Number',
+        'Age',
+        'Gender',
+        'Parliament',
+        'Assembly',
+        'Mandal',
+        'Panchayat',
+        'Booth',
+        'Ward',
+        'Phase',
+        'Status',
+        'Membership Type',
+        'Payment Status',
+        'Volunteer / Enrolled By',
+        'Volunteer Mobile',
+        'Created Date'
+      ];
+
+      const rows = exportList.map((m) => [
+        m.id,
+        m.jsp_id || '',
+        m.name || '',
+        m.mobile || '',
+        m.aadhar_number || '',
+        m.age || '',
+        m.gender || '',
+        m.parliament_constituency_name || '',
+        m.constituency_name || '',
+        m.mandal_name || '',
+        m.panchayat_name || '',
+        m.polling_booth_number || '',
+        m.ward_no || '',
+        m.phase || '',
+        m.status || '',
+        m.membership_type || '',
+        m.payment_status || '',
+        m.volunteername || '',
+        m.volunteer_mobile || '',
+        m.created_date || '',
+      ]);
+
+      const csv = [headers, ...rows]
+        .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      // Use UTF-8 BOM so Telugu names and symbols open cleanly in Excel
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const label = mandalFilter || assemblyFilter || sadhakFilter || 'all';
+      a.download = `kriya_members_${label}_${exportList.length}_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export CSV:', err);
+    } finally {
+      setIsExporting(false);
+      setExportCount(0);
+    }
+  }, [members, totalCount, applyFilters, mandalFilter, assemblyFilter, sadhakFilter]);
 
   const selectClass = "w-full appearance-none bg-white border border-gray-300 rounded-lg py-2 pl-3 pr-8 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all";
 
@@ -692,11 +786,23 @@ export default function KriyaMemberList() {
         </div>
         <button
           onClick={exportCSV}
-          disabled={members.length === 0}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+          disabled={isExporting || (members.length === 0 && totalCount === 0)}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors shadow-sm"
+          title={`Export all ${totalCount > 0 ? totalCount.toLocaleString() : members.length} members`}
         >
-          <Download className="w-4 h-4" />
-          Export CSV
+          {isExporting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>
+                Exporting {exportCount > 0 ? `(${exportCount.toLocaleString()}/${totalCount.toLocaleString()})` : '...'}
+              </span>
+            </>
+          ) : (
+            <>
+              <Download className="w-4 h-4" />
+              <span>Export CSV ({totalCount > 0 ? totalCount.toLocaleString() : members.length})</span>
+            </>
+          )}
         </button>
       </div>
 

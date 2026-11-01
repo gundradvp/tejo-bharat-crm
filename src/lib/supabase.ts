@@ -141,7 +141,7 @@ export const isJSPAdmin = (profile: Profile | null): boolean => {
 };
 
 export const isSolarUser = (profile: Profile | null): boolean =>
-  hasAnyRole(profile, ['admin', 'lead_generator', 'lead_generator_access', 'employee', 'finance']);
+  isAdmin(profile);
 
 export const canManageLeadGenerators = (profile: Profile | null): boolean => {
   return isAdmin(profile) || isLeadGeneratorAccess(profile);

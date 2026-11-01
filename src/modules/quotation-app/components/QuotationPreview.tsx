@@ -17,7 +17,7 @@ import {
 import { ShareWhatsAppModal } from './ShareWhatsAppModal';
 import { calculateSolarYieldAndCO2 } from '../lib/solarYieldLookup';
 import { autoFitSections, calculatePageOverflow } from '../lib/autoFitProposal';
-import { downloadWordBlob, TEJO_BHARAT_17KW_DOCX_BASE64 } from '../lib/wordTemplateExporter';
+import { downloadWordBlob, TEJO_BHARAT_17KW_DOCX_BASE64, downloadDynamicWordProposal } from '../lib/wordTemplateExporter';
 import { 
   Printer, 
   Download, 
@@ -834,8 +834,17 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
       .trim();
     const capacity = displayTotalCapacity;
     const docNo = quotation.quotation_no || '';
-    const filename = `${partyName}_${capacity}kW_Solar_Proposal_${docNo}.docx`;
-    downloadWordBlob(TEJO_BHARAT_17KW_DOCX_BASE64, filename);
+
+    // If it's the exact historical 17kW KVB quotation, download the pristine DOCX template
+    if ((quotation.quotation_no || '').trim().toUpperCase() === 'TBGE2627Q003' && quotation.total_amount === 1470000) {
+      const filename = `${partyName}_${capacity}kW_Solar_Proposal_${docNo}.docx`;
+      downloadWordBlob(TEJO_BHARAT_17KW_DOCX_BASE64, filename);
+      return;
+    }
+
+    // Dynamic Word proposal for all quotes
+    const filename = `${partyName}_${capacity}kW_Solar_Proposal_${docNo}.doc`;
+    downloadDynamicWordProposal(quotation, branch, capacity, displayPayback, filename);
   };
 
   const totalAmt = quotation.total_amount || 0;
@@ -910,7 +919,34 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
   let subsidyText = 'Central Govt. Subsidy (Not Applicable)';
   let subsidyNote = 'No Central DBT Subsidy for Commercial/Industrial';
 
-  if (normCat.includes('residential') || normCat.includes('home')) {
+  const hasExplicitSubsidy = quotation.subsidy_amount !== undefined && quotation.subsidy_amount !== null;
+
+  if (hasExplicitSubsidy) {
+    subsidyAmount = Math.max(0, Number(quotation.subsidy_amount));
+    if (normCat.includes('residential') || normCat.includes('home')) {
+      if (subsidyAmount > 0) {
+        subsidyText = 'PM Surya Ghar Central Subsidy (Direct DBT Credit)';
+        subsidyNote = '₹30,000/kW for first 2 kW + ₹18,000 for 3rd kW (Max ₹78,000 capped)';
+      } else {
+        subsidyText = 'PM Surya Ghar Central Subsidy (No Subsidy / Opted Out)';
+        subsidyNote = 'Zero central subsidy applied as per customer preference / project terms';
+      }
+    } else if (normCat.includes('group') || normCat.includes('ghs') || normCat.includes('housing')) {
+      if (subsidyAmount > 0) {
+        subsidyText = 'GHS PM Surya Ghar Subsidy (@ ₹18,000 / kW)';
+        subsidyNote = '₹18,000 per kW for Group Housing Society (GHS/RWA) Common Facilities';
+      } else {
+        subsidyText = 'GHS PM Surya Ghar Subsidy (Not Applicable)';
+        subsidyNote = 'No central subsidy applied';
+      }
+    } else if (normCat.includes('off-grid') || normCat.includes('offgrid')) {
+      subsidyText = 'Central Net-Metering Subsidy (Not Applicable)';
+      subsidyNote = 'Off-Grid solar systems operate with standalone battery storage independent of grid net-metering';
+    } else {
+      subsidyText = 'MNRE Central Subsidy (Not Applicable)';
+      subsidyNote = 'Commercial & Industrial consumers receive 40% Accelerated Depreciation & GST Input Tax Benefits';
+    }
+  } else if (normCat.includes('residential') || normCat.includes('home')) {
     if (displayTotalCapacity <= 2) {
       subsidyAmount = displayTotalCapacity * 30000;
     } else if (displayTotalCapacity < 3) {
@@ -1731,9 +1767,9 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
                     </p>
                   </div>
                   <div className="bg-white p-2 rounded-lg border border-emerald-200 space-y-0.5 shadow-2xs">
-                    <div className="font-bold text-emerald-900 text-[10.5px]">💼 Tax & Property Tax Savings</div>
+                    <div className="font-bold text-emerald-900 text-[10.5px]">💼 Tax & Depreciation Savings</div>
                     <p className="text-[9.5px] text-slate-600 leading-tight">
-                      {normCat.includes('commercial') || normCat.includes('industrial')
+                      {normCat.includes('commercial') || normCat.includes('industrial') || normCat.includes('institutional')
                         ? '40% Accelerated Depreciation (IT Act Sec 32) + 100% GST Input Tax Credit + 5% Property Tax Rebate.'
                         : '5% Annual Municipal Property Tax Rebate for green certified solar rooftops.'}
                     </p>
@@ -1741,6 +1777,38 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
                 </>
               )}
             </div>
+
+            {/* Commercial / Industrial 40% Accelerated Depreciation Quantitative Shield Card */}
+            {(normCat.includes('commercial') || normCat.includes('industrial') || normCat.includes('institutional')) && (
+              <div className="mt-2 bg-gradient-to-r from-blue-50 to-teal-50 border border-teal-300 rounded-lg p-2 text-slate-800">
+                <div className="flex items-center justify-between border-b border-teal-200 pb-1 mb-1.5">
+                  <span className="font-extrabold text-[10px] text-teal-950 uppercase tracking-wide">
+                    📊 Corporate Tax Shield Analysis (Section 32 Income Tax Act - 40% AD)
+                  </span>
+                  <span className="text-[9px] bg-teal-200 text-teal-900 font-bold px-1.5 py-0.5 rounded">
+                    Tax Slab: 25.17%
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-center text-[9.5px]">
+                  <div className="bg-white p-1 rounded border border-teal-100">
+                    <span className="text-slate-500 block text-[8.5px]">Gross Project Cost</span>
+                    <strong className="text-slate-900 font-mono text-[10px]">₹ {grossCost.toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className="bg-white p-1 rounded border border-teal-100">
+                    <span className="text-slate-500 block text-[8.5px]">40% AD Base (Yr 1)</span>
+                    <strong className="text-teal-800 font-mono text-[10px]">₹ {Math.round(grossCost * 0.40).toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className="bg-white p-1 rounded border border-teal-100">
+                    <span className="text-slate-500 block text-[8.5px]">Tax Cash Shield Saved</span>
+                    <strong className="text-emerald-700 font-mono text-[10px]">₹ {Math.round(grossCost * 0.40 * 0.2517).toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className="bg-white p-1 rounded border border-teal-100">
+                    <span className="text-slate-500 block text-[8.5px]">Net Effective Outlay</span>
+                    <strong className="text-blue-900 font-mono text-[10px]">₹ {Math.round(grossCost - (grossCost * 0.40 * 0.2517)).toLocaleString('en-IN')}</strong>
+                  </div>
+                </div>
+              </div>
+            )}
             {renderCustomNote()}
           </div>
         );

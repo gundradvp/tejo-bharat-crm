@@ -7,6 +7,7 @@ import {
   Home,
   Users as UsersIcon,
   Phone,
+  PhoneCall,
   Zap,
   ListTodo,
   Clock,
@@ -28,6 +29,7 @@ import {
   Activity,
   BarChart3,
   Network,
+  Sun,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
@@ -59,9 +61,9 @@ export default function Sidebar() {
   const isNagarjuna = isNagarjunaUser(profile as Profile | null);
   const showSolarNav = isSolarUser(profile as Profile | null);
   
-  // A pure JSP user has JSP roles, but is NOT an admin and does NOT have Solar CRM roles
-  const isPureJspUser = !isAdmin && isJSPUser(profile as Profile | null) && !showSolarNav;
-  const canAccessSolar = isAdmin || showSolarNav || isEmployee || isLeadGen || isFinanceUser;
+  // Solar CRM is restricted to Admin only as requested
+  const isPureJspUser = !isAdmin && isJSPUser(profile as Profile | null);
+  const canAccessSolar = isAdmin;
   const canAccessJsp = isJSPUser(profile as Profile | null) || (isAdmin && isJSPUser(profile as Profile | null));
   const showJspIncharges =
     canAccessJsp && (isJSPAdmin(profile as Profile | null) || hasAnyRole(profile as Profile | null, ['jsp_assembly_incharge']));
@@ -267,6 +269,12 @@ export default function Sidebar() {
 
                   {(isAdmin || isEmployee || isLeadGen || isFinanceUser) &&
                     renderNavItem('/eb-customers', 'EB Customers', Zap)}
+
+                  {isAdmin &&
+                    renderNavItem('/s-numbers', 'S-Numbers Hub', Sun)}
+
+                  {isAdmin &&
+                    renderNavItem('/vendors', 'Vendor CRM & Calling', PhoneCall, 'special')}
 
                   {(isAdmin || isLeadGen || isFinanceUser) &&
                     renderNavItem('/documents/upload', 'Upload Documents', Upload)}

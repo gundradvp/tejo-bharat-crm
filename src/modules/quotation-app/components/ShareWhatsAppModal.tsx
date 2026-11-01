@@ -65,7 +65,9 @@ export const ShareWhatsAppModal: React.FC<ShareWhatsAppModalProps> = ({
   
   const normCat = (quotation.category || '').toLowerCase();
   let subsidyAmount = 0;
-  if (normCat.includes('residential') || normCat.includes('home')) {
+  if (quotation.subsidy_amount !== undefined && quotation.subsidy_amount !== null) {
+    subsidyAmount = Math.max(0, Number(quotation.subsidy_amount));
+  } else if (normCat.includes('residential') || normCat.includes('home')) {
     if (quotation.system_capacity_kw <= 2) subsidyAmount = quotation.system_capacity_kw * 30000;
     else if (quotation.system_capacity_kw < 3) subsidyAmount = 60000 + ((quotation.system_capacity_kw - 2) * 18000);
     else subsidyAmount = 78000;

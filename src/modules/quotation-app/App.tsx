@@ -211,6 +211,42 @@ const INITIAL_QUOTATION: Quotation = {
 
 const DEFAULT_PAYMENT_IN_RECORDS: PaymentInRecord[] = [
   {
+    id: 'payin-dsr-4',
+    payment_number: '217',
+    party_name: 'DSR SOLAR ENTEPRISES',
+    payment_date: '2026-10-19',
+    payment_mode: 'IMPS',
+    amount_received: 150000,
+    settled_invoices: []
+  },
+  {
+    id: 'payin-dsr-3',
+    payment_number: '216',
+    party_name: 'DSR SOLAR ENTEPRISES',
+    payment_date: '2026-10-19',
+    payment_mode: 'IMPS',
+    amount_received: 50000,
+    settled_invoices: []
+  },
+  {
+    id: 'payin-dsr-2',
+    payment_number: '215',
+    party_name: 'DSR SOLAR ENTEPRISES',
+    payment_date: '2026-09-30',
+    payment_mode: 'IMPS',
+    amount_received: 36000,
+    settled_invoices: []
+  },
+  {
+    id: 'payin-dsr-1',
+    payment_number: '214',
+    party_name: 'DSR SOLAR ENTEPRISES',
+    payment_date: '2026-09-22',
+    payment_mode: 'IMPS',
+    amount_received: 100000,
+    settled_invoices: []
+  },
+  {
     id: 'payin-213',
     payment_number: '213',
     party_name: 'SUNRAY SOLAR GREEN ENERGY SOLUTIONS',

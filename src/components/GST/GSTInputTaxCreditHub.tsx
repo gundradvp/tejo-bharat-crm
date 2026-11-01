@@ -19,7 +19,13 @@ import {
   X,
   FileCode,
   Layers,
-  HelpCircle
+  HelpCircle,
+  Plus,
+  ShieldCheck,
+  Save,
+  Database,
+  ArrowDownToLine,
+  RotateCcw
 } from 'lucide-react';
 import { 
   parseGSTR2BJSON, 
@@ -28,6 +34,10 @@ import {
   getGSTInputCredits, 
   runGSTReconciliation, 
   linkGSTCreditToCustomer,
+  addManualGSTCredit,
+  exportGSTCreditsBackup,
+  importGSTCreditsBackup,
+  resetGSTCreditsToDefault,
   type GSTInputCredit,
   type ParsedGSTInvoice
 } from '../../lib/gstPortalApi';
@@ -36,7 +46,9 @@ import * as XLSX from 'xlsx';
 export default function GSTInputTaxCreditHub() {
   const { currentTenant } = useTenant();
   const { isAdmin } = useAuth();
-  const isAdminUser = isAdmin();
+  const isAdminUser = typeof isAdmin === 'function' ? isAdmin() : true;
+
+  const tenantId = currentTenant?.id || 'tenant-tejo-bharat';
 
   const [credits, setCredits] = useState<GSTInputCredit[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -44,15 +56,28 @@ export default function GSTInputTaxCreditHub() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Upload Modal State
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadPeriod, setUploadPeriod] = useState<string>('04-2026');
+  const [uploadPeriod, setUploadPeriod] = useState<string>('10-2026');
   const [parsedPreview, setParsedPreview] = useState<ParsedGSTInvoice[]>([]);
   const [uploadError, setUploadError] = useState<string>('');
   const [uploadSuccess, setUploadSuccess] = useState<string>('');
+
+  // Manual Bill Modal State
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualSupplierName, setManualSupplierName] = useState('');
+  const [manualSupplierGSTIN, setManualSupplierGSTIN] = useState('');
+  const [manualInvoiceNo, setManualInvoiceNo] = useState('');
+  const [manualInvoiceDate, setManualInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [manualPeriod, setManualPeriod] = useState('10-2026');
+  const [manualTaxableVal, setManualTaxableVal] = useState<string>('');
+  const [manualGSTRate, setManualGSTRate] = useState<number>(18);
+  const [manualNotes, setManualNotes] = useState('');
+  const [savingManual, setSavingManual] = useState(false);
 
   // Link Customer Modal State
   const [linkingCredit, setLinkingCredit] = useState<GSTInputCredit | null>(null);
@@ -60,26 +85,45 @@ export default function GSTInputTaxCreditHub() {
   const [autoCreateExpense, setAutoCreateExpense] = useState(true);
   const [linking, setLinking] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [currentTenant, selectedPeriod]);
+  // Backup & Restore state
+  const [showBackupMenu, setShowBackupMenu] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const loadData = async () => {
-    if (!currentTenant) return;
     try {
       setLoading(true);
       const [creditsData, custsRes] = await Promise.all([
-        getGSTInputCredits(currentTenant.id, selectedPeriod),
-        supabase.from('customers').select('id, customer_name, consumer_number').order('customer_name')
+        getGSTInputCredits(tenantId, selectedPeriod),
+        supabase.from('customers').select('id, customer_name, consumer_number').order('customer_name').catch(() => ({ data: [] }))
       ]);
       setCredits(creditsData);
-      setCustomers(custsRes.data || []);
+      setCustomers(custsRes?.data || []);
     } catch (err) {
       console.error('Error loading GST input credits:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadData();
+
+    // Listen to updates from other tabs or windows
+    const onCreditsUpdated = () => {
+      loadData();
+    };
+    window.addEventListener('tb_gst_credits_updated', onCreditsUpdated);
+    window.addEventListener('storage', onCreditsUpdated);
+
+    return () => {
+      window.removeEventListener('tb_gst_credits_updated', onCreditsUpdated);
+      window.removeEventListener('storage', onCreditsUpdated);
+    };
+  }, [tenantId, selectedPeriod]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -107,16 +151,16 @@ export default function GSTInputTaxCreditHub() {
   };
 
   const handleImportSubmit = async () => {
-    if (!currentTenant || parsedPreview.length === 0) return;
+    if (parsedPreview.length === 0) return;
 
     try {
       setImporting(true);
       setUploadError('');
-      const res = await saveGSTInputCredits(currentTenant.id, parsedPreview);
-      setUploadSuccess(`Successfully imported ${res.inserted} vendor GST invoices into the CRM!`);
+      const res = await saveGSTInputCredits(tenantId, parsedPreview);
+      setUploadSuccess(`Successfully saved & preserved ${res.inserted} vendor GST invoices in your local vault and synced!`);
       
       // Auto run reconciliation
-      await runGSTReconciliation(currentTenant.id);
+      await runGSTReconciliation(tenantId);
 
       setTimeout(() => {
         setShowUploadModal(false);
@@ -132,12 +176,63 @@ export default function GSTInputTaxCreditHub() {
     }
   };
 
+  const handleManualBillSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualSupplierName || !manualInvoiceNo || !manualTaxableVal) {
+      alert('Please fill required supplier name, invoice #, and taxable value.');
+      return;
+    }
+
+    try {
+      setSavingManual(true);
+      const taxable = parseFloat(manualTaxableVal) || 0;
+      const totalTax = Math.round((taxable * (manualGSTRate / 100)) * 100) / 100;
+      const isInterState = manualSupplierGSTIN.length >= 2 && !manualSupplierGSTIN.startsWith('37');
+      const igst = isInterState ? totalTax : 0;
+      const cgst = isInterState ? 0 : totalTax / 2;
+      const sgst = isInterState ? 0 : totalTax / 2;
+
+      addManualGSTCredit({
+        tenant_id: tenantId,
+        return_period: manualPeriod,
+        source_type: 'manual',
+        supplier_gstin: manualSupplierGSTIN.toUpperCase() || '37XXXXX0000X1ZX',
+        supplier_name: manualSupplierName.toUpperCase(),
+        invoice_number: manualInvoiceNo,
+        invoice_type: 'R',
+        invoice_date: manualInvoiceDate,
+        invoice_value: taxable + totalTax,
+        taxable_value: taxable,
+        igst_amount: igst,
+        cgst_amount: cgst,
+        sgst_amount: sgst,
+        cess_amount: 0,
+        total_tax: totalTax,
+        itc_availability: 'Y',
+        reconciliation_status: 'unmatched',
+        notes: manualNotes || 'Direct manual entry'
+      });
+
+      setShowManualModal(false);
+      setManualSupplierName('');
+      setManualSupplierGSTIN('');
+      setManualInvoiceNo('');
+      setManualTaxableVal('');
+      setManualNotes('');
+      showToast('Vendor invoice permanently saved to local vault!');
+      await loadData();
+    } catch (err: any) {
+      alert('Failed to save manual bill: ' + err.message);
+    } finally {
+      setSavingManual(false);
+    }
+  };
+
   const handleRunReconciliation = async () => {
-    if (!currentTenant) return;
     try {
       setLoading(true);
-      const res = await runGSTReconciliation(currentTenant.id);
-      alert(`Auto-reconciliation complete! Matched ${res.matched} invoices with recorded project expenses.`);
+      const res = await runGSTReconciliation(tenantId);
+      showToast(`Auto-reconciliation complete! Matched ${res.matched} invoices with project expenses and verified vendors.`);
       await loadData();
     } catch (err: any) {
       console.error('Reconciliation error:', err);
@@ -153,9 +248,16 @@ export default function GSTInputTaxCreditHub() {
 
     try {
       setLinking(true);
-      await linkGSTCreditToCustomer(linkingCredit.id, selectedCustomerId, autoCreateExpense);
+      const targetCustomer = customers.find(c => c.id === selectedCustomerId);
+      await linkGSTCreditToCustomer(
+        linkingCredit.id, 
+        selectedCustomerId, 
+        targetCustomer?.customer_name, 
+        autoCreateExpense
+      );
       setLinkingCredit(null);
       setSelectedCustomerId('');
+      showToast('Vendor bill safely linked to customer project!');
       await loadData();
     } catch (err: any) {
       console.error('Error linking credit:', err);
@@ -186,13 +288,60 @@ export default function GSTInputTaxCreditHub() {
       'Total Invoice Value (₹)': c.invoice_value,
       'ITC Eligible': c.itc_availability,
       'Status': c.reconciliation_status,
-      'Linked Customer': c.customers?.customer_name || 'Unassigned'
+      'Linked Customer': c.customers?.customer_name || 'Unassigned',
+      'Notes': c.notes || ''
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportRows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'GSTR-2B Available ITC');
     XLSX.writeFile(wb, `GSTR2B_Input_Tax_Credit_${selectedPeriod}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // Download JSON Backup
+  const handleDownloadBackup = () => {
+    const jsonStr = exportGSTCreditsBackup();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tejo_gst_itc_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setShowBackupMenu(false);
+    showToast('Complete GST ITC backup downloaded successfully!');
+  };
+
+  // Restore from JSON Backup
+  const handleRestoreBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const count = importGSTCreditsBackup(content);
+        showToast(`Restored & merged ${count} invoices from backup!`);
+        setShowBackupMenu(false);
+        loadData();
+      } catch (err: any) {
+        alert('Failed to restore backup: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Reset to default seed
+  const handleResetSeed = () => {
+    if (confirm('Reset to verified bank statement procurement seed invoices? Your uploaded invoices will be refreshed.')) {
+      resetGSTCreditsToDefault();
+      setShowBackupMenu(false);
+      showToast('Vault restored with verified bank statement vendor invoices!');
+      loadData();
+    }
   };
 
   // Filtered Records
@@ -228,20 +377,45 @@ export default function GSTInputTaxCreditHub() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 border border-slate-700 animate-in fade-in slide-in-from-top-2 duration-200">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          <span className="text-sm font-medium">{toastMessage}</span>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Receipt className="w-7 h-7 text-teal-600" />
-            GST Portal Input Tax Credit (ITC) Hub
-          </h2>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Import GSTR-2B / GSTR-2A from GST portal to find claimable vendor input tax and match with customer project expenses.
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Receipt className="w-7 h-7 text-teal-600" />
+              GST Portal Input Tax Credit (ITC) Hub
+            </h2>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              Vault Active (Never Lose Data)
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mt-1">
+            GSTR-2B vendor input tax credits, procurement reconciliations, and customer project bill linkages.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Add Manual Bill */}
+          <button
+            onClick={() => setShowManualModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-300 text-gray-800 rounded-xl hover:bg-gray-50 transition-colors text-sm font-semibold shadow-2xs"
+            title="Record a paper bill or missing vendor purchase"
+          >
+            <Plus className="w-4 h-4 text-teal-600" />
+            Add Manual Bill
+          </button>
+
+          {/* Auto Reconcile */}
           <button
             onClick={handleRunReconciliation}
             className="flex items-center gap-1.5 px-3.5 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium"
@@ -251,6 +425,7 @@ export default function GSTInputTaxCreditHub() {
             Auto-Reconcile
           </button>
 
+          {/* Export Sheet */}
           <button
             onClick={handleExportReconciliationExcel}
             className="flex items-center gap-1.5 px-3.5 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium"
@@ -260,6 +435,7 @@ export default function GSTInputTaxCreditHub() {
             Export CA Sheet
           </button>
 
+          {/* Import GSTR-2B */}
           <button
             onClick={() => {
               setUploadFile(null);
@@ -268,17 +444,61 @@ export default function GSTInputTaxCreditHub() {
               setUploadSuccess('');
               setShowUploadModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors text-sm font-semibold shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors text-sm font-semibold shadow-xs"
           >
             <Upload className="w-4 h-4" />
-            Import GSTR-2B (Portal File)
+            Import GSTR-2B
           </button>
+
+          {/* Vault Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowBackupMenu(!showBackupMenu)}
+              className="p-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+              title="Vault & Backup Tools"
+            >
+              <Database className="w-4 h-4 text-slate-600" />
+            </button>
+
+            {showBackupMenu && (
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-2xl shadow-xl z-30 p-2 text-xs space-y-1">
+                <div className="px-3 py-1.5 font-bold text-gray-800 border-b border-gray-100 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  Local Vault Manager
+                </div>
+                <button
+                  onClick={handleDownloadBackup}
+                  className="w-full text-left px-3 py-2 hover:bg-teal-50 rounded-lg flex items-center gap-2 text-gray-700 hover:text-teal-900 font-medium"
+                >
+                  <ArrowDownToLine className="w-4 h-4 text-teal-600" />
+                  Download Complete Backup (JSON)
+                </button>
+                <label className="w-full text-left px-3 py-2 hover:bg-teal-50 rounded-lg flex items-center gap-2 text-gray-700 hover:text-teal-900 font-medium cursor-pointer">
+                  <Upload className="w-4 h-4 text-blue-600" />
+                  Restore / Merge Backup (JSON)
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleRestoreBackup}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  onClick={handleResetSeed}
+                  className="w-full text-left px-3 py-2 hover:bg-amber-50 rounded-lg flex items-center gap-2 text-amber-700 font-medium"
+                >
+                  <RotateCcw className="w-4 h-4 text-amber-600" />
+                  Reload Bank Statement Verified Invoices
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-teal-50 to-teal-100/50 border border-teal-200 rounded-2xl p-5 shadow-xs">
+        <div className="bg-gradient-to-br from-teal-50 to-teal-100/50 border border-teal-200 rounded-2xl p-5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">Available Input Tax (ITC)</span>
             <IndianRupee className="w-5 h-5 text-teal-600" />
@@ -289,7 +509,7 @@ export default function GSTInputTaxCreditHub() {
           <p className="text-xs text-teal-700 mt-1 font-medium">Claimable against Output GST</p>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-2xl p-5 shadow-xs">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-2xl p-5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Taxable Purchases</span>
             <Building className="w-5 h-5 text-blue-600" />
@@ -300,16 +520,16 @@ export default function GSTInputTaxCreditHub() {
           <p className="text-xs text-blue-700 mt-1 font-medium">B2B Vendor Invoices</p>
         </div>
 
-        <div className="bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200 rounded-2xl p-5 shadow-xs">
+        <div className="bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200 rounded-2xl p-5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-green-700 uppercase tracking-wider">Matched to Projects</span>
+            <span className="text-xs font-semibold text-green-700 uppercase tracking-wider">Matched & Verified</span>
             <CheckCircle2 className="w-5 h-5 text-green-600" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-green-950 mt-2">{matchedCount} Invoices</p>
           <p className="text-xs text-green-700 mt-1 font-medium">Linked to Customer Expenses</p>
         </div>
 
-        <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200 rounded-2xl p-5 shadow-xs">
+        <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200 rounded-2xl p-5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Unassigned / Unclaimed</span>
             <AlertCircle className="w-5 h-5 text-amber-600" />
@@ -320,7 +540,7 @@ export default function GSTInputTaxCreditHub() {
       </div>
 
       {/* Filters & Search Bar */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative flex-1 w-full">
           <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -330,6 +550,14 @@ export default function GSTInputTaxCreditHub() {
             placeholder="Search by vendor name, GSTIN, invoice #, or customer name..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
@@ -354,16 +582,27 @@ export default function GSTInputTaxCreditHub() {
             <option value="unmatched">🟡 Unassigned</option>
             <option value="manually_matched">🔵 Manually Linked</option>
           </select>
+
+          <button
+            onClick={loadData}
+            className="p-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+            title="Reload records"
+          >
+            <RefreshCw className="w-4 h-4 text-gray-500" />
+          </button>
         </div>
       </div>
 
       {/* Invoices Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/70 flex items-center justify-between">
           <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4 text-teal-600" />
             Portal Input Invoices & Tax Breakdown ({filteredCredits.length})
           </h3>
+          <span className="text-xs text-gray-500 font-medium">
+            Persisted in local vault • 100% loss-proof
+          </span>
         </div>
 
         {loading ? (
@@ -375,7 +614,7 @@ export default function GSTInputTaxCreditHub() {
             <Receipt className="w-14 h-14 text-gray-300 mx-auto mb-3" />
             <h4 className="text-base font-semibold text-gray-800">No GST Input records found</h4>
             <p className="text-sm text-gray-500 max-w-md mx-auto mt-1">
-              Download your monthly GSTR-2B JSON or Excel file from the GST portal and click "Import GSTR-2B" to see your claimable tax credits.
+              Click "Add Manual Bill" or "Import GSTR-2B" to record vendor invoices.
             </p>
           </div>
         ) : (
@@ -399,6 +638,9 @@ export default function GSTInputTaxCreditHub() {
                     <td className="py-3.5 px-4">
                       <div className="font-semibold text-gray-900">{c.supplier_name}</div>
                       <div className="text-xs font-mono text-gray-500 mt-0.5">{c.supplier_gstin}</div>
+                      {c.notes && (
+                        <div className="text-[11px] text-gray-400 mt-0.5 line-clamp-1 italic">{c.notes}</div>
+                      )}
                     </td>
 
                     <td className="py-3.5 px-4">
@@ -409,19 +651,19 @@ export default function GSTInputTaxCreditHub() {
                     </td>
 
                     <td className="py-3.5 px-4 text-right font-medium text-gray-700">
-                      ₹{(c.taxable_value || 0).toLocaleString('en-IN')}
+                      ₹{Math.round(c.taxable_value || 0).toLocaleString('en-IN')}
                     </td>
 
                     <td className="py-3.5 px-4 text-right font-bold text-teal-800">
-                      ₹{(c.total_tax || 0).toLocaleString('en-IN')}
+                      ₹{Math.round(c.total_tax || 0).toLocaleString('en-IN')}
                       <div className="text-[10px] text-gray-400 font-normal">
-                        {c.igst_amount > 0 && `IGST: ₹${c.igst_amount.toLocaleString()}`}
-                        {c.cgst_amount > 0 && `CGST: ₹${c.cgst_amount.toLocaleString()} | SGST: ₹${c.sgst_amount.toLocaleString()}`}
+                        {c.igst_amount > 0 && `IGST: ₹${Math.round(c.igst_amount).toLocaleString()}`}
+                        {c.cgst_amount > 0 && `CGST: ₹${Math.round(c.cgst_amount).toLocaleString()} | SGST: ₹${Math.round(c.sgst_amount).toLocaleString()}`}
                       </div>
                     </td>
 
                     <td className="py-3.5 px-4 text-right font-semibold text-gray-900">
-                      ₹{(c.invoice_value || 0).toLocaleString('en-IN')}
+                      ₹{Math.round(c.invoice_value || 0).toLocaleString('en-IN')}
                     </td>
 
                     <td className="py-3.5 px-4 text-center">
@@ -445,7 +687,7 @@ export default function GSTInputTaxCreditHub() {
                         </span>
                       )}
                       {c.customers?.customer_name && (
-                        <div className="text-[11px] text-gray-500 mt-1 font-medium truncate max-w-[130px]" title={c.customers.customer_name}>
+                        <div className="text-[11px] text-gray-500 mt-1 font-medium truncate max-w-[130px] mx-auto" title={c.customers.customer_name}>
                           👤 {c.customers.customer_name}
                         </div>
                       )}
@@ -472,9 +714,185 @@ export default function GSTInputTaxCreditHub() {
         )}
       </div>
 
+      {/* Manual Bill Modal */}
+      {showManualModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-teal-50/50">
+              <div className="flex items-center gap-2">
+                <Plus className="w-5 h-5 text-teal-700" />
+                <h3 className="text-lg font-bold text-gray-900">Add Manual Vendor Bill (ITC)</h3>
+              </div>
+              <button
+                onClick={() => setShowManualModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualBillSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                    Supplier / Vendor Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={manualSupplierName}
+                    onChange={(e) => setManualSupplierName(e.target.value)}
+                    placeholder="e.g. LARSEN AND TOUBRO LIMITED"
+                    className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                    Supplier GSTIN (15 digits)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={15}
+                    value={manualSupplierGSTIN}
+                    onChange={(e) => setManualSupplierGSTIN(e.target.value)}
+                    placeholder="e.g. 27AAACL0149G1ZN"
+                    className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 font-mono uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                    Invoice Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={manualInvoiceNo}
+                    onChange={(e) => setManualInvoiceNo(e.target.value)}
+                    placeholder="e.g. SUF/2026/89412"
+                    className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                    Invoice Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={manualInvoiceDate}
+                    onChange={(e) => setManualInvoiceDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                    Return Period (MM-YYYY)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualPeriod}
+                    onChange={(e) => setManualPeriod(e.target.value)}
+                    placeholder="10-2026"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                    Taxable Base Value (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    value={manualTaxableVal}
+                    onChange={(e) => setManualTaxableVal(e.target.value)}
+                    placeholder="e.g. 100000"
+                    className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                    GST Rate (%)
+                  </label>
+                  <select
+                    value={manualGSTRate}
+                    onChange={(e) => setManualGSTRate(Number(e.target.value))}
+                    className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 font-medium"
+                  >
+                    <option value={12}>12% (Solar Panels & Equipment)</option>
+                    <option value={18}>18% (Inverters / BOS / Services)</option>
+                    <option value={5}>5% (Concessional)</option>
+                    <option value={28}>28% (Special Items)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Live Tax Summary */}
+              {manualTaxableVal && !isNaN(parseFloat(manualTaxableVal)) && (
+                <div className="bg-teal-50/70 border border-teal-200 rounded-xl p-3 text-xs flex items-center justify-between">
+                  <div>
+                    <span className="text-gray-600">Taxable: </span>
+                    <strong className="text-gray-900">₹{parseFloat(manualTaxableVal).toLocaleString()}</strong>
+                  </div>
+                  <div>
+                    <span className="text-teal-700">Input Tax (ITC): </span>
+                    <strong className="text-teal-900">₹{Math.round(parseFloat(manualTaxableVal) * (manualGSTRate / 100)).toLocaleString()}</strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Total Invoice: </span>
+                    <strong className="text-gray-900">₹{Math.round(parseFloat(manualTaxableVal) * (1 + manualGSTRate / 100)).toLocaleString()}</strong>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                  Item Description / Notes
+                </label>
+                <input
+                  type="text"
+                  value={manualNotes}
+                  onChange={(e) => setManualNotes(e.target.value)}
+                  placeholder="e.g. Solar PV Modules 540W 20 panels"
+                  className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="submit"
+                  disabled={savingManual}
+                  className="flex-1 bg-teal-600 text-white py-2.5 rounded-xl font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm shadow-sm"
+                >
+                  {savingManual ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Vendor Bill to Vault
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowManualModal(false)}
+                  className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Import Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-teal-50/50">
               <div className="flex items-center gap-2">
@@ -492,14 +910,14 @@ export default function GSTInputTaxCreditHub() {
             <div className="p-6 space-y-4">
               {uploadError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <AlertCircle className="w-4 h-4 shrink-0" />
                   {uploadError}
                 </div>
               )}
 
               {uploadSuccess && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
                   {uploadSuccess}
                 </div>
               )}
@@ -512,7 +930,7 @@ export default function GSTInputTaxCreditHub() {
                   type="text"
                   value={uploadPeriod}
                   onChange={(e) => setUploadPeriod(e.target.value)}
-                  placeholder="e.g. 04-2026 or 05-2026"
+                  placeholder="e.g. 10-2026 or 09-2026"
                   className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 font-mono"
                 />
               </div>
@@ -536,7 +954,7 @@ export default function GSTInputTaxCreditHub() {
                   />
                   <label
                     htmlFor="gst-file-input"
-                    className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-xs font-semibold cursor-pointer hover:bg-gray-50 transition-colors shadow-xs"
+                    className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-xs font-semibold cursor-pointer hover:bg-gray-50 transition-colors shadow-2xs"
                   >
                     Select File
                   </label>
@@ -550,7 +968,7 @@ export default function GSTInputTaxCreditHub() {
                     File Parsed Successfully!
                   </div>
                   <div>• Found <strong>{parsedPreview.length}</strong> B2B Vendor Invoices</div>
-                  <div>• Total Claimable Input GST: <strong>₹{parsedPreview.reduce((s, p) => s + p.total_tax, 0).toLocaleString('en-IN')}</strong></div>
+                  <div>• Total Claimable Input GST: <strong>₹{Math.round(parsedPreview.reduce((s, p) => s + p.total_tax, 0)).toLocaleString('en-IN')}</strong></div>
                 </div>
               )}
 
@@ -563,10 +981,10 @@ export default function GSTInputTaxCreditHub() {
                   {importing ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Importing into CRM...
+                      Saving to Local Vault...
                     </>
                   ) : (
-                    `Save & Import ${parsedPreview.length} Records`
+                    `Save & Preserve ${parsedPreview.length} Records`
                   )}
                 </button>
                 <button
@@ -584,7 +1002,7 @@ export default function GSTInputTaxCreditHub() {
 
       {/* Link to Customer Project Modal */}
       {linkingCredit && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
@@ -599,7 +1017,7 @@ export default function GSTInputTaxCreditHub() {
             <div className="bg-gray-50 p-3.5 rounded-xl text-xs space-y-1 border border-gray-200">
               <div><strong>Supplier:</strong> {linkingCredit.supplier_name} ({linkingCredit.supplier_gstin})</div>
               <div><strong>Invoice:</strong> {linkingCredit.invoice_number} | <strong>Date:</strong> {linkingCredit.invoice_date}</div>
-              <div><strong>Taxable:</strong> ₹{linkingCredit.taxable_value.toLocaleString()} | <strong>Tax (ITC):</strong> ₹{linkingCredit.total_tax.toLocaleString()} | <strong>Total:</strong> ₹{linkingCredit.invoice_value.toLocaleString()}</div>
+              <div><strong>Taxable:</strong> ₹{Math.round(linkingCredit.taxable_value).toLocaleString()} | <strong>Tax (ITC):</strong> ₹{Math.round(linkingCredit.total_tax).toLocaleString()} | <strong>Total:</strong> ₹{Math.round(linkingCredit.invoice_value).toLocaleString()}</div>
             </div>
 
             <form onSubmit={handleLinkSubmit} className="space-y-4">

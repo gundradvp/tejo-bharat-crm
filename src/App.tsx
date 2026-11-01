@@ -61,6 +61,8 @@ import LeadGeneratorManagement from './components/LeadGenerators/LeadGeneratorMa
 import WorkflowManagement from './components/Workflow/WorkflowManagement';
 import ProspectList from './components/Prospects/ProspectList';
 import ProspectImport from './components/Prospects/ProspectImport';
+import SNumbersDashboard from './components/SNumbers/SNumbersDashboard';
+import VendorCRMHub from './components/Vendors/VendorCRMHub';
 import EBCustomerList from './components/EBCustomers/EBCustomerList';
 import EBCustomerImport from './components/EBCustomers/EBCustomerImport';
 import EBBillImport from './components/EBCustomers/EBBillImport';
@@ -187,6 +189,9 @@ function ProtectedRoutes() {
           <Route path="/workflow" element={<WorkflowManagement />} />
           <Route path="/prospects" element={<ProspectList />} />
           <Route path="/prospects/import" element={<ProspectImport />} />
+          <Route path="/s-numbers" element={<SNumbersDashboard />} />
+          <Route path="/vendors" element={<VendorCRMHub />} />
+          <Route path="/vendor-crm" element={<Navigate to="/vendors" replace />} />
           <Route path="/whatsapp" element={<WhatsAppHub />} />
           <Route path="/whatsapp/:tab" element={<WhatsAppHub />} />
           <Route path="/eb-customers" element={<EBCustomerList />} />
