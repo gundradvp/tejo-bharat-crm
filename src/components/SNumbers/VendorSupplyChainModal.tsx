@@ -3,8 +3,9 @@ import {
   X, Search, Building2, ArrowRight, ArrowLeft, ArrowDownRight, ArrowUpRight,
   ShieldCheck, Package, Layers, ExternalLink, Copy, Check, FileSpreadsheet,
   TrendingUp, TrendingDown, Network, Factory, Users, Phone, MessageSquare,
-  User, MapPin
+  User, MapPin, Share2, Download
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { 
   loadVendorContactsMaster, lookupVendorContact, formatPhoneDisplay, 
   getTelLink, getWhatsAppLink 
@@ -111,6 +112,171 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 1800);
+  };
+
+  const copyVendorWhatsApp = (
+    vendorName: string,
+    panels: number,
+    brands: string[],
+    invoices: string[],
+    contact: VendorContact | null,
+    key: string
+  ) => {
+    let msg = `🏢 *${vendorName}*\n`;
+    if (contact?.contactPersonName) {
+      msg += `👤 *Contact:* ${contact.contactPersonName}\n`;
+    }
+    if (contact?.contactPersonMobile) {
+      msg += `📱 *Phone:* +91 ${contact.contactPersonMobile}\n`;
+    } else {
+      msg += `📱 *Phone:* (Not in directory)\n`;
+    }
+    if (contact?.address || contact?.district) {
+      msg += `📍 *Address:* ${[contact.address, contact.district].filter(Boolean).join(', ')}\n`;
+    }
+    if (panels) {
+      msg += `📦 *Panels:* ${panels}`;
+      if (brands.length > 0) msg += ` (${brands.join(', ')})`;
+      msg += `\n`;
+    }
+    if (invoices.length > 0) {
+      msg += `📄 *Invoices:* ${invoices.join(', ')}\n`;
+    }
+    copyToClipboard(msg.trim(), key);
+  };
+
+  const copyVendorExcelRow = (
+    vendorName: string,
+    panels: number,
+    brands: string[],
+    invoices: string[],
+    contact: VendorContact | null,
+    key: string
+  ) => {
+    const row = [
+      vendorName,
+      contact?.contactPersonName || '',
+      contact?.contactPersonMobile ? `'${contact.contactPersonMobile}` : '',
+      contact?.contactPersonEmail || '',
+      (contact?.address || '').replace(/[\t\n\r]/g, ' '),
+      contact?.district || '',
+      panels,
+      brands.join(', '),
+      invoices.join(', ')
+    ].join('\t');
+    copyToClipboard(row, key);
+  };
+
+  const handleCopyBulkWhatsApp = (
+    type: 'buyers' | 'suppliers',
+    items: Array<{ name: string; panels: number; brands: string[]; invoices: string[] }>,
+    vendorName: string
+  ) => {
+    if (items.length === 0) return;
+    const title = type === 'buyers' ? `Who is Purchasing from ${vendorName}` : `Where ${vendorName} is Purchasing From`;
+    const header = `📋 *${title}* (${items.length} Vendors)\n\n`;
+    const entries = items.map((item, idx) => {
+      const c = contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null;
+      let block = `${idx + 1}. *${item.name}*\n`;
+      if (c?.contactPersonName) {
+        block += `   👤 Contact: ${c.contactPersonName}\n`;
+      }
+      if (c?.contactPersonMobile) {
+        block += `   📱 Phone: +91 ${c.contactPersonMobile}\n`;
+      }
+      if (c?.address || c?.district) {
+        block += `   📍 Address: ${[c.address, c.district].filter(Boolean).join(', ')}\n`;
+      }
+      block += `   📦 Panels: ${item.panels}`;
+      if (item.brands.length > 0) block += ` (${item.brands.join(', ')})`;
+      block += `\n`;
+      if (item.invoices.length > 0) {
+        block += `   📄 Invoices: ${item.invoices.join(', ')}\n`;
+      }
+      return block.trim();
+    });
+
+    copyToClipboard(header + entries.join('\n\n'), `${type}_whatsapp_bulk`);
+  };
+
+  const handleCopyBulkExcelTSV = (
+    type: 'buyers' | 'suppliers',
+    items: Array<{ name: string; panels: number; brands: string[]; invoices: string[] }>
+  ) => {
+    if (items.length === 0) return;
+    const headers = [
+      'Vendor / Partner Name',
+      'Contact Person',
+      'Mobile Phone',
+      'Email',
+      'Address',
+      'District',
+      'Panels Count',
+      'Brands',
+      'Invoices / References'
+    ];
+
+    const rows = items.map((item) => {
+      const c = contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null;
+      return [
+        item.name,
+        c?.contactPersonName || '',
+        c?.contactPersonMobile ? `'${c.contactPersonMobile}` : '',
+        c?.contactPersonEmail || '',
+        (c?.address || '').replace(/[\t\n\r]/g, ' '),
+        c?.district || '',
+        item.panels,
+        item.brands.join(', '),
+        item.invoices.join(', ')
+      ].join('\t');
+    });
+
+    const tsv = [headers.join('\t'), ...rows].join('\n');
+    copyToClipboard(tsv, `${type}_excel_tsv`);
+  };
+
+  const handleDownloadExcelFile = (
+    type: 'buyers' | 'suppliers',
+    items: Array<{ name: string; panels: number; brands: string[]; invoices: string[] }>,
+    vendorName: string
+  ) => {
+    if (items.length === 0) return;
+    const cleanVendorName = vendorName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+    const typeLabel = type === 'buyers' ? 'Buyers' : 'Suppliers';
+
+    const rows = items.map((item, idx) => {
+      const c = contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null;
+      return {
+        'S.No': idx + 1,
+        'Vendor / Partner Name': item.name,
+        'Contact Person': c?.contactPersonName || '',
+        'Mobile Phone': c?.contactPersonMobile || '',
+        'Email': c?.contactPersonEmail || '',
+        'Address': c?.address || '',
+        'District': c?.district || '',
+        'Panels Count': item.panels,
+        'Brands': item.brands.join(', '),
+        'Invoices / References': item.invoices.join(', ')
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 6 },
+      { wch: 34 },
+      { wch: 22 },
+      { wch: 16 },
+      { wch: 24 },
+      { wch: 45 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 30 },
+      { wch: 30 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${typeLabel}`.slice(0, 31));
+    XLSX.writeFile(wb, `${cleanVendorName}_${typeLabel}.xlsx`);
   };
 
   // List of all vendors in database
@@ -430,9 +596,29 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
 
                           <button
                             type="button"
+                            onClick={() => copyVendorWhatsApp(currentVendorData.vendor_name, currentVendorData.total_outbound_panels || currentVendorData.total_inbound_panels, Object.keys(currentVendorData.manufacturers_handled), [], activeVendorContact, 'vendor_card_wa')}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-xl text-xs font-bold transition-all shadow-2xs"
+                            title="Copy full contact & address formatted for WhatsApp"
+                          >
+                            {copiedKey === 'vendor_card_wa' ? <Check className="w-3.5 h-3.5 text-teal-700" /> : <Share2 className="w-3.5 h-3.5 text-teal-700" />}
+                            <span>{copiedKey === 'vendor_card_wa' ? 'Copied WhatsApp!' : 'Copy WhatsApp'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => copyVendorExcelRow(currentVendorData.vendor_name, currentVendorData.total_outbound_panels || currentVendorData.total_inbound_panels, Object.keys(currentVendorData.manufacturers_handled), [], activeVendorContact, 'vendor_card_xl')}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition-all shadow-2xs"
+                            title="Copy vendor row to paste into Excel (TSV)"
+                          >
+                            {copiedKey === 'vendor_card_xl' ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5 text-emerald-700" />}
+                            <span>{copiedKey === 'vendor_card_xl' ? 'Copied for Excel!' : 'Copy for Excel'}</span>
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => copyToClipboard(activeVendorContact.contactPersonMobile!, 'vendor_contact_mobile')}
                             className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                            title="Copy phone"
+                            title="Copy phone number"
                           >
                             {copiedKey === 'vendor_contact_mobile' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
                           </button>
@@ -607,14 +793,49 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                 {/* INBOUND: Where Purchasing From */}
                 {(activeTab === 'both' || activeTab === 'suppliers') && (
                   <div className={`space-y-3 ${activeTab === 'suppliers' ? 'lg:col-span-2' : ''}`}>
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                        <ArrowDownRight className="w-4 h-4 text-emerald-600" />
-                        <span>Where {currentVendorData.vendor_name} is Purchasing From</span>
-                      </h4>
-                      <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                        {currentVendorData.suppliers.length} Suppliers
-                      </span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <ArrowDownRight className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <h4 className="text-sm font-bold text-gray-900">
+                          Where {currentVendorData.vendor_name} is Purchasing From
+                        </h4>
+                        <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full shrink-0">
+                          {currentVendorData.suppliers.length} Suppliers
+                        </span>
+                      </div>
+
+                      {/* Bulk Copy & Export Options */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyBulkWhatsApp('suppliers', currentVendorData.suppliers.map(s => ({ name: s.supplier_name, panels: s.panels_count, brands: s.manufacturers, invoices: s.invoices })), currentVendorData.vendor_name)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                          title="Copy all suppliers with phone numbers & addresses formatted for WhatsApp"
+                        >
+                          {copiedKey === 'suppliers_whatsapp_bulk' ? <Check className="w-3.5 h-3.5 text-teal-700" /> : <MessageSquare className="w-3.5 h-3.5 text-teal-700" />}
+                          <span>{copiedKey === 'suppliers_whatsapp_bulk' ? 'Copied WhatsApp!' : 'Copy WhatsApp'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyBulkExcelTSV('suppliers', currentVendorData.suppliers.map(s => ({ name: s.supplier_name, panels: s.panels_count, brands: s.manufacturers, invoices: s.invoices })))}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                          title="Copy suppliers table to clipboard to paste directly into Excel"
+                        >
+                          {copiedKey === 'suppliers_excel_tsv' ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5 text-emerald-700" />}
+                          <span>{copiedKey === 'suppliers_excel_tsv' ? 'Copied for Excel!' : 'Copy for Excel'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadExcelFile('suppliers', currentVendorData.suppliers.map(s => ({ name: s.supplier_name, panels: s.panels_count, brands: s.manufacturers, invoices: s.invoices })), currentVendorData.vendor_name)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                          title="Download Excel spreadsheet file (.xlsx)"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-blue-700" />
+                          <span>Export .xlsx</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -630,76 +851,125 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                             {currentVendorData.suppliers.length > 0 ? (
-                              currentVendorData.suppliers.map((s, idx) => (
-                                <tr key={s.supplier_name} className="hover:bg-emerald-50/40 transition-colors">
-                                  <td className="px-3.5 py-2.5 font-medium text-gray-900">
-                                    <div className="flex items-center justify-between gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setSearchTerm(s.supplier_name);
-                                          setSelectedVendorName(s.supplier_name);
-                                        }}
-                                        className="text-left hover:text-indigo-600 hover:underline flex items-center gap-1 group font-semibold"
-                                        title="Click to trace this supplier"
-                                      >
-                                        <span>{s.supplier_name}</span>
-                                        <ArrowRight className="w-3 h-3 text-gray-400 group-hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                      </button>
-
-                                      {contactsMaster && (() => {
-                                        const sc = lookupVendorContact(s.supplier_name, contactsMaster);
-                                        if (!sc?.contactPersonMobile) return null;
-                                        return (
-                                          <div className="flex items-center gap-1 shrink-0">
-                                            <a
-                                              href={getTelLink(sc.contactPersonMobile)}
-                                              className="p-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                                              title={`Call ${sc.contactPersonName || s.supplier_name}: +91 ${sc.contactPersonMobile}`}
-                                            >
-                                              <Phone className="w-3 h-3" />
-                                            </a>
-                                            <a
-                                              href={getWhatsAppLink(sc.contactPersonMobile, s.supplier_name)}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="p-1 rounded-md bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
-                                              title={`WhatsApp ${s.supplier_name}`}
-                                            >
-                                              <MessageSquare className="w-3 h-3" />
-                                            </a>
-                                          </div>
-                                        );
-                                      })()}
-                                    </div>
-                                  </td>
-                                  <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
-                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">
-                                      {s.panels_count}
-                                    </span>
-                                  </td>
-                                  <td className="px-3.5 py-2.5 text-gray-600 truncate max-w-[140px]" title={s.manufacturers.join(', ')}>
-                                    {s.manufacturers.join(', ') || '-'}
-                                  </td>
-                                  <td className="px-3.5 py-2.5 font-mono text-[11px] text-gray-500 truncate max-w-[130px]" title={s.invoices.join(', ')}>
-                                    {s.invoices.length > 0 ? (
-                                      <div className="flex items-center gap-1">
-                                        <span className="truncate">{s.invoices.join(', ')}</span>
+                              currentVendorData.suppliers.map((s, idx) => {
+                                const sc = contactsMaster ? lookupVendorContact(s.supplier_name, contactsMaster) : null;
+                                return (
+                                  <tr key={s.supplier_name} className="hover:bg-emerald-50/40 transition-colors">
+                                    <td className="px-3.5 py-2.5 font-medium text-gray-900">
+                                      <div className="flex items-center justify-between gap-1.5">
                                         <button
                                           type="button"
-                                          onClick={() => copyToClipboard(s.invoices.join('\n'), `inv_sup_${idx}`)}
-                                          className="text-gray-400 hover:text-gray-600"
-                                          title="Copy invoice numbers"
+                                          onClick={() => {
+                                            setSearchTerm(s.supplier_name);
+                                            setSelectedVendorName(s.supplier_name);
+                                          }}
+                                          className="text-left hover:text-indigo-600 hover:underline flex items-center gap-1 group font-bold text-gray-900"
+                                          title="Click to trace this supplier"
                                         >
-                                          {copiedKey === `inv_sup_${idx}` ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                          <span>{s.supplier_name}</span>
+                                          <ArrowRight className="w-3 h-3 text-gray-400 group-hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </button>
+
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {sc?.contactPersonMobile && (
+                                            <>
+                                              <a
+                                                href={getTelLink(sc.contactPersonMobile)}
+                                                className="p-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                                title={`Call ${sc.contactPersonName || s.supplier_name}: +91 ${sc.contactPersonMobile}`}
+                                              >
+                                                <Phone className="w-3 h-3" />
+                                              </a>
+                                              <a
+                                                href={getWhatsAppLink(sc.contactPersonMobile, s.supplier_name)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-1 rounded-md bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
+                                                title={`WhatsApp ${s.supplier_name}`}
+                                              >
+                                                <MessageSquare className="w-3 h-3" />
+                                              </a>
+                                            </>
+                                          )}
+
+                                          {/* Copy for WhatsApp */}
+                                          <button
+                                            type="button"
+                                            onClick={() => copyVendorWhatsApp(s.supplier_name, s.panels_count, s.manufacturers, s.invoices, sc, `sup_wa_${idx}`)}
+                                            className="p-1 rounded-md bg-teal-50 hover:bg-teal-100 text-teal-700 transition-colors"
+                                            title="Copy contact & address to paste into WhatsApp"
+                                          >
+                                            {copiedKey === `sup_wa_${idx}` ? <Check className="w-3 h-3 text-green-600" /> : <Share2 className="w-3 h-3" />}
+                                          </button>
+
+                                          {/* Copy Row for Excel */}
+                                          <button
+                                            type="button"
+                                            onClick={() => copyVendorExcelRow(s.supplier_name, s.panels_count, s.manufacturers, s.invoices, sc, `sup_tsv_${idx}`)}
+                                            className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                                            title="Copy vendor row to paste into Excel (TSV)"
+                                          >
+                                            {copiedKey === `sup_tsv_${idx}` ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                          </button>
+                                        </div>
                                       </div>
-                                    ) : (
-                                      <span className="text-gray-400 italic">Direct / Stock</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))
+
+                                      {/* Subtitle with Phone and Address */}
+                                      {sc ? (
+                                        <div className="text-[11px] text-gray-500 flex items-center gap-1.5 flex-wrap mt-0.5">
+                                          {sc.contactPersonMobile && (
+                                            <span className="font-mono text-emerald-700 font-semibold flex items-center gap-0.5">
+                                              <Phone className="w-2.5 h-2.5 text-emerald-600" />
+                                              +91 {sc.contactPersonMobile}
+                                            </span>
+                                          )}
+                                          {sc.contactPersonName && (
+                                            <span className="text-gray-700 font-medium">
+                                              • 👤 {sc.contactPersonName}
+                                            </span>
+                                          )}
+                                          {(sc.address || sc.district) && (
+                                            <span className="text-gray-500 truncate max-w-[240px] flex items-center gap-0.5" title={sc.address || sc.district}>
+                                              • <MapPin className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+                                              {sc.district ? <strong className="text-gray-700">{sc.district}: </strong> : null}
+                                              {sc.address || ''}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="text-[10px] text-gray-400 italic mt-0.5">
+                                          Phone & address not in directory
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
+                                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">
+                                        {s.panels_count}
+                                      </span>
+                                    </td>
+                                    <td className="px-3.5 py-2.5 text-gray-600 truncate max-w-[140px]" title={s.manufacturers.join(', ')}>
+                                      {s.manufacturers.join(', ') || '-'}
+                                    </td>
+                                    <td className="px-3.5 py-2.5 font-mono text-[11px] text-gray-500 truncate max-w-[130px]" title={s.invoices.join(', ')}>
+                                      {s.invoices.length > 0 ? (
+                                        <div className="flex items-center gap-1">
+                                          <span className="truncate">{s.invoices.join(', ')}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => copyToClipboard(s.invoices.join('\n'), `inv_sup_${idx}`)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                            title="Copy invoice numbers"
+                                          >
+                                            {copiedKey === `inv_sup_${idx}` ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <span className="text-gray-400 italic">Direct / Stock</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })
                             ) : (
                               <tr>
                                 <td colSpan={4} className="text-center py-8 text-gray-400 italic">
@@ -717,14 +987,49 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                 {/* OUTBOUND: Who is Purchasing From */}
                 {(activeTab === 'both' || activeTab === 'buyers') && (
                   <div className={`space-y-3 ${activeTab === 'buyers' ? 'lg:col-span-2' : ''}`}>
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                        <ArrowUpRight className="w-4 h-4 text-blue-600" />
-                        <span>Who is Purchasing from {currentVendorData.vendor_name}</span>
-                      </h4>
-                      <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                        {currentVendorData.buyers.length} Buyers
-                      </span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <ArrowUpRight className="w-4 h-4 text-blue-600 shrink-0" />
+                        <h4 className="text-sm font-bold text-gray-900">
+                          Who is Purchasing from {currentVendorData.vendor_name}
+                        </h4>
+                        <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full shrink-0">
+                          {currentVendorData.buyers.length} Buyers
+                        </span>
+                      </div>
+
+                      {/* Bulk Copy & Export Options */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyBulkWhatsApp('buyers', currentVendorData.buyers.map(b => ({ name: b.buyer_name, panels: b.panels_count, brands: b.manufacturers, invoices: b.invoices })), currentVendorData.vendor_name)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                          title="Copy all buyers with phone numbers & addresses formatted for WhatsApp"
+                        >
+                          {copiedKey === 'buyers_whatsapp_bulk' ? <Check className="w-3.5 h-3.5 text-teal-700" /> : <MessageSquare className="w-3.5 h-3.5 text-teal-700" />}
+                          <span>{copiedKey === 'buyers_whatsapp_bulk' ? 'Copied WhatsApp!' : 'Copy WhatsApp'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyBulkExcelTSV('buyers', currentVendorData.buyers.map(b => ({ name: b.buyer_name, panels: b.panels_count, brands: b.manufacturers, invoices: b.invoices })))}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                          title="Copy buyers table to clipboard to paste directly into Excel"
+                        >
+                          {copiedKey === 'buyers_excel_tsv' ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5 text-emerald-700" />}
+                          <span>{copiedKey === 'buyers_excel_tsv' ? 'Copied for Excel!' : 'Copy for Excel'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadExcelFile('buyers', currentVendorData.buyers.map(b => ({ name: b.buyer_name, panels: b.panels_count, brands: b.manufacturers, invoices: b.invoices })), currentVendorData.vendor_name)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                          title="Download Excel spreadsheet file (.xlsx)"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-blue-700" />
+                          <span>Export .xlsx</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -740,76 +1045,125 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                             {currentVendorData.buyers.length > 0 ? (
-                              currentVendorData.buyers.map((b, idx) => (
-                                <tr key={b.buyer_name} className="hover:bg-blue-50/40 transition-colors">
-                                  <td className="px-3.5 py-2.5 font-medium text-gray-900">
-                                    <div className="flex items-center justify-between gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setSearchTerm(b.buyer_name);
-                                          setSelectedVendorName(b.buyer_name);
-                                        }}
-                                        className="text-left hover:text-indigo-600 hover:underline flex items-center gap-1 group font-semibold"
-                                        title="Click to trace this buyer"
-                                      >
-                                        <span>{b.buyer_name}</span>
-                                        <ArrowRight className="w-3 h-3 text-gray-400 group-hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                      </button>
-
-                                      {contactsMaster && (() => {
-                                        const bc = lookupVendorContact(b.buyer_name, contactsMaster);
-                                        if (!bc?.contactPersonMobile) return null;
-                                        return (
-                                          <div className="flex items-center gap-1 shrink-0">
-                                            <a
-                                              href={getTelLink(bc.contactPersonMobile)}
-                                              className="p-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                                              title={`Call ${bc.contactPersonName || b.buyer_name}: +91 ${bc.contactPersonMobile}`}
-                                            >
-                                              <Phone className="w-3 h-3" />
-                                            </a>
-                                            <a
-                                              href={getWhatsAppLink(bc.contactPersonMobile, b.buyer_name)}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="p-1 rounded-md bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
-                                              title={`WhatsApp ${b.buyer_name}`}
-                                            >
-                                              <MessageSquare className="w-3 h-3" />
-                                            </a>
-                                          </div>
-                                        );
-                                      })()}
-                                    </div>
-                                  </td>
-                                  <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
-                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded-md">
-                                      {b.panels_count}
-                                    </span>
-                                  </td>
-                                  <td className="px-3.5 py-2.5 text-gray-600 truncate max-w-[140px]" title={b.manufacturers.join(', ')}>
-                                    {b.manufacturers.join(', ') || '-'}
-                                  </td>
-                                  <td className="px-3.5 py-2.5 font-mono text-[11px] text-gray-500 truncate max-w-[130px]" title={b.invoices.join(', ')}>
-                                    {b.invoices.length > 0 ? (
-                                      <div className="flex items-center gap-1">
-                                        <span className="truncate">{b.invoices.join(', ')}</span>
+                              currentVendorData.buyers.map((b, idx) => {
+                                const bc = contactsMaster ? lookupVendorContact(b.buyer_name, contactsMaster) : null;
+                                return (
+                                  <tr key={b.buyer_name} className="hover:bg-blue-50/40 transition-colors">
+                                    <td className="px-3.5 py-2.5 font-medium text-gray-900">
+                                      <div className="flex items-center justify-between gap-1.5">
                                         <button
                                           type="button"
-                                          onClick={() => copyToClipboard(b.invoices.join('\n'), `inv_buy_${idx}`)}
-                                          className="text-gray-400 hover:text-gray-600"
-                                          title="Copy invoice numbers"
+                                          onClick={() => {
+                                            setSearchTerm(b.buyer_name);
+                                            setSelectedVendorName(b.buyer_name);
+                                          }}
+                                          className="text-left hover:text-indigo-600 hover:underline flex items-center gap-1 group font-bold text-gray-900"
+                                          title="Click to trace this buyer"
                                         >
-                                          {copiedKey === `inv_buy_${idx}` ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                          <span>{b.buyer_name}</span>
+                                          <ArrowRight className="w-3 h-3 text-gray-400 group-hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </button>
+
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {bc?.contactPersonMobile && (
+                                            <>
+                                              <a
+                                                href={getTelLink(bc.contactPersonMobile)}
+                                                className="p-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                                title={`Call ${bc.contactPersonName || b.buyer_name}: +91 ${bc.contactPersonMobile}`}
+                                              >
+                                                <Phone className="w-3 h-3" />
+                                              </a>
+                                              <a
+                                                href={getWhatsAppLink(bc.contactPersonMobile, b.buyer_name)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-1 rounded-md bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
+                                                title={`WhatsApp ${b.buyer_name}`}
+                                              >
+                                                <MessageSquare className="w-3 h-3" />
+                                              </a>
+                                            </>
+                                          )}
+
+                                          {/* Copy for WhatsApp */}
+                                          <button
+                                            type="button"
+                                            onClick={() => copyVendorWhatsApp(b.buyer_name, b.panels_count, b.manufacturers, b.invoices, bc, `buy_wa_${idx}`)}
+                                            className="p-1 rounded-md bg-teal-50 hover:bg-teal-100 text-teal-700 transition-colors"
+                                            title="Copy contact & address to paste into WhatsApp"
+                                          >
+                                            {copiedKey === `buy_wa_${idx}` ? <Check className="w-3 h-3 text-green-600" /> : <Share2 className="w-3 h-3" />}
+                                          </button>
+
+                                          {/* Copy Row for Excel */}
+                                          <button
+                                            type="button"
+                                            onClick={() => copyVendorExcelRow(b.buyer_name, b.panels_count, b.manufacturers, b.invoices, bc, `buy_tsv_${idx}`)}
+                                            className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                                            title="Copy vendor row to paste into Excel (TSV)"
+                                          >
+                                            {copiedKey === `buy_tsv_${idx}` ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                          </button>
+                                        </div>
                                       </div>
-                                    ) : (
-                                      <span className="text-gray-400 italic">Direct / Consumer</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))
+
+                                      {/* Subtitle with Phone and Address */}
+                                      {bc ? (
+                                        <div className="text-[11px] text-gray-500 flex items-center gap-1.5 flex-wrap mt-0.5">
+                                          {bc.contactPersonMobile && (
+                                            <span className="font-mono text-emerald-700 font-semibold flex items-center gap-0.5">
+                                              <Phone className="w-2.5 h-2.5 text-emerald-600" />
+                                              +91 {bc.contactPersonMobile}
+                                            </span>
+                                          )}
+                                          {bc.contactPersonName && (
+                                            <span className="text-gray-700 font-medium">
+                                              • 👤 {bc.contactPersonName}
+                                            </span>
+                                          )}
+                                          {(bc.address || bc.district) && (
+                                            <span className="text-gray-500 truncate max-w-[240px] flex items-center gap-0.5" title={bc.address || bc.district}>
+                                              • <MapPin className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+                                              {bc.district ? <strong className="text-gray-700">{bc.district}: </strong> : null}
+                                              {bc.address || ''}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="text-[10px] text-gray-400 italic mt-0.5">
+                                          Phone & address not in directory
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
+                                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded-md">
+                                        {b.panels_count}
+                                      </span>
+                                    </td>
+                                    <td className="px-3.5 py-2.5 text-gray-600 truncate max-w-[140px]" title={b.manufacturers.join(', ')}>
+                                      {b.manufacturers.join(', ') || '-'}
+                                    </td>
+                                    <td className="px-3.5 py-2.5 font-mono text-[11px] text-gray-500 truncate max-w-[130px]" title={b.invoices.join(', ')}>
+                                      {b.invoices.length > 0 ? (
+                                        <div className="flex items-center gap-1">
+                                          <span className="truncate">{b.invoices.join(', ')}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => copyToClipboard(b.invoices.join('\n'), `inv_buy_${idx}`)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                            title="Copy invoice numbers"
+                                          >
+                                            {copiedKey === `inv_buy_${idx}` ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <span className="text-gray-400 italic">Direct / Consumer</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })
                             ) : (
                               <tr>
                                 <td colSpan={4} className="text-center py-8 text-gray-400 italic">
