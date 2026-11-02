@@ -3,12 +3,12 @@ import {
   X, Search, Building2, ArrowRight, ArrowLeft, ArrowDownRight, ArrowUpRight,
   ShieldCheck, Package, Layers, ExternalLink, Copy, Check, FileSpreadsheet,
   TrendingUp, TrendingDown, Network, Factory, Users, Phone, MessageSquare,
-  User, MapPin, Share2, Download
+  User, MapPin, Share2, Download, Filter
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
   loadVendorContactsMaster, lookupVendorContact, formatPhoneDisplay, 
-  getTelLink, getWhatsAppLink 
+  getTelLink, getWhatsAppLink, detectVendorDistrict 
 } from '../../lib/vendorContactsService';
 import { ContactsMasterData, VendorContact } from '../../types/vendorCRM';
 
@@ -169,23 +169,29 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
 
   const handleCopyBulkWhatsApp = (
     type: 'buyers' | 'suppliers',
-    items: Array<{ name: string; panels: number; brands: string[]; invoices: string[] }>,
-    vendorName: string
+    items: Array<{ name: string; panels: number; brands: string[]; invoices: string[]; contact?: VendorContact | null; district?: string }>,
+    vendorName: string,
+    districtLabel?: string
   ) => {
     if (items.length === 0) return;
-    const title = type === 'buyers' ? `Who is Purchasing from ${vendorName}` : `Where ${vendorName} is Purchasing From`;
-    const header = `📋 *${title}* (${items.length} Vendors)\n\n`;
+    const baseTitle = type === 'buyers' ? `Who is Purchasing from ${vendorName}` : `Where ${vendorName} is Purchasing From`;
+    const locTag = districtLabel && districtLabel !== 'ALL' ? ` [${districtLabel}]` : '';
+    const header = `📋 *${baseTitle}${locTag}* (${items.length} Vendors)\n\n`;
     const entries = items.map((item, idx) => {
-      const c = contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null;
+      const c = item.contact !== undefined ? item.contact : (contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null);
+      const dist = item.district || c?.district;
       let block = `${idx + 1}. *${item.name}*\n`;
       if (c?.contactPersonName) {
         block += `   👤 Contact: ${c.contactPersonName}\n`;
       }
       if (c?.contactPersonMobile) {
         block += `   📱 Phone: +91 ${c.contactPersonMobile}\n`;
+      } else {
+        block += `   📱 Phone: (Not in directory)\n`;
       }
-      if (c?.address || c?.district) {
-        block += `   📍 Address: ${[c.address, c.district].filter(Boolean).join(', ')}\n`;
+      const locParts = [c?.address, dist].filter(Boolean);
+      if (locParts.length > 0) {
+        block += `   📍 Address: ${locParts.join(', ')}\n`;
       }
       block += `   📦 Panels: ${item.panels}`;
       if (item.brands.length > 0) block += ` (${item.brands.join(', ')})`;
@@ -201,7 +207,7 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
 
   const handleCopyBulkExcelTSV = (
     type: 'buyers' | 'suppliers',
-    items: Array<{ name: string; panels: number; brands: string[]; invoices: string[] }>
+    items: Array<{ name: string; panels: number; brands: string[]; invoices: string[]; contact?: VendorContact | null; district?: string }>
   ) => {
     if (items.length === 0) return;
     const headers = [
@@ -217,14 +223,15 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
     ];
 
     const rows = items.map((item) => {
-      const c = contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null;
+      const c = item.contact !== undefined ? item.contact : (contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null);
+      const dist = item.district || c?.district || '';
       return [
         item.name,
         c?.contactPersonName || '',
         c?.contactPersonMobile ? `'${c.contactPersonMobile}` : '',
         c?.contactPersonEmail || '',
         (c?.address || '').replace(/[\t\n\r]/g, ' '),
-        c?.district || '',
+        dist,
         item.panels,
         item.brands.join(', '),
         item.invoices.join(', ')
@@ -237,15 +244,18 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
 
   const handleDownloadExcelFile = (
     type: 'buyers' | 'suppliers',
-    items: Array<{ name: string; panels: number; brands: string[]; invoices: string[] }>,
-    vendorName: string
+    items: Array<{ name: string; panels: number; brands: string[]; invoices: string[]; contact?: VendorContact | null; district?: string }>,
+    vendorName: string,
+    districtLabel?: string
   ) => {
     if (items.length === 0) return;
-    const cleanVendorName = vendorName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+    const cleanVendorName = vendorName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 24);
     const typeLabel = type === 'buyers' ? 'Buyers' : 'Suppliers';
+    const cleanDist = districtLabel && districtLabel !== 'ALL' ? `_${districtLabel.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '';
 
     const rows = items.map((item, idx) => {
-      const c = contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null;
+      const c = item.contact !== undefined ? item.contact : (contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null);
+      const dist = item.district || c?.district || '';
       return {
         'S.No': idx + 1,
         'Vendor / Partner Name': item.name,
@@ -253,7 +263,7 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
         'Mobile Phone': c?.contactPersonMobile || '',
         'Email': c?.contactPersonEmail || '',
         'Address': c?.address || '',
-        'District': c?.district || '',
+        'District': dist,
         'Panels Count': item.panels,
         'Brands': item.brands.join(', '),
         'Invoices / References': item.invoices.join(', ')
@@ -268,7 +278,7 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
       { wch: 16 },
       { wch: 24 },
       { wch: 45 },
-      { wch: 18 },
+      { wch: 22 },
       { wch: 12 },
       { wch: 30 },
       { wch: 30 }
@@ -276,7 +286,7 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `${typeLabel}`.slice(0, 31));
-    XLSX.writeFile(wb, `${cleanVendorName}_${typeLabel}.xlsx`);
+    XLSX.writeFile(wb, `${cleanVendorName}_${typeLabel}${cleanDist}.xlsx`);
   };
 
   // List of all vendors in database
@@ -332,6 +342,86 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
     if (!currentVendorData || !contactsMaster) return null;
     return lookupVendorContact(currentVendorData.vendor_name, contactsMaster);
   }, [currentVendorData, contactsMaster]);
+
+  // District & Location Filter state
+  const [districtFilter, setDistrictFilter] = useState<string>('ALL');
+
+  // Reset district filter whenever selected vendor changes
+  useEffect(() => {
+    setDistrictFilter('ALL');
+  }, [selectedVendorName, searchTerm]);
+
+  // Enrich suppliers with verified contact details and detected district
+  const enrichedSuppliers = useMemo(() => {
+    if (!currentVendorData) return [];
+    return currentVendorData.suppliers.map((s) => {
+      const contact = contactsMaster ? lookupVendorContact(s.supplier_name, contactsMaster) : null;
+      let district = contact?.district;
+      if (!district || district === 'Anakapalli') {
+        district = detectVendorDistrict(contact?.address, s.supplier_name);
+      }
+      return {
+        supplier: s,
+        contact,
+        district: district || 'Anakapalli'
+      };
+    });
+  }, [currentVendorData, contactsMaster]);
+
+  // Enrich buyers with verified contact details and detected district
+  const enrichedBuyers = useMemo(() => {
+    if (!currentVendorData) return [];
+    return currentVendorData.buyers.map((b) => {
+      const contact = contactsMaster ? lookupVendorContact(b.buyer_name, contactsMaster) : null;
+      let district = contact?.district;
+      if (!district || district === 'Anakapalli') {
+        district = detectVendorDistrict(contact?.address, b.buyer_name);
+      }
+      return {
+        buyer: b,
+        contact,
+        district: district || 'Anakapalli'
+      };
+    });
+  }, [currentVendorData, contactsMaster]);
+
+  // Compute available districts and counts for this vendor
+  const districtOptions = useMemo(() => {
+    if (!currentVendorData) return [];
+    const map: Record<string, { suppliersCount: number; buyersCount: number; panelsCount: number }> = {};
+
+    enrichedSuppliers.forEach(({ district, supplier }) => {
+      if (!map[district]) map[district] = { suppliersCount: 0, buyersCount: 0, panelsCount: 0 };
+      map[district].suppliersCount += 1;
+      map[district].panelsCount += supplier.panels_count;
+    });
+
+    enrichedBuyers.forEach(({ district, buyer }) => {
+      if (!map[district]) map[district] = { suppliersCount: 0, buyersCount: 0, panelsCount: 0 };
+      map[district].buyersCount += 1;
+      map[district].panelsCount += buyer.panels_count;
+    });
+
+    return Object.entries(map)
+      .map(([district, stats]) => ({
+        district,
+        ...stats,
+        totalCount: stats.suppliersCount + stats.buyersCount
+      }))
+      .sort((a, b) => b.totalCount - a.totalCount);
+  }, [enrichedSuppliers, enrichedBuyers, currentVendorData]);
+
+  // Filtered suppliers based on selected district
+  const filteredSuppliers = useMemo(() => {
+    if (districtFilter === 'ALL') return enrichedSuppliers;
+    return enrichedSuppliers.filter((s) => s.district === districtFilter);
+  }, [enrichedSuppliers, districtFilter]);
+
+  // Filtered buyers based on selected district
+  const filteredBuyers = useMemo(() => {
+    if (districtFilter === 'ALL') return enrichedBuyers;
+    return enrichedBuyers.filter((b) => b.district === districtFilter);
+  }, [enrichedBuyers, districtFilter]);
 
   if (!isOpen) return null;
 
@@ -632,8 +722,8 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
               </div>
 
               {/* View Tab Selector */}
-              <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-200 pb-2.5 gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => setActiveTab('both')}
@@ -654,7 +744,7 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                         : 'bg-gray-100 text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Inbound: Where Purchasing From ({currentVendorData.suppliers.length})
+                    Inbound: Where Purchasing From ({districtFilter === 'ALL' ? currentVendorData.suppliers.length : `${filteredSuppliers.length}/${currentVendorData.suppliers.length}`})
                   </button>
                   <button
                     type="button"
@@ -665,7 +755,7 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                         : 'bg-gray-100 text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Outbound: Who is Purchasing From ({currentVendorData.buyers.length})
+                    Outbound: Who is Purchasing From ({districtFilter === 'ALL' ? currentVendorData.buyers.length : `${filteredBuyers.length}/${currentVendorData.buyers.length}`})
                   </button>
                   <button
                     type="button"
@@ -681,10 +771,111 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                   </button>
                 </div>
 
-                <span className="text-xs text-gray-500 font-mono">
-                  {currentVendorData.suppliers.length} Suppliers • {currentVendorData.buyers.length} Buyers
-                </span>
+                <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
+                  <span>
+                    {districtFilter === 'ALL'
+                      ? `${currentVendorData.suppliers.length} Suppliers • ${currentVendorData.buyers.length} Buyers`
+                      : `${filteredSuppliers.length} Sup • ${filteredBuyers.length} Buy (${districtFilter})`}
+                  </span>
+                </div>
               </div>
+
+              {/* District & Location Filter Bar (Active for Both, Suppliers, and Buyers) */}
+              {activeTab !== 'manufacturers' && (
+                <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2 flex-wrap flex-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 shrink-0">
+                      <MapPin className="w-4 h-4 text-indigo-600" />
+                      <span>Filter by District / Location:</span>
+                    </div>
+
+                    {/* District Dropdown Selector */}
+                    <div className="relative min-w-[240px]">
+                      <select
+                        value={districtFilter}
+                        onChange={(e) => setDistrictFilter(e.target.value)}
+                        className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-slate-800 shadow-2xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none cursor-pointer"
+                      >
+                        <option value="ALL">
+                          🌐 All Districts / Locations ({currentVendorData.suppliers.length} Suppliers, {currentVendorData.buyers.length} Buyers)
+                        </option>
+                        {districtOptions.map((opt) => (
+                          <option key={opt.district} value={opt.district}>
+                            📍 {opt.district} ({opt.buyersCount} Buyers{opt.suppliersCount > 0 ? `, ${opt.suppliersCount} Suppliers` : ''})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Quick District Filter Pills for top districts */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setDistrictFilter('ALL')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                          districtFilter === 'ALL'
+                            ? 'bg-indigo-600 text-white shadow-2xs'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        All ({currentVendorData.suppliers.length + currentVendorData.buyers.length})
+                      </button>
+
+                      {districtOptions.slice(0, 6).map((opt) => (
+                        <button
+                          key={opt.district}
+                          type="button"
+                          onClick={() => setDistrictFilter(opt.district)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            districtFilter === opt.district
+                              ? 'bg-indigo-600 text-white shadow-2xs'
+                              : 'bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200'
+                          }`}
+                        >
+                          <span>{opt.district}</span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                              districtFilter === opt.district
+                                ? 'bg-indigo-800 text-indigo-100'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {activeTab === 'buyers'
+                              ? opt.buyersCount
+                              : activeTab === 'suppliers'
+                              ? opt.suppliersCount
+                              : opt.totalCount}
+                          </span>
+                        </button>
+                      ))}
+
+                      {districtFilter !== 'ALL' && (
+                        <button
+                          type="button"
+                          onClick={() => setDistrictFilter('ALL')}
+                          className="text-[11px] text-rose-600 hover:text-rose-700 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 border border-rose-200 flex items-center gap-1 transition-colors"
+                          title="Reset district filter to show all"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>Reset</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Filter Status Badge */}
+                  <div className="text-right shrink-0">
+                    {districtFilter === 'ALL' ? (
+                      <span className="text-[11px] text-slate-400">All locations shown</span>
+                    ) : (
+                      <span className="text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg inline-flex items-center gap-1 text-[11px]">
+                        <MapPin className="w-3 h-3 text-indigo-600" />
+                        {districtFilter} ({filteredSuppliers.length} Sup, {filteredBuyers.length} Buy)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Tables Section: Manufacturers Leaderboard OR Inbound/Outbound Split */}
               {activeTab === 'manufacturers' ? (
@@ -794,13 +985,15 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                 {(activeTab === 'both' || activeTab === 'suppliers') && (
                   <div className={`space-y-3 ${activeTab === 'suppliers' ? 'lg:col-span-2' : ''}`}>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <ArrowDownRight className="w-4 h-4 text-emerald-600 shrink-0" />
                         <h4 className="text-sm font-bold text-gray-900">
                           Where {currentVendorData.vendor_name} is Purchasing From
                         </h4>
                         <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full shrink-0">
-                          {currentVendorData.suppliers.length} Suppliers
+                          {districtFilter === 'ALL'
+                            ? `${currentVendorData.suppliers.length} Suppliers`
+                            : `${filteredSuppliers.length} / ${currentVendorData.suppliers.length} Suppliers (${districtFilter})`}
                         </span>
                       </div>
 
@@ -808,32 +1001,66 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
-                          onClick={() => handleCopyBulkWhatsApp('suppliers', currentVendorData.suppliers.map(s => ({ name: s.supplier_name, panels: s.panels_count, brands: s.manufacturers, invoices: s.invoices })), currentVendorData.vendor_name)}
+                          onClick={() => handleCopyBulkWhatsApp(
+                            'suppliers',
+                            filteredSuppliers.map(s => ({
+                              name: s.supplier.supplier_name,
+                              panels: s.supplier.panels_count,
+                              brands: s.supplier.manufacturers,
+                              invoices: s.supplier.invoices,
+                              contact: s.contact,
+                              district: s.district
+                            })),
+                            currentVendorData.vendor_name,
+                            districtFilter
+                          )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
-                          title="Copy all suppliers with phone numbers & addresses formatted for WhatsApp"
+                          title={`Copy ${filteredSuppliers.length} suppliers with phone numbers & addresses formatted for WhatsApp`}
                         >
                           {copiedKey === 'suppliers_whatsapp_bulk' ? <Check className="w-3.5 h-3.5 text-teal-700" /> : <MessageSquare className="w-3.5 h-3.5 text-teal-700" />}
-                          <span>{copiedKey === 'suppliers_whatsapp_bulk' ? 'Copied WhatsApp!' : 'Copy WhatsApp'}</span>
+                          <span>{copiedKey === 'suppliers_whatsapp_bulk' ? 'Copied WhatsApp!' : `Copy WhatsApp (${filteredSuppliers.length})`}</span>
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => handleCopyBulkExcelTSV('suppliers', currentVendorData.suppliers.map(s => ({ name: s.supplier_name, panels: s.panels_count, brands: s.manufacturers, invoices: s.invoices })))}
+                          onClick={() => handleCopyBulkExcelTSV(
+                            'suppliers',
+                            filteredSuppliers.map(s => ({
+                              name: s.supplier.supplier_name,
+                              panels: s.supplier.panels_count,
+                              brands: s.supplier.manufacturers,
+                              invoices: s.supplier.invoices,
+                              contact: s.contact,
+                              district: s.district
+                            }))
+                          )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
-                          title="Copy suppliers table to clipboard to paste directly into Excel"
+                          title={`Copy ${filteredSuppliers.length} suppliers table to clipboard to paste directly into Excel`}
                         >
                           {copiedKey === 'suppliers_excel_tsv' ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5 text-emerald-700" />}
-                          <span>{copiedKey === 'suppliers_excel_tsv' ? 'Copied for Excel!' : 'Copy for Excel'}</span>
+                          <span>{copiedKey === 'suppliers_excel_tsv' ? 'Copied for Excel!' : `Copy for Excel (${filteredSuppliers.length})`}</span>
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => handleDownloadExcelFile('suppliers', currentVendorData.suppliers.map(s => ({ name: s.supplier_name, panels: s.panels_count, brands: s.manufacturers, invoices: s.invoices })), currentVendorData.vendor_name)}
+                          onClick={() => handleDownloadExcelFile(
+                            'suppliers',
+                            filteredSuppliers.map(s => ({
+                              name: s.supplier.supplier_name,
+                              panels: s.supplier.panels_count,
+                              brands: s.supplier.manufacturers,
+                              invoices: s.supplier.invoices,
+                              contact: s.contact,
+                              district: s.district
+                            })),
+                            currentVendorData.vendor_name,
+                            districtFilter
+                          )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
                           title="Download Excel spreadsheet file (.xlsx)"
                         >
                           <FileSpreadsheet className="w-3.5 h-3.5 text-blue-700" />
-                          <span>Export .xlsx</span>
+                          <span>Export .xlsx ({filteredSuppliers.length})</span>
                         </button>
                       </div>
                     </div>
@@ -850,9 +1077,8 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
-                            {currentVendorData.suppliers.length > 0 ? (
-                              currentVendorData.suppliers.map((s, idx) => {
-                                const sc = contactsMaster ? lookupVendorContact(s.supplier_name, contactsMaster) : null;
+                            {filteredSuppliers.length > 0 ? (
+                              filteredSuppliers.map(({ supplier: s, contact: sc, district }, idx) => {
                                 return (
                                   <tr key={s.supplier_name} className="hover:bg-emerald-50/40 transition-colors">
                                     <td className="px-3.5 py-2.5 font-medium text-gray-900">
@@ -914,33 +1140,48 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                                         </div>
                                       </div>
 
-                                      {/* Subtitle with Phone and Address */}
-                                      {sc ? (
-                                        <div className="text-[11px] text-gray-500 flex items-center gap-1.5 flex-wrap mt-0.5">
-                                          {sc.contactPersonMobile && (
-                                            <span className="font-mono text-emerald-700 font-semibold flex items-center gap-0.5">
-                                              <Phone className="w-2.5 h-2.5 text-emerald-600" />
-                                              +91 {sc.contactPersonMobile}
-                                            </span>
-                                          )}
-                                          {sc.contactPersonName && (
-                                            <span className="text-gray-700 font-medium">
-                                              • 👤 {sc.contactPersonName}
-                                            </span>
-                                          )}
-                                          {(sc.address || sc.district) && (
-                                            <span className="text-gray-500 truncate max-w-[240px] flex items-center gap-0.5" title={sc.address || sc.district}>
-                                              • <MapPin className="w-2.5 h-2.5 text-gray-400 shrink-0" />
-                                              {sc.district ? <strong className="text-gray-700">{sc.district}: </strong> : null}
-                                              {sc.address || ''}
-                                            </span>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <div className="text-[10px] text-gray-400 italic mt-0.5">
-                                          Phone & address not in directory
-                                        </div>
-                                      )}
+                                      {/* Subtitle with District Badge, Phone, Contact Person, and Address */}
+                                      <div className="text-[11px] text-gray-500 flex items-center gap-1.5 flex-wrap mt-0.5">
+                                        {/* Clickable District Badge */}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDistrictFilter(district);
+                                          }}
+                                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md font-semibold text-[10px] transition-colors ${
+                                            districtFilter === district
+                                              ? 'bg-indigo-600 text-white'
+                                              : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/60'
+                                          }`}
+                                          title={`Filter by ${district}`}
+                                        >
+                                          <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                          <span>{district}</span>
+                                        </button>
+
+                                        {sc?.contactPersonMobile && (
+                                          <span className="font-mono text-emerald-700 font-semibold flex items-center gap-0.5">
+                                            <Phone className="w-2.5 h-2.5 text-emerald-600" />
+                                            +91 {sc.contactPersonMobile}
+                                          </span>
+                                        )}
+                                        {sc?.contactPersonName && (
+                                          <span className="text-gray-700 font-medium">
+                                            • 👤 {sc.contactPersonName}
+                                          </span>
+                                        )}
+                                        {sc?.address && (
+                                          <span className="text-gray-500 truncate max-w-[200px]" title={sc.address}>
+                                            • {sc.address}
+                                          </span>
+                                        )}
+                                        {!sc && (
+                                          <span className="text-[10px] text-gray-400 italic">
+                                            Directory record unlisted
+                                          </span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
                                       <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">
@@ -972,8 +1213,17 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                               })
                             ) : (
                               <tr>
-                                <td colSpan={4} className="text-center py-8 text-gray-400 italic">
-                                  No inbound supplier transactions recorded for this vendor.
+                                <td colSpan={4} className="text-center py-10 space-y-2">
+                                  <p className="text-xs text-gray-500 font-medium">
+                                    No suppliers found for {currentVendorData.vendor_name} in <strong className="text-indigo-700">{districtFilter}</strong>.
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDistrictFilter('ALL')}
+                                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold underline"
+                                  >
+                                    Reset filter to show all {currentVendorData.suppliers.length} suppliers
+                                  </button>
                                 </td>
                               </tr>
                             )}
@@ -988,13 +1238,15 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                 {(activeTab === 'both' || activeTab === 'buyers') && (
                   <div className={`space-y-3 ${activeTab === 'buyers' ? 'lg:col-span-2' : ''}`}>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <ArrowUpRight className="w-4 h-4 text-blue-600 shrink-0" />
                         <h4 className="text-sm font-bold text-gray-900">
                           Who is Purchasing from {currentVendorData.vendor_name}
                         </h4>
                         <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full shrink-0">
-                          {currentVendorData.buyers.length} Buyers
+                          {districtFilter === 'ALL'
+                            ? `${currentVendorData.buyers.length} Buyers`
+                            : `${filteredBuyers.length} / ${currentVendorData.buyers.length} Buyers (${districtFilter})`}
                         </span>
                       </div>
 
@@ -1002,32 +1254,66 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
-                          onClick={() => handleCopyBulkWhatsApp('buyers', currentVendorData.buyers.map(b => ({ name: b.buyer_name, panels: b.panels_count, brands: b.manufacturers, invoices: b.invoices })), currentVendorData.vendor_name)}
+                          onClick={() => handleCopyBulkWhatsApp(
+                            'buyers',
+                            filteredBuyers.map(b => ({
+                              name: b.buyer.buyer_name,
+                              panels: b.buyer.panels_count,
+                              brands: b.buyer.manufacturers,
+                              invoices: b.buyer.invoices,
+                              contact: b.contact,
+                              district: b.district
+                            })),
+                            currentVendorData.vendor_name,
+                            districtFilter
+                          )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
-                          title="Copy all buyers with phone numbers & addresses formatted for WhatsApp"
+                          title={`Copy ${filteredBuyers.length} buyers with phone numbers & addresses formatted for WhatsApp`}
                         >
                           {copiedKey === 'buyers_whatsapp_bulk' ? <Check className="w-3.5 h-3.5 text-teal-700" /> : <MessageSquare className="w-3.5 h-3.5 text-teal-700" />}
-                          <span>{copiedKey === 'buyers_whatsapp_bulk' ? 'Copied WhatsApp!' : 'Copy WhatsApp'}</span>
+                          <span>{copiedKey === 'buyers_whatsapp_bulk' ? 'Copied WhatsApp!' : `Copy WhatsApp (${filteredBuyers.length})`}</span>
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => handleCopyBulkExcelTSV('buyers', currentVendorData.buyers.map(b => ({ name: b.buyer_name, panels: b.panels_count, brands: b.manufacturers, invoices: b.invoices })))}
+                          onClick={() => handleCopyBulkExcelTSV(
+                            'buyers',
+                            filteredBuyers.map(b => ({
+                              name: b.buyer.buyer_name,
+                              panels: b.buyer.panels_count,
+                              brands: b.buyer.manufacturers,
+                              invoices: b.buyer.invoices,
+                              contact: b.contact,
+                              district: b.district
+                            }))
+                          )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
-                          title="Copy buyers table to clipboard to paste directly into Excel"
+                          title={`Copy ${filteredBuyers.length} buyers table to clipboard to paste directly into Excel`}
                         >
                           {copiedKey === 'buyers_excel_tsv' ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5 text-emerald-700" />}
-                          <span>{copiedKey === 'buyers_excel_tsv' ? 'Copied for Excel!' : 'Copy for Excel'}</span>
+                          <span>{copiedKey === 'buyers_excel_tsv' ? 'Copied for Excel!' : `Copy for Excel (${filteredBuyers.length})`}</span>
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => handleDownloadExcelFile('buyers', currentVendorData.buyers.map(b => ({ name: b.buyer_name, panels: b.panels_count, brands: b.manufacturers, invoices: b.invoices })), currentVendorData.vendor_name)}
+                          onClick={() => handleDownloadExcelFile(
+                            'buyers',
+                            filteredBuyers.map(b => ({
+                              name: b.buyer.buyer_name,
+                              panels: b.buyer.panels_count,
+                              brands: b.buyer.manufacturers,
+                              invoices: b.buyer.invoices,
+                              contact: b.contact,
+                              district: b.district
+                            })),
+                            currentVendorData.vendor_name,
+                            districtFilter
+                          )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
                           title="Download Excel spreadsheet file (.xlsx)"
                         >
                           <FileSpreadsheet className="w-3.5 h-3.5 text-blue-700" />
-                          <span>Export .xlsx</span>
+                          <span>Export .xlsx ({filteredBuyers.length})</span>
                         </button>
                       </div>
                     </div>
@@ -1044,9 +1330,8 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
-                            {currentVendorData.buyers.length > 0 ? (
-                              currentVendorData.buyers.map((b, idx) => {
-                                const bc = contactsMaster ? lookupVendorContact(b.buyer_name, contactsMaster) : null;
+                            {filteredBuyers.length > 0 ? (
+                              filteredBuyers.map(({ buyer: b, contact: bc, district }, idx) => {
                                 return (
                                   <tr key={b.buyer_name} className="hover:bg-blue-50/40 transition-colors">
                                     <td className="px-3.5 py-2.5 font-medium text-gray-900">
@@ -1108,33 +1393,48 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                                         </div>
                                       </div>
 
-                                      {/* Subtitle with Phone and Address */}
-                                      {bc ? (
-                                        <div className="text-[11px] text-gray-500 flex items-center gap-1.5 flex-wrap mt-0.5">
-                                          {bc.contactPersonMobile && (
-                                            <span className="font-mono text-emerald-700 font-semibold flex items-center gap-0.5">
-                                              <Phone className="w-2.5 h-2.5 text-emerald-600" />
-                                              +91 {bc.contactPersonMobile}
-                                            </span>
-                                          )}
-                                          {bc.contactPersonName && (
-                                            <span className="text-gray-700 font-medium">
-                                              • 👤 {bc.contactPersonName}
-                                            </span>
-                                          )}
-                                          {(bc.address || bc.district) && (
-                                            <span className="text-gray-500 truncate max-w-[240px] flex items-center gap-0.5" title={bc.address || bc.district}>
-                                              • <MapPin className="w-2.5 h-2.5 text-gray-400 shrink-0" />
-                                              {bc.district ? <strong className="text-gray-700">{bc.district}: </strong> : null}
-                                              {bc.address || ''}
-                                            </span>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <div className="text-[10px] text-gray-400 italic mt-0.5">
-                                          Phone & address not in directory
-                                        </div>
-                                      )}
+                                      {/* Subtitle with District Badge, Phone, Contact Person, and Address */}
+                                      <div className="text-[11px] text-gray-500 flex items-center gap-1.5 flex-wrap mt-0.5">
+                                        {/* Clickable District Badge */}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDistrictFilter(district);
+                                          }}
+                                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md font-semibold text-[10px] transition-colors ${
+                                            districtFilter === district
+                                              ? 'bg-blue-600 text-white'
+                                              : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/60'
+                                          }`}
+                                          title={`Filter by ${district}`}
+                                        >
+                                          <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                          <span>{district}</span>
+                                        </button>
+
+                                        {bc?.contactPersonMobile && (
+                                          <span className="font-mono text-emerald-700 font-semibold flex items-center gap-0.5">
+                                            <Phone className="w-2.5 h-2.5 text-emerald-600" />
+                                            +91 {bc.contactPersonMobile}
+                                          </span>
+                                        )}
+                                        {bc?.contactPersonName && (
+                                          <span className="text-gray-700 font-medium">
+                                            • 👤 {bc.contactPersonName}
+                                          </span>
+                                        )}
+                                        {bc?.address && (
+                                          <span className="text-gray-500 truncate max-w-[200px]" title={bc.address}>
+                                            • {bc.address}
+                                          </span>
+                                        )}
+                                        {!bc && (
+                                          <span className="text-[10px] text-gray-400 italic">
+                                            Directory record unlisted
+                                          </span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
                                       <span className="px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded-md">
@@ -1166,8 +1466,17 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                               })
                             ) : (
                               <tr>
-                                <td colSpan={4} className="text-center py-8 text-gray-400 italic">
-                                  No outbound buyer transactions recorded for this vendor.
+                                <td colSpan={4} className="text-center py-10 space-y-2">
+                                  <p className="text-xs text-gray-500 font-medium">
+                                    No buyers found for {currentVendorData.vendor_name} in <strong className="text-indigo-700">{districtFilter}</strong>.
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDistrictFilter('ALL')}
+                                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold underline"
+                                  >
+                                    Reset filter to show all {currentVendorData.buyers.length} buyers
+                                  </button>
                                 </td>
                               </tr>
                             )}

@@ -113,6 +113,35 @@ export function lookupVendorContact(name: string, master?: ContactsMasterData | 
   return null;
 }
 
+export const DISTRICT_RULES = [
+  { district: 'Kakinada', keywords: ['kakinada', 'pithapuram', 'samalkot', 'samalkota', 'peddapuram', 'tuni', 'kirlampudi', 'gollaprolu', 'karapa', 'pedapudi', 'thallarevu', 'kajuluru', 'yeleswaram', 'prathipadu', 'sankhavaram', 'kotananduru', 'rauthalapudi', 'uppada', 'vakalapudi', 'rayudupalem', 'ramanayyapeta', 'valasapakala', 'atchampeta', 'surampalem', 'thammavaram', 'raparthi', 'sampara', 'kattamuru', 'adb road'] },
+  { district: 'East Godavari', keywords: ['east godavari', 'rajamahendravaram', 'rajahmundry', 'rajamundry', 'bommuru', 'korukonda', 'rajanagaram', 'kovvur', 'kovvuru', 'kadiam', 'anaparthi', 'biccavolu', 'gokavaram', 'devarapalli', 'chagallu', 'tallapudi', 'seethanagaram', 'nidadavole', 'dommeru', 'gorakshana', 'hukumpeta', 'konthamuru', 'rajavolu', 'malakapalle', 'burugupudi'] },
+  { district: 'Dr. B.R. Ambedkar Konaseema', keywords: ['konaseema', 'amalapuram', 'ravulapalem', 'kothapeta', 'mandapeta', 'ramachandrapuram', 'razole', 'mummidivaram', 'alamuru', 'atreyapuram', 'ainavilli', 'allavaram', 'ambajipeta', 'katrenikona', 'malikipuram', 'sakinetipalli', 'uppalaguptam', 'vadapalem', 'bhatnavilli', 'settipeta', 'ithapudi'] },
+  { district: 'Visakhapatnam', keywords: ['visakhapatnam', 'vizag', 'gvmc', 'pendurthi', 'gajuwaka', 'akkayyapalem', 'seethammadhara', 'madhurawada', 'mvp colony', 'bhimunipatnam', 'bheemili', 'rushikonda', 'kurmannapalem', 'steel plant', 'jagannadhapuram', 'aganampudi', 'simhachalam', 'kancharapalem', 'muralinagar', 'sujathanagar'] },
+  { district: 'Anakapalli', keywords: ['anakapalli', 'anakapalle', 'narsipatnam', 'chodavaram', 'yelamanchili', 'yellamanchilli', 'munagapaka', 'payakaraopeta', 'payakarao peta', 'kasimkota', 'parawada', 'achutapuram', 'pisinikada', 'devarapalle', 'madugula', 'k.kotapadu', 'kotauratla', 'makavarapalem', 'nathavaram', 'ravikamatham', 'rolugunta', 's.rayavaram', 'rambilli', 'aratla', 'thimmarajupeta'] },
+  { district: 'West Godavari', keywords: ['west godavari', 'bhimavaram', 'tadepalligudem', 'tanuku', 'narasapuram', 'narsapur', 'palakollu', 'palakol', 'akividu', 'attili', 'iragavaram', 'penugonda', 'penumantra', 'undrajavaram', 'mogalthur', 'ganapavaram', 'veeravasaram', 'kalla', 'chilakapadu', 'thogummi', 'peda tadepalli'] },
+  { district: 'Eluru', keywords: ['eluru', 'jangareddygudem', 'nuzvid', 'chintalapudi', 'denduluru', 'pedavegi', 'pedapadu', 'unguturu', 'dwarakatirumala', 'kamavarapukota', 'polavaram', 'kukunoor', 'velairpadu', 'koyyalagudem', 'jeelugumilli', 'buttayagudem', 'lingapalem', 't.narasapuram'] },
+  { district: 'Krishna / NTR', keywords: ['vijayawada', 'krishna', 'ntr', 'machilipatnam', 'gudivada', 'vuyyuru', 'kanchikanacherla', 'ibrahimpatnam', 'kondapalli', 'jaggayyapeta', 'tiruvuru', 'mylavaram', 'nandigama', 'patamata', 'poranki', 'penamaluru', 'autonagar', 'ramavarappadu', 'pedana', 'bhavanipuram', 'gollapudi', 'nandamuru'] },
+  { district: 'Guntur / Palnadu', keywords: ['guntur', 'palnadu', 'mangalagiri', 'tenali', 'narasaraopet', 'chilakaluripet', 'macherla', 'sattenapalle', 'tadepalle', 'amaravati', 'vinukonda', 'piduguralla', 'gurazala', 'ponnur', 'jonnalagadda'] },
+  { district: 'Srikakulam', keywords: ['srikakulam', 'ranasthalam', 'pydibhimavaram', 'palasa', 'amadalavalasa', 'tekkali', 'sompeta', 'ichchapuram', 'narasannapeta'] },
+  { district: 'Vizianagaram / Manyam', keywords: ['vizianagaram', 'vizianagarm', 'parvathipuram', 'bobbili', 'salur', 'cheepurupalle', 'gajapathinagaram', 'nellimarla', 'kothavalasa', 'srungavarapukota', 's.kota', 'denkada'] },
+  { district: 'Nellore / Prakasam / Bapatla', keywords: ['nellore', 'prakasam', 'ongole', 'bapatla', 'chirala', 'kavali', 'gudur', 'kandukur', 'markapur', 'podili', 'chejarla', 'vinjamur', 'uppugundur', 'chillakuru'] },
+  { district: 'Tirupati / Chittoor', keywords: ['tirupati', 'chittoor', 'renigunta', 'srikalahasti', 'puttur', 'nagari', 'palamaner', 'kuppam'] },
+  { district: 'Rayalaseema (Kurnool / Kadapa / Anantapur)', keywords: ['kurnool', 'nandyal', 'anantapur', 'anantapuramu', 'kadapa', 'ysr', 'hindupur', 'proddatur', 'rayachoti', 'pulivendula', 'jammalamadugu', 'moragudi'] },
+  { district: 'Telangana / Hyderabad', keywords: ['hyderabad', 'hyd', 'secunderabad', 'kukatpally', 'medchal', 'malkajgiri', 'madhapur', 'gachibowli', 'kondapur', 'telangana', 'rangareddy', 'khammam', 'warangal', 'karimnagar', 'moosapet', 'pragathi nagar'] },
+  { district: 'Other States / National', keywords: ['delhi', 'noida', 'gurgaon', 'bangalore', 'bengaluru', 'chennai', 'mumbai', 'pune', 'gujarat', 'ahmedabad', 'surat', 'vadodara', 'deesa', 'nadiad', 'jalna', 'rajasthan', 'jaipur', 'haryana', 'karnal', 'uttar pradesh', 'agra', 'maharashtra', 'kolkata', 'kerala', 'ernakulam', 'aluva', 'chhattisgarh', 'raipur'] }
+];
+
+export function detectVendorDistrict(address?: string | null, vendorName?: string | null): string {
+  const text = `${address || ''} ${vendorName || ''}`.toLowerCase();
+  for (const rule of DISTRICT_RULES) {
+    if (rule.keywords.some(k => text.includes(k))) {
+      return rule.district;
+    }
+  }
+  return 'Anakapalli';
+}
+
 export function cleanPhoneNumber(rawPhone?: string | null): string {
   if (!rawPhone) return '';
   const digits = rawPhone.replace(/\D/g, '');
