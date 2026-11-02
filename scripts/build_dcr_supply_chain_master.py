@@ -125,13 +125,13 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
                     else:
                         serial = v_str
 
-            if serial:
-                if serial.endswith('.0'):
-                    serial = serial[:-2]
-                extra_dcr_serials.add(serial)
+            if serial and serial.endswith('.0'):
+                serial = serial[:-2]
 
-            if not serial or not remarks or '->' not in remarks:
+            if not serial or not remarks or '->' not in remarks or 'invalid' in remarks.lower():
                 continue
+
+            extra_dcr_serials.add(serial)
 
             valid_chains += 1
 
@@ -420,17 +420,8 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
             'top_tier1_buyers': buyers_list[:10]
         })
 
-    # Combine all DCR Serials
-    all_dcr_serials_set = set(serial_to_dcr.keys()) | extra_dcr_serials
-    # Also keep any existing serials from previous master JSON if exists
-    if PUBLIC_JSON_PATH.exists():
-        try:
-            with open(PUBLIC_JSON_PATH, 'r', encoding='utf-8') as f:
-                old_master = json.load(f)
-                if isinstance(old_master, dict) and 'dcr_serials_list' in old_master:
-                    all_dcr_serials_set.update(old_master['dcr_serials_list'])
-        except Exception:
-            pass
+    # Combine all DCR Serials (strictly verified serials with -> chains)
+    all_dcr_serials_set = set(serial_to_dcr.keys()) | {s for s in extra_dcr_serials if s}
 
     sorted_dcr_serials = sorted(list(all_dcr_serials_set))
 

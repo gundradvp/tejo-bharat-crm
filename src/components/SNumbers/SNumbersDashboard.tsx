@@ -50,8 +50,9 @@ export default function SNumbersDashboard() {
   const [dcrSNumbersSet, setDcrSNumbersSet] = useState<Set<string>>(new Set());
   const [dcrIndexLoaded, setDcrIndexLoaded] = useState(false);
 
-  // Copy Serial Numbers Across S-Numbers State
+  // Copy Modal State: Target ('snumbers' vs 'serials')
   const [showCopySerialsModal, setShowCopySerialsModal] = useState(false);
+  const [copyTarget, setCopyTarget] = useState<'snumbers' | 'serials'>('snumbers');
   const [copyScope, setCopyScope] = useState<'all_serials' | 'one_per_snumber'>('all_serials');
   const [copyHierarchyFilter, setCopyHierarchyFilter] = useState<'unlinked_only' | 'all' | 'linked_only'>('unlinked_only');
   const [copyAllScope, setCopyAllScope] = useState<'all' | 'first_n_snumbers' | 'limit_serials'>('all');
@@ -570,6 +571,45 @@ export default function SNumbersDashboard() {
     return 0;
   };
 
+  // Hierarchy counts across current filtered criteria (before applying hierarchy filter itself)
+  const hierarchyCounts = useMemo(() => {
+    let unlinked = 0;
+    let linked = 0;
+    for (const r of reports) {
+      if (districtFilter !== 'ALL' && r.district !== districtFilter) continue;
+      if (vendorFilter !== 'ALL' && r.vendor_name !== vendorFilter) continue;
+      if (
+        vendorSearch.trim() &&
+        (!r.vendor_name || !r.vendor_name.toLowerCase().includes(vendorSearch.toLowerCase().trim()))
+      ) {
+        continue;
+      }
+      if (sectionFilter !== 'ALL' && r.section_name !== sectionFilter) continue;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const match =
+          r.complain_no.toLowerCase().includes(q) ||
+          (r.consumer_name && r.consumer_name.toLowerCase().includes(q)) ||
+          (r.mobile_number && r.mobile_number.includes(q)) ||
+          (r.sc_number && r.sc_number.includes(q)) ||
+          (r.panel_serials_text && r.panel_serials_text.toLowerCase().includes(q)) ||
+          (r.inverter_serial_number && r.inverter_serial_number.toLowerCase().includes(q)) ||
+          (r.new_mtr_sno && r.new_mtr_sno.toLowerCase().includes(q)) ||
+          (r.vendor_name && r.vendor_name.toLowerCase().includes(q)) ||
+          (r.section_name && r.section_name.toLowerCase().includes(q)) ||
+          (r.district && r.district.toLowerCase().includes(q));
+        if (!match) continue;
+      }
+
+      if (dcrSNumbersSet.has(r.complain_no)) {
+        linked++;
+      } else {
+        unlinked++;
+      }
+    }
+    return { unlinked, linked, total: unlinked + linked };
+  }, [reports, districtFilter, vendorFilter, vendorSearch, sectionFilter, searchQuery, dcrSNumbersSet]);
+
   const filteredReports = useMemo(() => {
     const list = reports.filter((r) => {
       if (districtFilter !== 'ALL' && r.district !== districtFilter) return false;
@@ -687,7 +727,7 @@ export default function SNumbersDashboard() {
       }
 
       serials.forEach((serial, idx) => {
-        const isLinked = dcrSerialsSet.has(serial) || dcrSNumbersSet.has(r.complain_no);
+        const isLinked = dcrSerialsSet.has(serial);
         list.push({
           complain_no: r.complain_no,
           consumer_name: r.consumer_name,
@@ -742,7 +782,7 @@ export default function SNumbersDashboard() {
 
       if (firstSerial) {
         seenSNumbers.add(r.complain_no);
-        const isLinked = dcrSerialsSet.has(firstSerial) || dcrSNumbersSet.has(r.complain_no);
+        const isLinked = dcrSerialsSet.has(firstSerial);
         list.push({
           complain_no: r.complain_no,
           consumer_name: r.consumer_name,
@@ -756,7 +796,7 @@ export default function SNumbersDashboard() {
     return list;
   }, [filteredReports, dcrSerialsSet, dcrSNumbersSet]);
 
-  // Hierarchy counts for current filtered reports
+  // Hierarchy counts for panels in current filtered reports
   const unlinkedSerialsCount = useMemo(() => {
     return allSerialsInList.filter((it) => !it.isLinked).length;
   }, [allSerialsInList]);
@@ -765,13 +805,32 @@ export default function SNumbersDashboard() {
     return allSerialsInList.filter((it) => it.isLinked).length;
   }, [allSerialsInList]);
 
+  // S-Numbers counts in current filtered reports
   const unlinkedSNumbersCount = useMemo(() => {
-    return onePerSNumberList.filter((it) => !it.isLinked).length;
-  }, [onePerSNumberList]);
+    return filteredReports.filter((r) => !dcrSNumbersSet.has(r.complain_no)).length;
+  }, [filteredReports, dcrSNumbersSet]);
 
   const linkedSNumbersCount = useMemo(() => {
-    return onePerSNumberList.filter((it) => it.isLinked).length;
-  }, [onePerSNumberList]);
+    return filteredReports.filter((r) => dcrSNumbersSet.has(r.complain_no)).length;
+  }, [filteredReports, dcrSNumbersSet]);
+
+  // S-Numbers available for copy based on copyHierarchyFilter
+  const availableSNumbersForCopy = useMemo(() => {
+    if (copyHierarchyFilter === 'all') return filteredReports;
+    if (copyHierarchyFilter === 'unlinked_only') {
+      return filteredReports.filter((r) => !dcrSNumbersSet.has(r.complain_no));
+    }
+    return filteredReports.filter((r) => dcrSNumbersSet.has(r.complain_no));
+  }, [filteredReports, copyHierarchyFilter, dcrSNumbersSet]);
+
+  // S-Numbers items to copy based on copyAllScope & counts
+  const snumbersToCopy = useMemo(() => {
+    if (copyAllScope === 'all') {
+      return availableSNumbersForCopy;
+    }
+    const count = Math.max(1, copySNumbersCount || 10);
+    return availableSNumbersForCopy.slice(0, count);
+  }, [availableSNumbersForCopy, copyAllScope, copySNumbersCount]);
 
   // Serials available for copy after applying copyHierarchyFilter ('unlinked_only' | 'all' | 'linked_only')
   const availableSerialsForCopy = useMemo(() => {
@@ -827,52 +886,95 @@ export default function SNumbersDashboard() {
     copySerialsCount,
   ]);
 
-  // Copy serial numbers to clipboard
-  const handleCopySerials = async () => {
-    if (itemsToCopy.length === 0) {
-      alert('No panel serial numbers available in current selection.');
-      return;
-    }
+  // Universal Copy handler for both S-Numbers and Panel Serials
+  const handleCopyAction = async () => {
+    if (copyTarget === 'snumbers') {
+      if (snumbersToCopy.length === 0) {
+        alert('No S-numbers match the current selection.');
+        return;
+      }
 
-    let textToCopy = '';
-    if (includeSNumberPrefix) {
-      textToCopy = itemsToCopy
-        .map((it) => `${it.complain_no}\t${it.serial}`)
-        .join(copySerialsFormat === 'newline' ? '\n' : ', ');
+      let textToCopy = '';
+      if (includeSNumberPrefix) {
+        textToCopy = snumbersToCopy
+          .map((r) => `${r.complain_no}\t${r.consumer_name || '-'}\t${r.mobile_number || '-'}\t${r.district || '-'}`)
+          .join(copySerialsFormat === 'newline' ? '\n' : ', ');
+      } else {
+        textToCopy = snumbersToCopy
+          .map((r) => r.complain_no)
+          .join(copySerialsFormat === 'newline' ? '\n' : ', ');
+      }
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = textToCopy;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+
+      const filterLabel =
+        copyHierarchyFilter === 'unlinked_only'
+          ? ' (Hierarchy Not Defined)'
+          : copyHierarchyFilter === 'linked_only'
+          ? ' (Already Linked)'
+          : ' (All)';
+
+      const toastMsg = `Copied ${snumbersToCopy.length.toLocaleString('en-IN')} S-numbers${filterLabel} to clipboard!`;
+      setCopySuccessToast(toastMsg);
+      setTimeout(() => {
+        setCopySuccessToast(null);
+        setShowCopySerialsModal(false);
+      }, 1400);
     } else {
-      textToCopy = itemsToCopy
-        .map((it) => it.serial)
-        .join(copySerialsFormat === 'newline' ? '\n' : ', ');
+      if (itemsToCopy.length === 0) {
+        alert('No panel serial numbers available in current selection.');
+        return;
+      }
+
+      let textToCopy = '';
+      if (includeSNumberPrefix) {
+        textToCopy = itemsToCopy
+          .map((it) => `${it.complain_no}\t${it.serial}`)
+          .join(copySerialsFormat === 'newline' ? '\n' : ', ');
+      } else {
+        textToCopy = itemsToCopy
+          .map((it) => it.serial)
+          .join(copySerialsFormat === 'newline' ? '\n' : ', ');
+      }
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = textToCopy;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+
+      const filterLabel =
+        copyHierarchyFilter === 'unlinked_only'
+          ? ' (Hierarchy Not Defined)'
+          : copyHierarchyFilter === 'linked_only'
+          ? ' (Already Linked)'
+          : ' (All Serials)';
+
+      const toastMsg =
+        copyScope === 'all_serials'
+          ? `Copied ${itemsToCopy.length.toLocaleString('en-IN')} serial numbers${filterLabel} to clipboard!`
+          : `Copied ${itemsToCopy.length.toLocaleString('en-IN')} serial numbers (1 per S-number)${filterLabel} to clipboard!`;
+
+      setCopySuccessToast(toastMsg);
+      setTimeout(() => {
+        setCopySuccessToast(null);
+        setShowCopySerialsModal(false);
+      }, 1400);
     }
-
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = textToCopy;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-
-    const filterLabel =
-      copyHierarchyFilter === 'unlinked_only'
-        ? ' (Hierarchy Not Defined only)'
-        : copyHierarchyFilter === 'linked_only'
-        ? ' (Already Linked only)'
-        : ' (All Serials)';
-
-    const toastMsg =
-      copyScope === 'all_serials'
-        ? `Copied ${itemsToCopy.length.toLocaleString('en-IN')} serial numbers${filterLabel} to clipboard!`
-        : `Copied ${itemsToCopy.length.toLocaleString('en-IN')} serial numbers (1 per S-number)${filterLabel} to clipboard!`;
-
-    setCopySuccessToast(toastMsg);
-    setTimeout(() => {
-      setCopySuccessToast(null);
-      setShowCopySerialsModal(false);
-    }, 1400);
   };
 
   const totalCapKw = useMemo(() => {
@@ -978,18 +1080,40 @@ export default function SNumbersDashboard() {
             Export Excel
           </button>
 
+          {/* Copy S-Numbers (Complaint IDs) */}
           <button
             type="button"
             onClick={() => {
+              setCopyTarget('snumbers');
+              setCopyHierarchyFilter(hierarchyFilter === 'UNLINKED' ? 'unlinked_only' : hierarchyFilter === 'LINKED' ? 'linked_only' : 'all');
+              setCopyAllScope('all');
+              setShowCopySerialsModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+            title="Copy S-Numbers (Complaint Nos) for portal search or bulk download"
+          >
+            <Copy className="w-4 h-4" />
+            <span>Copy S-Numbers</span>
+            <span className="px-2 py-0.5 text-[10px] font-mono bg-white/20 rounded-full font-bold">
+              {filteredReports.length.toLocaleString('en-IN')}
+            </span>
+          </button>
+
+          {/* Copy Panel Serials */}
+          <button
+            type="button"
+            onClick={() => {
+              setCopyTarget('serials');
               setCopyScope('all_serials');
+              setCopyHierarchyFilter(hierarchyFilter === 'UNLINKED' ? 'unlinked_only' : hierarchyFilter === 'LINKED' ? 'linked_only' : 'all');
               setCopyAllScope('all');
               setShowCopySerialsModal(true);
             }}
             className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
             title="Copy panel serial numbers (All in list or 1 per S-number)"
           >
-            <Copy className="w-4 h-4" />
-            <span>Copy Serial Numbers</span>
+            <Layers className="w-4 h-4" />
+            <span>Copy Serials</span>
             {allSerialsInList.length > 0 && (
               <span className="px-2 py-0.5 text-[10px] font-mono bg-white/20 rounded-full font-bold">
                 {allSerialsInList.length.toLocaleString('en-IN')}
@@ -1352,9 +1476,9 @@ export default function SNumbersDashboard() {
                 className="bg-transparent border-none text-xs font-medium text-gray-700 focus:outline-none cursor-pointer pr-1"
                 title="Filter by DCR hierarchy link status"
               >
-                <option value="ALL">Hierarchy: All ({reports.length})</option>
-                <option value="UNLINKED">Hierarchy Not Defined ({unlinkedSNumbersCount})</option>
-                <option value="LINKED">Hierarchy Defined ({linkedSNumbersCount})</option>
+                <option value="ALL">Hierarchy: All ({hierarchyCounts.total.toLocaleString('en-IN')})</option>
+                <option value="UNLINKED">Hierarchy Not Defined ({hierarchyCounts.unlinked.toLocaleString('en-IN')})</option>
+                <option value="LINKED">Hierarchy Defined ({hierarchyCounts.linked.toLocaleString('en-IN')})</option>
               </select>
             </div>
           </div>
@@ -1421,25 +1545,41 @@ export default function SNumbersDashboard() {
             <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={toggleDateSort}
-                    className="flex items-center gap-1.5 text-left font-semibold text-gray-700 hover:text-amber-800 uppercase tracking-wider group transition-colors"
-                    title="Click to toggle Sort by Date (Newest / Oldest / Default)"
-                  >
-                    <span>S-Number / Date</span>
-                    {dateSortOrder === 'desc' ? (
-                      <span className="flex items-center text-amber-700 font-bold text-[10px] bg-amber-100 px-1.5 py-0.5 rounded">
-                        Newest ↓
-                      </span>
-                    ) : dateSortOrder === 'asc' ? (
-                      <span className="flex items-center text-amber-700 font-bold text-[10px] bg-amber-100 px-1.5 py-0.5 rounded">
-                        Oldest ↑
-                      </span>
-                    ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-amber-600 transition-colors" />
-                    )}
-                  </button>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <button
+                      type="button"
+                      onClick={toggleDateSort}
+                      className="flex items-center gap-1.5 text-left font-semibold text-gray-700 hover:text-amber-800 uppercase tracking-wider group transition-colors"
+                      title="Click to toggle Sort by Date (Newest / Oldest / Default)"
+                    >
+                      <span>S-Number / Date</span>
+                      {dateSortOrder === 'desc' ? (
+                        <span className="flex items-center text-amber-700 font-bold text-[10px] bg-amber-100 px-1.5 py-0.5 rounded">
+                          Newest ↓
+                        </span>
+                      ) : dateSortOrder === 'asc' ? (
+                        <span className="flex items-center text-amber-700 font-bold text-[10px] bg-amber-100 px-1.5 py-0.5 rounded">
+                          Oldest ↑
+                        </span>
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-amber-600 transition-colors" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCopyTarget('snumbers');
+                        setCopyHierarchyFilter(hierarchyFilter === 'UNLINKED' ? 'unlinked_only' : hierarchyFilter === 'LINKED' ? 'linked_only' : 'all');
+                        setCopyAllScope('all');
+                        setShowCopySerialsModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded font-bold uppercase tracking-tight transition-colors"
+                      title="Copy S-numbers (Complaint IDs)"
+                    >
+                      <Copy className="w-3 h-3 text-amber-700" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
                 </th>
                 <th className="px-4 py-3">Consumer & Contact</th>
                 <th className="px-4 py-3">Solar Modules & Capacity</th>
@@ -1450,8 +1590,10 @@ export default function SNumbersDashboard() {
                       <button
                         type="button"
                         onClick={() => {
+                          setCopyTarget('serials');
                           setCopyScope('all_serials');
                           setCopyAllScope('all');
+                          setCopyHierarchyFilter(hierarchyFilter === 'UNLINKED' ? 'unlinked_only' : hierarchyFilter === 'LINKED' ? 'linked_only' : 'all');
                           setShowCopySerialsModal(true);
                         }}
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-amber-600 hover:bg-amber-700 text-white rounded font-bold uppercase tracking-tight transition-colors shadow-2xs"
@@ -1463,7 +1605,9 @@ export default function SNumbersDashboard() {
                       <button
                         type="button"
                         onClick={() => {
+                          setCopyTarget('serials');
                           setCopyScope('one_per_snumber');
+                          setCopyHierarchyFilter(hierarchyFilter === 'UNLINKED' ? 'unlinked_only' : hierarchyFilter === 'LINKED' ? 'linked_only' : 'all');
                           setShowCopySerialsModal(true);
                         }}
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded font-bold uppercase tracking-tight transition-colors"
@@ -1573,7 +1717,12 @@ export default function SNumbersDashboard() {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-gray-400 italic text-[11px]">-</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-400 italic text-[11px]">-</span>
+                          <span className="text-[9px] bg-amber-50 text-amber-800 font-semibold px-1.5 py-0.5 rounded border border-amber-200" title="Equipment inspection pending / no panels recorded in ground report yet">
+                            Pending Serials
+                          </span>
+                        </div>
                       )}
                     </td>
 
@@ -1818,6 +1967,7 @@ export default function SNumbersDashboard() {
       )}
 
       {/* Copy Serial Numbers Modal */}
+      {/* Copy S-Numbers & Serial Numbers Modal */}
       {showCopySerialsModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
@@ -1828,9 +1978,11 @@ export default function SNumbersDashboard() {
                   <Copy className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">Copy Panel Serial Numbers</h3>
+                  <h3 className="text-base font-bold text-gray-900">
+                    {copyTarget === 'snumbers' ? 'Copy S-Numbers (Complaint IDs)' : 'Copy Panel Serial Numbers'}
+                  </h3>
                   <p className="text-[11px] text-gray-500">
-                    Copy all panel serials or sample 1 serial per S-number from current list
+                    Export S-Numbers or panel serial numbers with full DCR hierarchy link filtering
                   </p>
                 </div>
               </div>
@@ -1851,6 +2003,34 @@ export default function SNumbersDashboard() {
               </div>
             )}
 
+            {/* Target Selector Tabs: S-Numbers vs Panel Serials */}
+            <div className="grid grid-cols-2 p-1 bg-gray-100 rounded-xl gap-1">
+              <button
+                type="button"
+                onClick={() => setCopyTarget('snumbers')}
+                className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  copyTarget === 'snumbers'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>S-Numbers ({filteredReports.length.toLocaleString('en-IN')})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCopyTarget('serials')}
+                className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  copyTarget === 'serials'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>Panel Serials ({allSerialsInList.length.toLocaleString('en-IN')})</span>
+              </button>
+            </div>
+
             {/* DCR Hierarchy Status Filter Selector */}
             <div className="p-3 bg-gradient-to-r from-amber-50/70 via-white to-indigo-50/70 border border-amber-200/80 rounded-xl space-y-2 text-xs shadow-2xs">
               <div className="flex items-center justify-between">
@@ -1859,7 +2039,15 @@ export default function SNumbersDashboard() {
                   Hierarchy Filter:
                 </span>
                 <span className="text-[11px] font-mono text-gray-500">
-                  <strong className="text-amber-700">{unlinkedSerialsCount} unlinked</strong> • <strong className="text-emerald-700">{linkedSerialsCount} linked</strong>
+                  {copyTarget === 'snumbers' ? (
+                    <>
+                      <strong className="text-amber-700">{unlinkedSNumbersCount.toLocaleString('en-IN')} unlinked</strong> • <strong className="text-emerald-700">{linkedSNumbersCount.toLocaleString('en-IN')} linked</strong>
+                    </>
+                  ) : (
+                    <>
+                      <strong className="text-amber-700">{unlinkedSerialsCount.toLocaleString('en-IN')} unlinked</strong> • <strong className="text-emerald-700">{linkedSerialsCount.toLocaleString('en-IN')} linked</strong>
+                    </>
+                  )}
                 </span>
               </div>
 
@@ -1872,10 +2060,12 @@ export default function SNumbersDashboard() {
                       ? 'bg-amber-600 text-white shadow-xs'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
-                  title="Only copy panel serial numbers whose DCR hierarchy is not defined yet"
+                  title={copyTarget === 'snumbers' ? 'Only copy S-numbers whose DCR hierarchy is not defined yet' : 'Only copy panel serial numbers whose DCR hierarchy is not defined yet'}
                 >
                   <span>Hierarchy Not Defined</span>
-                  <span className="text-[10px] font-normal opacity-90">({unlinkedSerialsCount} unlinked)</span>
+                  <span className="text-[10px] font-normal opacity-90">
+                    ({copyTarget === 'snumbers' ? `${unlinkedSNumbersCount.toLocaleString('en-IN')} unlinked` : `${unlinkedSerialsCount.toLocaleString('en-IN')} unlinked`})
+                  </span>
                 </button>
 
                 <button
@@ -1886,10 +2076,12 @@ export default function SNumbersDashboard() {
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
-                  title="Copy all serial numbers regardless of link status"
+                  title="Copy all regardless of link status"
                 >
                   <span>Copy All</span>
-                  <span className="text-[10px] font-normal opacity-90">({allSerialsInList.length} panels)</span>
+                  <span className="text-[10px] font-normal opacity-90">
+                    ({copyTarget === 'snumbers' ? `${filteredReports.length.toLocaleString('en-IN')} S-Nos` : `${allSerialsInList.length.toLocaleString('en-IN')} panels`})
+                  </span>
                 </button>
 
                 <button
@@ -1900,72 +2092,85 @@ export default function SNumbersDashboard() {
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
-                  title="Only copy panel serial numbers that already have full DCR supply chain mapped"
+                  title="Only copy items that have verified DCR supply chain mapped"
                 >
                   <span>Already Linked</span>
-                  <span className="text-[10px] font-normal opacity-90">({linkedSerialsCount} verified)</span>
+                  <span className="text-[10px] font-normal opacity-90">
+                    ({copyTarget === 'snumbers' ? `${linkedSNumbersCount.toLocaleString('en-IN')} verified` : `${linkedSerialsCount.toLocaleString('en-IN')} verified`})
+                  </span>
                 </button>
               </div>
 
-              {copyHierarchyFilter === 'unlinked_only' ? (
-                <div className="p-2 bg-amber-50 rounded-lg border border-amber-200/80 text-[11px] text-amber-950 flex items-start gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Already linked serials are excluded.</strong> Only copying serial numbers whose DCR hierarchy is not defined, ready to paste into the National Portal.
-                  </span>
-                </div>
-              ) : copyHierarchyFilter === 'all' ? (
-                <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Copying ALL panel serial numbers</strong> (both verified linked and pending unlinked panels).
-                  </span>
-                </div>
+              {copyTarget === 'snumbers' ? (
+                copyHierarchyFilter === 'unlinked_only' ? (
+                  <div className="p-2 bg-amber-50 rounded-lg border border-amber-200/80 text-[11px] text-amber-950 flex items-start gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Copying S-numbers with Hierarchy Not Defined</strong> ({unlinkedSNumbersCount.toLocaleString('en-IN')} S-numbers pending DCR), ready to paste into the National Portal or Bulk Downloader.
+                    </span>
+                  </div>
+                ) : copyHierarchyFilter === 'all' ? (
+                  <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Copying ALL S-numbers</strong> ({filteredReports.length.toLocaleString('en-IN')} complaints matching active filters).
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200/80 text-[11px] text-emerald-950 flex items-start gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Copying only verified S-numbers</strong> ({linkedSNumbersCount.toLocaleString('en-IN')} complaints with verified DCR supply chains).
+                    </span>
+                  </div>
+                )
               ) : (
-                <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200/80 text-[11px] text-emerald-950 flex items-start gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Copying only verified panels</strong> with full DCR supply chain history already mapped.
-                  </span>
-                </div>
+                copyHierarchyFilter === 'unlinked_only' ? (
+                  <div className="p-2 bg-amber-50 rounded-lg border border-amber-200/80 text-[11px] text-amber-950 space-y-1">
+                    <div className="flex items-start gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Only copying unlinked panel serials</strong> ({unlinkedSerialsCount} panels pending DCR).
+                      </span>
+                    </div>
+                    {unlinkedSNumbersCount > 0 && (
+                      <p className="pl-5 text-[10px] text-amber-800">
+                        Tip: {unlinkedSNumbersCount.toLocaleString('en-IN')} S-numbers have pending ground inspection / no panels recorded yet.{' '}
+                        <button
+                          type="button"
+                          onClick={() => setCopyTarget('snumbers')}
+                          className="font-bold underline text-amber-900 hover:text-amber-950 cursor-pointer"
+                        >
+                          Switch to Copy S-Numbers
+                        </button>
+                      </p>
+                    )}
+                  </div>
+                ) : copyHierarchyFilter === 'all' ? (
+                  <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Copying ALL panel serial numbers</strong> ({allSerialsInList.length.toLocaleString('en-IN')} panels).
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200/80 text-[11px] text-emerald-950 flex items-start gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Copying only verified panels</strong> with full DCR supply chain history already mapped.
+                    </span>
+                  </div>
+                )
               )}
             </div>
 
-            {/* Mode Switch Tabs: All Serials vs 1 per S-number */}
-            <div className="grid grid-cols-2 p-1 bg-gray-100 rounded-xl gap-1">
-              <button
-                type="button"
-                onClick={() => setCopyScope('all_serials')}
-                className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  copyScope === 'all_serials'
-                    ? 'bg-white text-amber-900 shadow-xs'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5 text-amber-600" />
-                <span>All Serials ({availableSerialsForCopy.length.toLocaleString('en-IN')})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCopyScope('one_per_snumber')}
-                className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  copyScope === 'one_per_snumber'
-                    ? 'bg-white text-amber-900 shadow-xs'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Copy className="w-3.5 h-3.5 text-amber-600" />
-                <span>1 per S-Number ({availableOnePerSNumberForCopy.length.toLocaleString('en-IN')})</span>
-              </button>
-            </div>
-
             {/* Scope Details based on Mode */}
-            {copyScope === 'all_serials' ? (
+            {copyTarget === 'snumbers' ? (
               <div className="space-y-3 p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs">
                 <div className="text-gray-800 font-bold flex items-center justify-between">
-                  <span>How many serial numbers do you want to copy?</span>
+                  <span>How many S-numbers do you want to copy?</span>
                   <span className="text-[11px] font-normal text-amber-800">
-                    {availableSerialsForCopy.length.toLocaleString('en-IN')} available panels across {sNumbersWithPanelsCount} S-numbers
+                    {availableSNumbersForCopy.length.toLocaleString('en-IN')} available S-numbers
                   </span>
                 </div>
 
@@ -1973,36 +2178,36 @@ export default function SNumbersDashboard() {
                   <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
                     <input
                       type="radio"
-                      name="copyAllScope"
+                      name="copySNumbersScope"
                       checked={copyAllScope === 'all'}
                       onChange={() => setCopyAllScope('all')}
                       className="text-amber-600 focus:ring-amber-500"
                     />
                     <span>
-                      <strong>Copy ALL matching serial numbers</strong> ({availableSerialsForCopy.length.toLocaleString('en-IN')} panels from all {sNumbersWithPanelsCount} S-numbers)
+                      <strong>Copy ALL matching S-numbers</strong> ({availableSNumbersForCopy.length.toLocaleString('en-IN')} S-numbers)
                     </span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
                     <input
                       type="radio"
-                      name="copyAllScope"
+                      name="copySNumbersScope"
                       checked={copyAllScope === 'first_n_snumbers'}
                       onChange={() => setCopyAllScope('first_n_snumbers')}
                       className="text-amber-600 focus:ring-amber-500"
                     />
-                    <span>All serial numbers from first</span>
+                    <span>Limit to first</span>
                     <input
                       type="number"
                       min={1}
-                      max={sNumbersWithPanelsCount || 1}
+                      max={availableSNumbersForCopy.length || 1}
                       value={copySNumbersCount}
                       onClick={() => setCopyAllScope('first_n_snumbers')}
                       onChange={(e) => {
                         setCopyAllScope('first_n_snumbers');
                         setCopySNumbersCount(Math.max(1, parseInt(e.target.value, 10) || 1));
                       }}
-                      className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-24 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                     <span>S-numbers</span>
                   </label>
@@ -2011,14 +2216,14 @@ export default function SNumbersDashboard() {
                   {copyAllScope === 'first_n_snumbers' && (
                     <div className="flex items-center gap-1.5 flex-wrap pl-6 pt-0.5">
                       <span className="text-[10px] text-gray-400 font-medium">Presets:</span>
-                      {[5, 10, 20, 50, 100].map((preset) => (
+                      {[10, 25, 50, 100, 500, 1000].map((preset) => (
                         <button
                           key={preset}
                           type="button"
                           onClick={() => setCopySNumbersCount(preset)}
                           className={`px-2 py-0.5 text-[11px] font-semibold rounded border transition-all ${
                             copySNumbersCount === preset
-                              ? 'bg-amber-600 text-white border-amber-600'
+                              ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                               : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
                           }`}
                         >
@@ -2027,93 +2232,194 @@ export default function SNumbersDashboard() {
                       ))}
                     </div>
                   )}
-
-                  <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
-                    <input
-                      type="radio"
-                      name="copyAllScope"
-                      checked={copyAllScope === 'limit_serials'}
-                      onChange={() => setCopyAllScope('limit_serials')}
-                      className="text-amber-600 focus:ring-amber-500"
-                    />
-                    <span>Limit to first</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={availableSerialsForCopy.length || 1}
-                      value={copySerialsCount}
-                      onClick={() => setCopyAllScope('limit_serials')}
-                      onChange={(e) => {
-                        setCopyAllScope('limit_serials');
-                        setCopySerialsCount(Math.max(1, parseInt(e.target.value, 10) || 1));
-                      }}
-                      className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                    <span>serials</span>
-                  </label>
                 </div>
               </div>
             ) : (
-              /* 1 Serial Per S-Number Controls */
-              <div className="space-y-2 p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs">
-                <label className="block text-xs font-bold text-gray-800">
-                  How many serial numbers do you want to copy? (1 per S-number)
-                </label>
-                <div className="flex items-center gap-2.5">
-                  <input
-                    ref={copyCountInputRef}
-                    type="number"
-                    min={1}
-                    max={availableOnePerSNumberForCopy.length || 1}
-                    value={copySerialsCount}
-                    onChange={(e) => setCopySerialsCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleCopySerials();
-                    }}
-                    className="w-28 px-3.5 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs"
-                  />
-                  <span className="text-xs text-gray-500 font-medium">
-                    numbers (1 per S-number • {availableOnePerSNumberForCopy.length.toLocaleString('en-IN')} available S-numbers)
-                  </span>
+              /* Panel Serials Mode */
+              <div className="space-y-3">
+                {/* Mode Switch Tabs: All Serials vs 1 per S-number */}
+                <div className="grid grid-cols-2 p-1 bg-gray-100 rounded-xl gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCopyScope('all_serials')}
+                    className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      copyScope === 'all_serials'
+                        ? 'bg-white text-amber-900 shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 text-amber-600" />
+                    <span>All Serials ({availableSerialsForCopy.length.toLocaleString('en-IN')})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCopyScope('one_per_snumber')}
+                    className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      copyScope === 'one_per_snumber'
+                        ? 'bg-white text-amber-900 shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Copy className="w-3.5 h-3.5 text-amber-600" />
+                    <span>1 per S-Number ({availableOnePerSNumberForCopy.length.toLocaleString('en-IN')})</span>
+                  </button>
                 </div>
 
-                {/* Quick Presets */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[11px] text-gray-400 font-medium mr-1">Presets:</span>
-                  {[5, 10, 20, 50, 100].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => {
-                        setCopySerialsCount(preset);
-                        copyCountInputRef.current?.focus();
-                      }}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
-                        copySerialsCount === preset
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                  {availableOnePerSNumberForCopy.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCopySerialsCount(availableOnePerSNumberForCopy.length);
-                        copyCountInputRef.current?.focus();
-                      }}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
-                        copySerialsCount === availableOnePerSNumberForCopy.length
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      All ({availableOnePerSNumberForCopy.length})
-                    </button>
-                  )}
-                </div>
+                {copyScope === 'all_serials' ? (
+                  <div className="space-y-3 p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs">
+                    <div className="text-gray-800 font-bold flex items-center justify-between">
+                      <span>How many serial numbers do you want to copy?</span>
+                      <span className="text-[11px] font-normal text-amber-800">
+                        {availableSerialsForCopy.length.toLocaleString('en-IN')} available panels across {sNumbersWithPanelsCount} S-numbers
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
+                        <input
+                          type="radio"
+                          name="copyAllScope"
+                          checked={copyAllScope === 'all'}
+                          onChange={() => setCopyAllScope('all')}
+                          className="text-amber-600 focus:ring-amber-500"
+                        />
+                        <span>
+                          <strong>Copy ALL matching serial numbers</strong> ({availableSerialsForCopy.length.toLocaleString('en-IN')} panels from all {sNumbersWithPanelsCount} S-numbers)
+                        </span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
+                        <input
+                          type="radio"
+                          name="copyAllScope"
+                          checked={copyAllScope === 'first_n_snumbers'}
+                          onChange={() => setCopyAllScope('first_n_snumbers')}
+                          className="text-amber-600 focus:ring-amber-500"
+                        />
+                        <span>All serial numbers from first</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={sNumbersWithPanelsCount || 1}
+                          value={copySNumbersCount}
+                          onClick={() => setCopyAllScope('first_n_snumbers')}
+                          onChange={(e) => {
+                            setCopyAllScope('first_n_snumbers');
+                            setCopySNumbersCount(Math.max(1, parseInt(e.target.value, 10) || 1));
+                          }}
+                          className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <span>S-numbers</span>
+                      </label>
+
+                      {copyAllScope === 'first_n_snumbers' && (
+                        <div className="flex items-center gap-1.5 flex-wrap pl-6 pt-0.5">
+                          <span className="text-[10px] text-gray-400 font-medium">Presets:</span>
+                          {[5, 10, 20, 50, 100].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setCopySNumbersCount(preset)}
+                              className={`px-2 py-0.5 text-[11px] font-semibold rounded border transition-all ${
+                                copySNumbersCount === preset
+                                  ? 'bg-amber-600 text-white border-amber-600'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+                              }`}
+                            >
+                              {preset} S-Nos
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
+                        <input
+                          type="radio"
+                          name="copyAllScope"
+                          checked={copyAllScope === 'limit_serials'}
+                          onChange={() => setCopyAllScope('limit_serials')}
+                          className="text-amber-600 focus:ring-amber-500"
+                        />
+                        <span>Limit to first</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={availableSerialsForCopy.length || 1}
+                          value={copySerialsCount}
+                          onClick={() => setCopyAllScope('limit_serials')}
+                          onChange={(e) => {
+                            setCopyAllScope('limit_serials');
+                            setCopySerialsCount(Math.max(1, parseInt(e.target.value, 10) || 1));
+                          }}
+                          className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <span>serials</span>
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  /* 1 Serial Per S-Number Controls */
+                  <div className="space-y-2 p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs">
+                    <label className="block text-xs font-bold text-gray-800">
+                      How many serial numbers do you want to copy? (1 per S-number)
+                    </label>
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        ref={copyCountInputRef}
+                        type="number"
+                        min={1}
+                        max={availableOnePerSNumberForCopy.length || 1}
+                        value={copySerialsCount}
+                        onChange={(e) => setCopySerialsCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleCopyAction();
+                        }}
+                        className="w-28 px-3.5 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs"
+                      />
+                      <span className="text-xs text-gray-500 font-medium">
+                        numbers (1 per S-number • {availableOnePerSNumberForCopy.length.toLocaleString('en-IN')} available S-numbers)
+                      </span>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                      <span className="text-[11px] text-gray-400 font-medium mr-1">Presets:</span>
+                      {[5, 10, 20, 50, 100].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            setCopySerialsCount(preset);
+                            copyCountInputRef.current?.focus();
+                          }}
+                          className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                            copySerialsCount === preset
+                              ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                      {availableOnePerSNumberForCopy.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCopySerialsCount(availableOnePerSNumberForCopy.length);
+                            copyCountInputRef.current?.focus();
+                          }}
+                          className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                            copySerialsCount === availableOnePerSNumberForCopy.length
+                              ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          All ({availableOnePerSNumberForCopy.length})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2149,7 +2455,9 @@ export default function SNumbersDashboard() {
                   onChange={(e) => setIncludeSNumberPrefix(e.target.checked)}
                   className="rounded text-amber-600 focus:ring-amber-500"
                 />
-                <span>Include S-Number</span>
+                <span>
+                  {copyTarget === 'snumbers' ? 'Include Details (Tabbed for Excel)' : 'Include S-Number'}
+                </span>
               </label>
             </div>
 
@@ -2157,14 +2465,52 @@ export default function SNumbersDashboard() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs text-gray-600 font-semibold">
                 <span>
-                  Preview ({itemsToCopy.length.toLocaleString('en-IN')} serial numbers from {new Set(itemsToCopy.map((i) => i.complain_no)).size.toLocaleString('en-IN')} S-numbers):
+                  {copyTarget === 'snumbers'
+                    ? `Preview (${snumbersToCopy.length.toLocaleString('en-IN')} S-numbers):`
+                    : `Preview (${itemsToCopy.length.toLocaleString('en-IN')} serial numbers from ${new Set(itemsToCopy.map((i) => i.complain_no)).size.toLocaleString('en-IN')} S-numbers):`}
                 </span>
                 <span className="text-[11px] text-amber-700 font-mono font-medium">
-                  {copyScope === 'all_serials' ? 'All panels included' : '1 serial per S-number'}
+                  {copyTarget === 'snumbers'
+                    ? 'Complaint IDs'
+                    : copyScope === 'all_serials'
+                    ? 'All panels included'
+                    : '1 serial per S-number'}
                 </span>
               </div>
               <div className="max-h-44 overflow-y-auto bg-gray-900 text-amber-300 font-mono text-[11px] p-3 rounded-xl space-y-1 select-all border border-gray-800">
-                {itemsToCopy.length > 0 ? (
+                {copyTarget === 'snumbers' ? (
+                  snumbersToCopy.length > 0 ? (
+                    snumbersToCopy.slice(0, 100).map((item, idx) => (
+                      <div key={`${item.complain_no}_${idx}`} className="flex items-baseline justify-between gap-2 border-b border-gray-800/60 pb-1">
+                        <span className="text-gray-500 select-none text-[10px]">#{idx + 1}</span>
+                        <span className="text-amber-300 font-bold font-mono text-[11px]">
+                          {item.complain_no}
+                        </span>
+                        <span className="text-gray-400 text-[10px] truncate max-w-[140px]">
+                          {item.consumer_name || item.vendor_name || '-'}
+                        </span>
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded font-sans font-bold ${
+                            dcrSNumbersSet.has(item.complain_no)
+                              ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800'
+                              : 'bg-amber-950/80 text-amber-400 border border-amber-800'
+                          }`}>
+                            {dcrSNumbersSet.has(item.complain_no) ? 'Linked' : 'Pending DCR'}
+                          </span>
+                          {item.solar_panel_serials.length > 0 ? (
+                            <span className="text-gray-400 text-[10px]">({item.solar_panel_serials.length} panels)</span>
+                          ) : (
+                            <span className="text-gray-500 text-[10px] italic">(no panels)</span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-500 py-3 text-center">
+                      No S-numbers match the "{copyHierarchyFilter === 'unlinked_only' ? 'Hierarchy Not Defined' : copyHierarchyFilter === 'linked_only' ? 'Already Linked' : 'All'}" filter.
+                    </div>
+                  )
+                ) : itemsToCopy.length > 0 ? (
                   itemsToCopy.slice(0, 100).map((item, idx) => (
                     <div key={`${item.complain_no}_${item.serial}_${idx}`} className="flex items-baseline justify-between gap-2 border-b border-gray-800/60 pb-1">
                       <span className="text-gray-500 select-none text-[10px]">#{idx + 1}</span>
@@ -2195,9 +2541,9 @@ export default function SNumbersDashboard() {
                     No panel serial numbers match the "{copyHierarchyFilter === 'unlinked_only' ? 'Hierarchy Not Defined' : copyHierarchyFilter === 'linked_only' ? 'Already Linked' : 'All'}" filter.
                   </div>
                 )}
-                {itemsToCopy.length > 100 && (
+                {((copyTarget === 'snumbers' ? snumbersToCopy.length : itemsToCopy.length) > 100) && (
                   <div className="text-center text-gray-500 text-[10px] pt-1">
-                    ... and {(itemsToCopy.length - 100).toLocaleString('en-IN')} more serial numbers will be copied
+                    ... and {((copyTarget === 'snumbers' ? snumbersToCopy.length : itemsToCopy.length) - 100).toLocaleString('en-IN')} more items will be copied
                   </div>
                 )}
               </div>
@@ -2214,8 +2560,8 @@ export default function SNumbersDashboard() {
               </button>
               <button
                 type="button"
-                onClick={handleCopySerials}
-                disabled={itemsToCopy.length === 0}
+                onClick={handleCopyAction}
+                disabled={copyTarget === 'snumbers' ? snumbersToCopy.length === 0 : itemsToCopy.length === 0}
                 className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
               >
                 {copySuccessToast ? (
@@ -2226,6 +2572,12 @@ export default function SNumbersDashboard() {
                 <span>
                   {copySuccessToast
                     ? 'Copied to Clipboard!'
+                    : copyTarget === 'snumbers'
+                    ? copyHierarchyFilter === 'unlinked_only'
+                      ? `Copy ${snumbersToCopy.length.toLocaleString('en-IN')} Unlinked S-Numbers (Pending DCR)`
+                      : copyHierarchyFilter === 'linked_only'
+                      ? `Copy ${snumbersToCopy.length.toLocaleString('en-IN')} Linked S-Numbers (Verified)`
+                      : `Copy ${snumbersToCopy.length.toLocaleString('en-IN')} S-Numbers`
                     : copyHierarchyFilter === 'unlinked_only'
                     ? `Copy ${itemsToCopy.length.toLocaleString('en-IN')} Unlinked Serials (Pending DCR)`
                     : copyScope === 'all_serials'
