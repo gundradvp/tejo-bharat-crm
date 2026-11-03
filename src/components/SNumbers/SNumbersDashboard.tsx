@@ -15,6 +15,7 @@ import {
   fetchAPEGroundReport,
   fetchAPEGroundReportsBatch,
   formatAPEGroundReport,
+  isGroundReportEnriched,
 } from '../../lib/apepdclGroundReport';
 import {
   getAllReportsFromDB,
@@ -77,7 +78,13 @@ export default function SNumbersDashboard() {
 
   // Office Batch Sync State
   const [isOfficeSyncing, setIsOfficeSyncing] = useState(false);
-  const [officeSyncProgress, setOfficeSyncProgress] = useState<{ done: number; total: number; current?: string } | null>(null);
+  const [officeSyncProgress, setOfficeSyncProgress] = useState<{
+    done: number;
+    total: number;
+    current?: string;
+    skipped?: number;
+    message?: string;
+  } | null>(null);
   const [officeSyncError, setOfficeSyncError] = useState<string | null>(null);
 
   // Bulk Downloader State
@@ -295,7 +302,7 @@ export default function SNumbersDashboard() {
 
     setIsOfficeSyncing(true);
     setOfficeSyncError(null);
-    setOfficeSyncProgress({ done: 0, total: 0 });
+    setOfficeSyncProgress({ done: 0, total: 0, message: `Querying APEPDCL complaints for Office ${targetOffice}...` });
 
     try {
       const isBrowser = typeof window !== 'undefined';
@@ -313,20 +320,68 @@ export default function SNumbersDashboard() {
         throw new Error(`No complaints returned for office ${targetOffice} & user ${targetUser}.`);
       }
 
-      // Step 1: Immediately convert all basic complaint records into APEGroundReport objects
-      // and display them in the table right away without waiting!
+      // Step 1: Convert all basic complaint records into APEGroundReport objects
       const initialReports = list
         .map((item: any) => formatAPEGroundReport(item))
         .filter((r) => Boolean(r.complain_no));
 
+      // Build a lookup map of existing reports from React state + IndexedDB
+      const existingMap = new Map<string, APEGroundReport>();
+      for (const r of reports) {
+        if (r.complain_no) existingMap.set(r.complain_no, r);
+      }
+
+      try {
+        const dbReports = await getAllReportsFromDB();
+        if (Array.isArray(dbReports)) {
+          for (const r of dbReports) {
+            if (!r.complain_no) continue;
+            const cur = existingMap.get(r.complain_no);
+            if (!cur) {
+              existingMap.set(r.complain_no, r);
+            } else if (!isGroundReportEnriched(cur) && isGroundReportEnriched(r)) {
+              existingMap.set(r.complain_no, r);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Could not read IndexedDB during sync check:', e);
+      }
+
+      // Merge into state and persist, preserving existing downloaded equipment data!
       setReports((prev) => {
         const map = new Map<string, APEGroundReport>();
         for (const r of prev) map.set(r.complain_no, r);
         for (const r of initialReports) {
-          const existing = map.get(r.complain_no);
-          // Only overwrite if existing record lacks serials and new one has them
+          const existing = map.get(r.complain_no) || existingMap.get(r.complain_no);
           if (!existing) {
             map.set(r.complain_no, r);
+          } else {
+            // Keep existing downloaded equipment data (panel serials, inverter serials, etc.)
+            if (isGroundReportEnriched(existing)) {
+              map.set(r.complain_no, {
+                ...r,
+                ...existing,
+                // Retain non-empty fields from r
+                consumer_name: existing.consumer_name || r.consumer_name,
+                mobile_number: existing.mobile_number || r.mobile_number,
+                sc_number: existing.sc_number || r.sc_number,
+                district: existing.district || r.district,
+                section_name: existing.section_name || r.section_name,
+                vendor_name: existing.vendor_name || r.vendor_name,
+                panel_serials_text: existing.panel_serials_text || r.panel_serials_text,
+                solar_panel_serials: (existing.solar_panel_serials && existing.solar_panel_serials.length > 0)
+                  ? existing.solar_panel_serials
+                  : r.solar_panel_serials,
+                inverter_serial_number: existing.inverter_serial_number || r.inverter_serial_number,
+                inverter_manufacturer: existing.inverter_manufacturer || r.inverter_manufacturer,
+              });
+            } else if (isGroundReportEnriched(r)) {
+              map.set(r.complain_no, {
+                ...existing,
+                ...r,
+              });
+            }
           }
         }
         const merged = Array.from(map.values());
@@ -334,54 +389,84 @@ export default function SNumbersDashboard() {
         return merged;
       });
 
-      // Step 2: Identify records needing full equipment enrichment (panel serials, inverter make/serial, CFA subsidy)
-      const sNumbersNeedingEnrichment = initialReports
-        .filter((r) => !r.panel_serials_text && (!r.solar_panel_manufacturer || !r.inverter_serial_number))
-        .map((r) => r.complain_no);
+      // Step 2: Identify records needing full equipment enrichment.
+      // IF ALREADY DOWNLOADED (panel serials or inverter details present), SIMPLY SKIP!
+      const sNumbersNeedingEnrichment: string[] = [];
+      let skippedCount = 0;
 
-      setOfficeSyncProgress({ done: 0, total: sNumbersNeedingEnrichment.length });
+      for (const r of initialReports) {
+        const existing = existingMap.get(r.complain_no);
+        const alreadyDownloaded = isGroundReportEnriched(existing) || isGroundReportEnriched(r);
 
-      if (sNumbersNeedingEnrichment.length > 0) {
-        let batchAccumulator: APEGroundReport[] = [];
-
-        await fetchAPEGroundReportsBatch(
-          sNumbersNeedingEnrichment,
-          12,
-          (done, total, snum) => {
-            setOfficeSyncProgress({ done, total, current: snum });
-          },
-          targetOffice,
-          targetUser,
-          (enrichedReport) => {
-            batchAccumulator.push(enrichedReport);
-            if (batchAccumulator.length >= 20) {
-              const toMerge = [...batchAccumulator];
-              batchAccumulator = [];
-              setReports((prev) => {
-                const map = new Map<string, APEGroundReport>();
-                for (const r of prev) map.set(r.complain_no, r);
-                for (const r of toMerge) map.set(r.complain_no, r);
-                const updated = Array.from(map.values());
-                persistReports(updated);
-                return updated;
-              });
-            }
-          }
-        );
-
-        if (batchAccumulator.length > 0) {
-          setReports((prev) => {
-            const map = new Map<string, APEGroundReport>();
-            for (const r of prev) map.set(r.complain_no, r);
-            for (const r of batchAccumulator) map.set(r.complain_no, r);
-            const updated = Array.from(map.values());
-            persistReports(updated);
-            return updated;
-          });
+        if (alreadyDownloaded) {
+          skippedCount++;
+        } else {
+          sNumbersNeedingEnrichment.push(r.complain_no);
         }
       }
 
-      alert(`Office Sync Complete for ${targetOffice}! Successfully loaded ${initialReports.length.toLocaleString('en-IN')} complaints.`);
+      if (sNumbersNeedingEnrichment.length === 0) {
+        setOfficeSyncProgress(null);
+        setIsOfficeSyncing(false);
+        alert(
+          `Office Sync Complete for ${targetOffice}!\n\nAll ${initialReports.length.toLocaleString('en-IN')} complaints already have panel serial numbers & equipment details.\nSkipped: ${skippedCount.toLocaleString('en-IN')} records (none needed downloading).`
+        );
+        return;
+      }
+
+      // Step 3: Download ONLY the missing S-numbers that do not have equipment details yet
+      setOfficeSyncProgress({
+        done: 0,
+        total: sNumbersNeedingEnrichment.length,
+        skipped: skippedCount,
+      });
+
+      let batchAccumulator: APEGroundReport[] = [];
+
+      await fetchAPEGroundReportsBatch(
+        sNumbersNeedingEnrichment,
+        12,
+        (done, total, snum) => {
+          setOfficeSyncProgress({
+            done,
+            total,
+            current: snum,
+            skipped: skippedCount,
+          });
+        },
+        targetOffice,
+        targetUser,
+        (enrichedReport) => {
+          batchAccumulator.push(enrichedReport);
+          if (batchAccumulator.length >= 20) {
+            const toMerge = [...batchAccumulator];
+            batchAccumulator = [];
+            setReports((prev) => {
+              const map = new Map<string, APEGroundReport>();
+              for (const r of prev) map.set(r.complain_no, r);
+              for (const r of toMerge) map.set(r.complain_no, r);
+              const updated = Array.from(map.values());
+              persistReports(updated);
+              return updated;
+            });
+          }
+        }
+      );
+
+      if (batchAccumulator.length > 0) {
+        setReports((prev) => {
+          const map = new Map<string, APEGroundReport>();
+          for (const r of prev) map.set(r.complain_no, r);
+          for (const r of batchAccumulator) map.set(r.complain_no, r);
+          const updated = Array.from(map.values());
+          persistReports(updated);
+          return updated;
+        });
+      }
+
+      alert(
+        `Office Sync Complete for ${targetOffice}!\n\nDownloaded: ${sNumbersNeedingEnrichment.length.toLocaleString('en-IN')} new ground reports.\nSkipped: ${skippedCount.toLocaleString('en-IN')} already downloaded records.`
+      );
     } catch (err: any) {
       setOfficeSyncError(err.message || 'Failed to sync office list');
     } finally {
@@ -1194,7 +1279,7 @@ export default function SNumbersDashboard() {
             >
               {isOfficeSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
               {isOfficeSyncing
-                ? `Syncing (${officeSyncProgress?.done || 0}/${officeSyncProgress?.total || 0})...`
+                ? `Syncing (${officeSyncProgress?.done || 0}/${officeSyncProgress?.total || 0})${officeSyncProgress?.skipped ? ` [${officeSyncProgress.skipped} skipped]` : ''}...`
                 : `🌐 Sync Live (${quickOfficeId} / ${quickUserId})`}
             </button>
 
@@ -1257,10 +1342,19 @@ export default function SNumbersDashboard() {
         {/* Real-time Office Sync Progress */}
         {isOfficeSyncing && officeSyncProgress && (
           <div className="p-3 bg-amber-100 border border-amber-300 rounded-lg text-xs text-amber-900 space-y-1.5">
-            <div className="flex items-center justify-between font-semibold">
+            <div className="flex items-center justify-between font-semibold flex-wrap gap-2">
               <span className="flex items-center gap-1.5">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-700" />
-                Downloading Ground Reports: {officeSyncProgress.done} of {officeSyncProgress.total} completed
+                {officeSyncProgress.message || (
+                  <span>
+                    Downloading Ground Reports: <strong>{officeSyncProgress.done}</strong> of <strong>{officeSyncProgress.total}</strong> completed
+                    {typeof officeSyncProgress.skipped === 'number' && officeSyncProgress.skipped > 0 && (
+                      <span className="ml-1.5 text-amber-800 font-normal">
+                        ({officeSyncProgress.skipped.toLocaleString('en-IN')} already downloaded &amp; skipped)
+                      </span>
+                    )}
+                  </span>
+                )}
               </span>
               {officeSyncProgress.current && (
                 <span className="font-mono text-[11px] bg-amber-200/60 px-2 py-0.5 rounded">
@@ -1272,7 +1366,7 @@ export default function SNumbersDashboard() {
               <div
                 className="bg-amber-600 h-1.5 rounded-full transition-all duration-200"
                 style={{
-                  width: `${Math.round((officeSyncProgress.done / (officeSyncProgress.total || 1)) * 100)}%`,
+                  width: `${officeSyncProgress.total > 0 ? Math.round((officeSyncProgress.done / officeSyncProgress.total) * 100) : 0}%`,
                 }}
               />
             </div>

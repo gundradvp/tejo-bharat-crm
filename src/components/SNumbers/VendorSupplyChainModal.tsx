@@ -3,7 +3,8 @@ import {
   X, Search, Building2, ArrowRight, ArrowLeft, ArrowDownRight, ArrowUpRight,
   ShieldCheck, Package, Layers, ExternalLink, Copy, Check, FileSpreadsheet,
   TrendingUp, TrendingDown, Network, Factory, Users, Phone, MessageSquare,
-  User, MapPin, Share2, Download, Filter
+  User, MapPin, Share2, Download, Filter, Calendar, CalendarDays, Hash,
+  FileText, CheckCircle2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -12,20 +13,57 @@ import {
 } from '../../lib/vendorContactsService';
 import { ContactsMasterData, VendorContact } from '../../types/vendorCRM';
 
-interface SupplierInfo {
+export interface EdgePanelItem {
+  serial: string;
+  invoice?: string;
+}
+
+export interface SupplierInfo {
   supplier_name: string;
   panels_count: number;
   invoices: string[];
   manufacturers: string[];
   sample_serials: string[];
+  panels?: EdgePanelItem[];
 }
 
-interface BuyerInfo {
+export interface BuyerInfo {
   buyer_name: string;
   panels_count: number;
   invoices: string[];
   manufacturers: string[];
   sample_serials: string[];
+  panels?: EdgePanelItem[];
+}
+
+export interface SerialMeta {
+  date?: string;
+  comp_date?: string;
+  sno?: string;
+  consumer?: string;
+  app?: string;
+  mfr?: string;
+}
+
+export interface ResolvedPanelRecord {
+  serial: string;
+  invoice: string;
+  dateInserted: string;
+  datePurchase: string;
+  sNumber: string;
+  consumerName: string;
+  appId: string;
+  manufacturer: string;
+}
+
+export interface PanelDetailsModalData {
+  partnerName: string;
+  currentVendorName: string;
+  type: 'supplier' | 'buyer';
+  panelsCount: number;
+  invoices: string[];
+  manufacturers: string[];
+  panels: ResolvedPanelRecord[];
 }
 
 interface VendorData {
@@ -58,9 +96,12 @@ interface MasterData {
     total_mapped_snumbers: number;
     total_entities_tracked: number;
     total_manufacturers?: number;
+    total_dcr_serials?: number;
   };
   vendor_intelligence: Record<string, VendorData>;
+  serial_metadata?: Record<string, SerialMeta>;
   manufacturers_ranking?: ManufacturerRanking[];
+  snumber_dcr_map?: Record<string, any>;
 }
 
 interface Props {
@@ -423,10 +464,211 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
     return enrichedBuyers.filter((b) => b.district === districtFilter);
   }, [enrichedBuyers, districtFilter]);
 
+  // Panel Details Modal State (triggered when clicking on panel count pills e.g. 56)
+  const [activePanelsModal, setActivePanelsModal] = useState<PanelDetailsModalData | null>(null);
+  const [panelSearchTerm, setPanelSearchTerm] = useState('');
+  const [panelInvoiceFilter, setPanelInvoiceFilter] = useState('ALL');
+  const [panelCopiedKey, setPanelCopiedKey] = useState<string | null>(null);
+
+  // Close panel modal on ESC
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activePanelsModal) {
+        e.stopPropagation();
+        setActivePanelsModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activePanelsModal]);
+
+  const handleOpenPanelsModal = (
+    type: 'supplier' | 'buyer',
+    partnerName: string,
+    panelsCount: number,
+    edgePanels?: EdgePanelItem[],
+    sampleSerials?: string[],
+    invoices?: string[],
+    manufacturers?: string[]
+  ) => {
+    if (!currentVendorData) return;
+
+    let items: Array<{ serial: string; invoice: string }> = [];
+    if (edgePanels && edgePanels.length > 0) {
+      items = edgePanels.map((p) => ({
+        serial: p.serial,
+        invoice: p.invoice || ''
+      }));
+    } else if (sampleSerials && sampleSerials.length > 0) {
+      items = sampleSerials.map((s, idx) => ({
+        serial: s,
+        invoice: invoices?.[idx % (invoices.length || 1)] || ''
+      }));
+    }
+
+    const resolvedPanels: ResolvedPanelRecord[] = items.map((item) => {
+      const meta = data?.serial_metadata?.[item.serial];
+      return {
+        serial: item.serial,
+        invoice: item.invoice || '',
+        dateInserted: meta?.date || '',
+        datePurchase: meta?.comp_date || '',
+        sNumber: meta?.sno || '',
+        consumerName: meta?.consumer || '',
+        appId: meta?.app || '',
+        manufacturer: meta?.mfr || manufacturers?.[0] || ''
+      };
+    });
+
+    setPanelSearchTerm('');
+    setPanelInvoiceFilter('ALL');
+    setActivePanelsModal({
+      partnerName,
+      currentVendorName: currentVendorData.vendor_name,
+      type,
+      panelsCount,
+      invoices: invoices || [],
+      manufacturers: manufacturers || [],
+      panels: resolvedPanels
+    });
+  };
+
+  const filteredModalPanels = useMemo(() => {
+    if (!activePanelsModal) return [];
+    return activePanelsModal.panels.filter((p) => {
+      if (panelInvoiceFilter !== 'ALL' && (p.invoice || 'Direct / Stock') !== panelInvoiceFilter) {
+        return false;
+      }
+      if (!panelSearchTerm.trim()) return true;
+      const q = panelSearchTerm.toLowerCase().trim();
+      return (
+        p.serial.toLowerCase().includes(q) ||
+        p.invoice.toLowerCase().includes(q) ||
+        p.dateInserted.toLowerCase().includes(q) ||
+        p.datePurchase.toLowerCase().includes(q) ||
+        p.sNumber.toLowerCase().includes(q) ||
+        p.consumerName.toLowerCase().includes(q) ||
+        p.appId.toLowerCase().includes(q) ||
+        p.manufacturer.toLowerCase().includes(q)
+      );
+    });
+  }, [activePanelsModal, panelInvoiceFilter, panelSearchTerm]);
+
+  const modalInvoiceOptions = useMemo(() => {
+    if (!activePanelsModal) return [];
+    const counts: Record<string, number> = {};
+    activePanelsModal.panels.forEach((p) => {
+      const inv = p.invoice || 'Direct / Stock';
+      counts[inv] = (counts[inv] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [activePanelsModal]);
+
+  const handleCopyModalSerials = () => {
+    if (!filteredModalPanels.length) return;
+    const text = filteredModalPanels.map((p) => p.serial).join('\n');
+    navigator.clipboard.writeText(text);
+    setPanelCopiedKey('all_serials');
+    setTimeout(() => setPanelCopiedKey(null), 1800);
+  };
+
+  const handleCopyModalTSV = () => {
+    if (!filteredModalPanels.length || !activePanelsModal) return;
+    const headers = [
+      'S.No',
+      'Panel Serial Number',
+      'Date Inserted into System',
+      'Date of Purchase / Application',
+      'Invoice / Ref',
+      'Brand / Manufacturer',
+      'S-Number (Complaint No)',
+      'Consumer Name',
+      'Application ID',
+      'Supplier / Seller',
+      'Buyer / Partner'
+    ];
+    const fromEntity = activePanelsModal.type === 'supplier' ? activePanelsModal.partnerName : activePanelsModal.currentVendorName;
+    const toEntity = activePanelsModal.type === 'supplier' ? activePanelsModal.currentVendorName : activePanelsModal.partnerName;
+
+    const rows = filteredModalPanels.map((p, idx) => [
+      idx + 1,
+      p.serial,
+      p.dateInserted || '',
+      p.datePurchase || '',
+      p.invoice || '',
+      p.manufacturer || '',
+      p.sNumber || '',
+      p.consumerName || '',
+      p.appId || '',
+      fromEntity,
+      toEntity
+    ].join('\t'));
+
+    const tsv = [headers.join('\t'), ...rows].join('\n');
+    navigator.clipboard.writeText(tsv);
+    setPanelCopiedKey('tsv_table');
+    setTimeout(() => setPanelCopiedKey(null), 1800);
+  };
+
+  const handleExportModalExcel = () => {
+    if (!filteredModalPanels.length || !activePanelsModal) return;
+    const fromEntity = activePanelsModal.type === 'supplier' ? activePanelsModal.partnerName : activePanelsModal.currentVendorName;
+    const toEntity = activePanelsModal.type === 'supplier' ? activePanelsModal.currentVendorName : activePanelsModal.partnerName;
+
+    const rows = filteredModalPanels.map((p, idx) => ({
+      'S.No': idx + 1,
+      'Panel Serial Number': p.serial,
+      'Date Inserted into System': p.dateInserted || '',
+      'Date of Purchase / Application': p.datePurchase || '',
+      'Invoice / Ref': p.invoice || '',
+      'Brand / Manufacturer': p.manufacturer || '',
+      'S-Number (Complaint No)': p.sNumber || '',
+      'Consumer Name': p.consumerName || '',
+      'Application ID': p.appId || '',
+      'Supplier / Seller': fromEntity,
+      'Buyer / Partner': toEntity
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 6 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 20 },
+      { wch: 16 },
+      { wch: 28 },
+      { wch: 18 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 32 },
+      { wch: 32 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const sheetName = `${activePanelsModal.partnerName.slice(0, 20)}_Panels`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+
+    const cleanPartner = activePanelsModal.partnerName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 20);
+    const cleanCurrent = activePanelsModal.currentVendorName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 20);
+    XLSX.writeFile(wb, `${cleanPartner}_to_${cleanCurrent}_${activePanelsModal.panels.length}_Panels.xlsx`);
+  };
+
+  const formatDateString = (d?: string) => {
+    if (!d) return '-';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      const [y, m, day] = d.split('-');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const mIdx = parseInt(m, 10) - 1;
+      return `${day}-${months[mIdx] || m}-${y}`;
+    }
+    return d;
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+    <>
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
       <div className="bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Modal Header */}
@@ -1071,7 +1313,12 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                           <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200 uppercase tracking-wider text-[11px] sticky top-0">
                             <tr>
                               <th className="px-3.5 py-2.5">Supplier / Seller</th>
-                              <th className="px-3.5 py-2.5 text-center">Panels</th>
+                              <th className="px-3.5 py-2.5 text-center" title="Click badge to view all panel serial numbers, purchase dates & insert dates">
+                                <span className="inline-flex items-center gap-1 justify-center">
+                                  Panels
+                                  <span className="text-[9px] font-normal lowercase opacity-70">(click)</span>
+                                </span>
+                              </th>
                               <th className="px-3.5 py-2.5">Brands</th>
                               <th className="px-3.5 py-2.5">Invoices / Ref</th>
                             </tr>
@@ -1184,9 +1431,15 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                                       </div>
                                     </td>
                                     <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
-                                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">
-                                        {s.panels_count}
-                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenPanelsModal('supplier', s.supplier_name, s.panels_count, s.panels, s.sample_serials, s.invoices, s.manufacturers)}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 active:bg-emerald-300 text-emerald-800 hover:text-emerald-950 font-bold rounded-lg transition-all shadow-2xs hover:scale-105 active:scale-95 cursor-pointer border border-emerald-300/70 group"
+                                        title={`Click to view all ${s.panels_count} panel serial numbers, purchase dates & insert dates`}
+                                      >
+                                        <span>{s.panels_count}</span>
+                                        <ExternalLink className="w-3 h-3 text-emerald-700 opacity-60 group-hover:opacity-100 transition-opacity" />
+                                      </button>
                                     </td>
                                     <td className="px-3.5 py-2.5 text-gray-600 truncate max-w-[140px]" title={s.manufacturers.join(', ')}>
                                       {s.manufacturers.join(', ') || '-'}
@@ -1324,7 +1577,12 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                           <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200 uppercase tracking-wider text-[11px] sticky top-0">
                             <tr>
                               <th className="px-3.5 py-2.5">Buyer / Reseller / Partner (Strictly B2B)</th>
-                              <th className="px-3.5 py-2.5 text-center">Panels</th>
+                              <th className="px-3.5 py-2.5 text-center" title="Click badge to view all panel serial numbers, purchase dates & insert dates">
+                                <span className="inline-flex items-center gap-1 justify-center">
+                                  Panels
+                                  <span className="text-[9px] font-normal lowercase opacity-70">(click)</span>
+                                </span>
+                              </th>
                               <th className="px-3.5 py-2.5">Brands</th>
                               <th className="px-3.5 py-2.5">Invoices / Ref</th>
                             </tr>
@@ -1437,9 +1695,15 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                                       </div>
                                     </td>
                                     <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
-                                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded-md">
-                                        {b.panels_count}
-                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenPanelsModal('buyer', b.buyer_name, b.panels_count, b.panels, b.sample_serials, b.invoices, b.manufacturers)}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 hover:bg-blue-200 active:bg-blue-300 text-blue-800 hover:text-blue-950 font-bold rounded-lg transition-all shadow-2xs hover:scale-105 active:scale-95 cursor-pointer border border-blue-300/70 group"
+                                        title={`Click to view all ${b.panels_count} panel serial numbers, purchase dates & insert dates`}
+                                      >
+                                        <span>{b.panels_count}</span>
+                                        <ExternalLink className="w-3 h-3 text-blue-700 opacity-60 group-hover:opacity-100 transition-opacity" />
+                                      </button>
                                     </td>
                                     <td className="px-3.5 py-2.5 text-gray-600 truncate max-w-[140px]" title={b.manufacturers.join(', ')}>
                                       {b.manufacturers.join(', ') || '-'}
@@ -1511,5 +1775,336 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
 
       </div>
     </div>
+
+    {/* Panel Serial Numbers & Purchase Records Modal */}
+    {activePanelsModal && (
+      <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150">
+        <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-150">
+          
+          {/* Modal Header */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-6 py-4 flex items-start justify-between border-b border-indigo-900/40">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0">
+                <Package className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-lg font-bold text-white tracking-tight">
+                    {activePanelsModal.panels.length} Solar Panel Serial Numbers &amp; Purchase Records
+                  </h3>
+                  <span className={`text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-full ${
+                    activePanelsModal.type === 'supplier' 
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                      : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                  }`}>
+                    {activePanelsModal.type === 'supplier' ? 'Inbound Purchase' : 'Outbound Supply'}
+                  </span>
+                </div>
+                <p className="text-xs text-indigo-200/90 mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span>{activePanelsModal.type === 'supplier' ? 'Supplier:' : 'Seller:'} <strong className="text-white">{activePanelsModal.partnerName}</strong></span>
+                  <span className="text-amber-400 font-bold">➔</span>
+                  <span>{activePanelsModal.type === 'supplier' ? 'Buyer / Tracker:' : 'Buyer:'} <strong className="text-white">{activePanelsModal.currentVendorName}</strong></span>
+                  <span className="text-indigo-300/60">•</span>
+                  <span className="text-emerald-300 font-semibold">{activePanelsModal.panels.length} Verified Panels</span>
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActivePanelsModal(null)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title="Close panel viewer (ESC)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Toolbar / Search & Actions */}
+          <div className="p-4 bg-slate-50 border-b border-slate-200/80 space-y-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              
+              {/* Search Bar */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={panelSearchTerm}
+                  onChange={(e) => setPanelSearchTerm(e.target.value)}
+                  placeholder="Search serial, invoice, date, customer, S-number..."
+                  className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium placeholder:text-slate-400"
+                />
+                {panelSearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setPanelSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <button
+                  type="button"
+                  onClick={handleCopyModalSerials}
+                  disabled={filteredModalPanels.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Copy all serial numbers newline-separated"
+                >
+                  {panelCopiedKey === 'all_serials' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-indigo-600" />}
+                  <span>{panelCopiedKey === 'all_serials' ? 'Copied Serials!' : `Copy Serials (${filteredModalPanels.length})`}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyModalTSV}
+                  disabled={filteredModalPanels.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Copy entire table for Excel / Google Sheets (TSV)"
+                >
+                  {panelCopiedKey === 'tsv_table' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}
+                  <span>{panelCopiedKey === 'tsv_table' ? 'Copied TSV!' : 'Copy for Excel'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportModalExcel}
+                  disabled={filteredModalPanels.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-sm disabled:opacity-50 cursor-pointer"
+                  title="Export complete details to formatted .xlsx Excel file"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export .xlsx</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Invoice Filter Chips if more than 1 invoice */}
+            {modalInvoiceOptions.length > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-200/60">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">Invoices:</span>
+                <button
+                  type="button"
+                  onClick={() => setPanelInvoiceFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    panelInvoiceFilter === 'ALL'
+                      ? 'bg-indigo-600 text-white shadow-2xs'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  All Invoices ({activePanelsModal.panels.length})
+                </button>
+                {modalInvoiceOptions.map(([inv, count]) => (
+                  <button
+                    key={inv}
+                    type="button"
+                    onClick={() => setPanelInvoiceFilter(inv)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                      panelInvoiceFilter === inv
+                        ? 'bg-indigo-600 text-white shadow-2xs'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                    }`}
+                  >
+                    {inv} <span className="opacity-75 font-sans font-bold">({count})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Panels Table */}
+          <div className="overflow-y-auto max-h-[60vh] flex-1 p-0">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200 uppercase tracking-wider text-[11px] sticky top-0 z-10 shadow-2xs">
+                <tr>
+                  <th className="px-3.5 py-2.5 w-12 text-center">#</th>
+                  <th className="px-3.5 py-2.5 font-bold">Panel Serial Number</th>
+                  <th className="px-3.5 py-2.5 font-bold text-emerald-950">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Date Inserted into System</span>
+                    </div>
+                  </th>
+                  <th className="px-3.5 py-2.5 font-bold text-indigo-950">
+                    <div className="flex items-center gap-1">
+                      <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Date of Purchase / Comp</span>
+                    </div>
+                  </th>
+                  <th className="px-3.5 py-2.5">Invoice / Ref</th>
+                  <th className="px-3.5 py-2.5">Brand / Manufacturer</th>
+                  <th className="px-3.5 py-2.5">S-Number (Complaint)</th>
+                  <th className="px-3.5 py-2.5">Customer / Consumer</th>
+                  <th className="px-3.5 py-2.5">Portal App ID</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {filteredModalPanels.length > 0 ? (
+                  filteredModalPanels.map((p, idx) => {
+                    const serialCopyKey = `panel_modal_s_${idx}`;
+                    const snoCopyKey = `panel_modal_sno_${idx}`;
+                    const invCopyKey = `panel_modal_inv_${idx}`;
+
+                    return (
+                      <tr key={idx} className="hover:bg-indigo-50/40 transition-colors">
+                        {/* Index */}
+                        <td className="px-3.5 py-2.5 text-center font-mono text-[11px] text-slate-400">
+                          {idx + 1}
+                        </td>
+
+                        {/* Serial Number with 1-click copy */}
+                        <td className="px-3.5 py-2.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs font-bold text-slate-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/80">
+                              {p.serial}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(p.serial, serialCopyKey)}
+                              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                              title="Copy serial number"
+                            >
+                              {copiedKey === serialCopyKey ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Date Inserted Into System */}
+                        <td className="px-3.5 py-2.5 whitespace-nowrap">
+                          {p.dateInserted ? (
+                            <span
+                              className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80"
+                              title={`System Entry Date (INST_CREATE_DATE): ${p.dateInserted}`}
+                            >
+                              <Calendar className="w-3 h-3 text-emerald-600 shrink-0" />
+                              {formatDateString(p.dateInserted)}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic font-mono text-[11px]">-</span>
+                          )}
+                        </td>
+
+                        {/* Date of Purchase / Complaint */}
+                        <td className="px-3.5 py-2.5 whitespace-nowrap">
+                          {p.datePurchase ? (
+                            <span
+                              className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200/80"
+                              title={`Date of Purchase / Application Complaint: ${p.datePurchase}`}
+                            >
+                              <CalendarDays className="w-3 h-3 text-indigo-600 shrink-0" />
+                              {formatDateString(p.datePurchase)}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic font-mono text-[11px]">-</span>
+                          )}
+                        </td>
+
+                        {/* Invoice */}
+                        <td className="px-3.5 py-2.5 whitespace-nowrap font-mono text-[11px]">
+                          {p.invoice ? (
+                            <div className="flex items-center gap-1">
+                              <span className="font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                {p.invoice}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(p.invoice, invCopyKey)}
+                                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                                title="Copy invoice"
+                              >
+                                {copiedKey === invCopyKey ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic">Direct / Stock</span>
+                          )}
+                        </td>
+
+                        {/* Brand / Manufacturer */}
+                        <td className="px-3.5 py-2.5 text-slate-700 max-w-[150px] truncate" title={p.manufacturer}>
+                          {p.manufacturer || '-'}
+                        </td>
+
+                        {/* S-Number */}
+                        <td className="px-3.5 py-2.5 whitespace-nowrap font-mono text-[11px]">
+                          {p.sNumber ? (
+                            <div className="flex items-center gap-1">
+                              <span className="font-bold text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/70">
+                                {p.sNumber}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(p.sNumber, snoCopyKey)}
+                                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                                title="Copy S-number"
+                              >
+                                {copiedKey === snoCopyKey ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic">-</span>
+                          )}
+                        </td>
+
+                        {/* Consumer Name */}
+                        <td className="px-3.5 py-2.5 text-slate-800 font-medium max-w-[130px] truncate" title={p.consumerName}>
+                          {p.consumerName || '-'}
+                        </td>
+
+                        {/* Portal App ID */}
+                        <td className="px-3.5 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                          {p.appId || '-'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={9} className="text-center py-12 text-slate-500 space-y-2">
+                      <p className="font-semibold text-xs">No panels match your filter or search query.</p>
+                      <button
+                        type="button"
+                        onClick={() => { setPanelSearchTerm(''); setPanelInvoiceFilter('ALL'); }}
+                        className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer"
+                      >
+                        Clear Search &amp; Invoice Filters
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600 flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <span>Showing <strong>{filteredModalPanels.length}</strong> of <strong>{activePanelsModal.panels.length}</strong> panels</span>
+              {activePanelsModal.panels.length > 0 && (
+                <span className="text-emerald-700 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  100% Verified in DCR Network
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setActivePanelsModal(null)}
+              className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition-colors shadow-2xs cursor-pointer"
+            >
+              Close (ESC)
+            </button>
+          </div>
+
+        </div>
+      </div>
+    )}
+  </>
   );
 }

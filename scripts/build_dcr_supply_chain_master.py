@@ -87,8 +87,8 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
     total_excel_rows = 0
     valid_chains = 0
 
-    vendor_inbound = defaultdict(lambda: defaultdict(lambda: {'count': 0, 'invoices': set(), 'mfrs': set(), 'serials': []}))
-    vendor_outbound_b2b = defaultdict(lambda: defaultdict(lambda: {'count': 0, 'invoices': set(), 'mfrs': set(), 'serials': []}))
+    vendor_inbound = defaultdict(lambda: defaultdict(lambda: {'count': 0, 'invoices': set(), 'mfrs': set(), 'serials': [], 'panels': []}))
+    vendor_outbound_b2b = defaultdict(lambda: defaultdict(lambda: {'count': 0, 'invoices': set(), 'mfrs': set(), 'serials': [], 'panels': []}))
     vendor_b2c_count = Counter()
     vendor_mfrs = defaultdict(Counter)
 
@@ -226,6 +226,7 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
                     vendor_inbound[dst_name][src_name]['mfrs'].add(mfr_name)
                     if len(vendor_inbound[dst_name][src_name]['serials']) < 5:
                         vendor_inbound[dst_name][src_name]['serials'].append(serial)
+                    vendor_inbound[dst_name][src_name]['panels'].append({'serial': serial, 'invoice': dst_inv})
 
                     vendor_outbound_b2b[src_name][dst_name]['count'] += 1
                     if dst_inv:
@@ -233,6 +234,7 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
                     vendor_outbound_b2b[src_name][dst_name]['mfrs'].add(mfr_name)
                     if len(vendor_outbound_b2b[src_name][dst_name]['serials']) < 5:
                         vendor_outbound_b2b[src_name][dst_name]['serials'].append(serial)
+                    vendor_outbound_b2b[src_name][dst_name]['panels'].append({'serial': serial, 'invoice': dst_inv})
 
     print(f"\n✅ Total rows evaluated: {total_excel_rows:,}")
     print(f"✅ Total valid DCR chains extracted: {valid_chains:,}")
@@ -253,6 +255,35 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
     for r in serial_to_dcr.values():
         if r.get('app_id'):
             app_to_dcr[r['app_id']] = r
+
+    # Build fast lookup indexes from ground reports
+    gr_by_serial = {}
+    gr_by_app = {}
+    for gr in ground_reports:
+        s_raw = str(gr.get("SOLAR_PANEL_PRODUCT_SERIAL_NUMBER", "") or gr.get("panel_serials_text", ""))
+        for s in s_raw.replace(";", ",").replace("\n", ",").split(","):
+            s = s.strip()
+            if s.endswith(".0"):
+                s = s[:-2]
+            if s:
+                gr_by_serial[s] = gr
+        app = (gr.get("SERIELNUMBER") or gr.get("CONSUMER_SCNO_ID") or "").strip()
+        if app:
+            gr_by_app[app] = gr
+
+    serial_metadata = {}
+    for serial, dcr in serial_to_dcr.items():
+        app_id = dcr.get('app_id')
+        info = gr_by_serial.get(serial) or (gr_by_app.get(app_id) if app_id else None)
+        if info:
+            serial_metadata[serial] = {
+                'date': info.get('INST_CREATE_DATE') or info.get('CREATE_DATE') or '',
+                'comp_date': info.get('COMP_DATE') or info.get('COMPDATE') or '',
+                'sno': info.get('COMPLAINT_NO') or info.get('COMP_NO') or '',
+                'consumer': (info.get('COMP_NAME') or info.get('NAME') or '').strip(),
+                'app': app_id or info.get('SERIELNUMBER') or '',
+                'mfr': (dcr.get('hops') and dcr['hops'][0]['name']) or info.get('SOLAR_PANEL_PRODUCT_MANUFACTURER') or ''
+            }
 
     for gr in ground_reports:
         sno = (gr.get('COMPLAINT_NO') or gr.get('COMPLAIN_NO') or gr.get('complain_no') or gr.get('COMP_NO') or '').strip().upper()
@@ -311,7 +342,8 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
                 'panels_count': sinfo['count'],
                 'invoices': sorted(list(sinfo['invoices'])),
                 'manufacturers': sorted(list(sinfo['mfrs'])),
-                'sample_serials': sinfo['serials']
+                'sample_serials': sinfo['serials'],
+                'panels': sinfo['panels']
             })
         sups.sort(key=lambda x: x['panels_count'], reverse=True)
 
@@ -322,7 +354,8 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
                 'panels_count': binfo['count'],
                 'invoices': sorted(list(binfo['invoices'])),
                 'manufacturers': sorted(list(binfo['mfrs'])),
-                'sample_serials': binfo['serials']
+                'sample_serials': binfo['serials'],
+                'panels': binfo['panels']
             })
         buyers.sort(key=lambda x: x['panels_count'], reverse=True)
 
@@ -345,8 +378,8 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
     vs_pvt = vendor_intelligence.get('Venkata Siri Solar Private Limited')
     vs_power = vendor_intelligence.get('Venkata Siri Solar Power')
     if vs_pvt or vs_power:
-        comb_sups_dict = defaultdict(lambda: {'count': 0, 'invoices': set(), 'mfrs': set(), 'serials': []})
-        comb_buyers_dict = defaultdict(lambda: {'count': 0, 'invoices': set(), 'mfrs': set(), 'serials': []})
+        comb_sups_dict = defaultdict(lambda: {'count': 0, 'invoices': set(), 'mfrs': set(), 'serials': [], 'panels': []})
+        comb_buyers_dict = defaultdict(lambda: {'count': 0, 'invoices': set(), 'mfrs': set(), 'serials': [], 'panels': []})
         comb_mfrs = Counter()
         comb_b2c = 0
 
@@ -364,6 +397,7 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
                 cs['invoices'].update(s['invoices'])
                 cs['mfrs'].update(s['manufacturers'])
                 cs['serials'].extend(s['sample_serials'][:2])
+                cs['panels'].extend(s.get('panels', []))
             for b in vs['buyers']:
                 if 'venkata siri' in b['buyer_name'].lower():
                     continue
@@ -372,18 +406,21 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
                 cb['invoices'].update(b['invoices'])
                 cb['mfrs'].update(b['manufacturers'])
                 cb['serials'].extend(b['sample_serials'][:2])
+                cb['panels'].extend(b.get('panels', []))
 
         c_sups = [{
             'supplier_name': k, 'panels_count': v['count'],
             'invoices': sorted(list(v['invoices'])), 'manufacturers': sorted(list(v['mfrs'])),
-            'sample_serials': v['serials'][:5]
+            'sample_serials': v['serials'][:5],
+            'panels': v['panels']
         } for k, v in comb_sups_dict.items()]
         c_sups.sort(key=lambda x: x['panels_count'], reverse=True)
 
         c_buyers = [{
             'buyer_name': k, 'panels_count': v['count'],
             'invoices': sorted(list(v['invoices'])), 'manufacturers': sorted(list(v['mfrs'])),
-            'sample_serials': v['serials'][:5]
+            'sample_serials': v['serials'][:5],
+            'panels': v['panels']
         } for k, v in comb_buyers_dict.items()]
         c_buyers.sort(key=lambda x: x['panels_count'], reverse=True)
 
@@ -436,6 +473,7 @@ def build_dcr_master(source_excel_path=DEFAULT_SOURCE_EXCEL):
         },
         'vendor_intelligence': vendor_intelligence,
         'snumber_dcr_map': snumber_dcr_map,
+        'serial_metadata': serial_metadata,
         'manufacturers_ranking': ranking,
         'dcr_serials_list': sorted_dcr_serials
     }

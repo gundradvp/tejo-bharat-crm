@@ -295,3 +295,21 @@ export function getCachedGroundReport(snum: string): APEGroundReport | null {
   }
   return null;
 }
+
+/**
+ * Check if a Ground Report already contains downloaded equipment details
+ * (panel serial numbers, inverter manufacturer / serial number).
+ */
+export function isGroundReportEnriched(r?: APEGroundReport | null): boolean {
+  if (!r) return false;
+  const hasPanels = Boolean(
+    (r.panel_serials_text && r.panel_serials_text.trim() && r.panel_serials_text !== '-' && r.panel_serials_text.toUpperCase() !== 'NULL') ||
+    (Array.isArray(r.solar_panel_serials) && r.solar_panel_serials.some((s) => s && s.trim() && s !== '-' && s.toUpperCase() !== 'NULL'))
+  );
+  const hasInverter = Boolean(
+    (r.inverter_serial_number && r.inverter_serial_number.trim() && r.inverter_serial_number !== '-' && r.inverter_serial_number.toUpperCase() !== 'NULL') ||
+    (r.inverter_manufacturer && r.inverter_manufacturer.trim() && r.inverter_manufacturer !== '-' && r.inverter_manufacturer.toUpperCase() !== 'NULL')
+  );
+  return hasPanels || hasInverter;
+}
+
