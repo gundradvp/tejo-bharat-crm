@@ -427,118 +427,233 @@ export default function NationalPortalDetailModal({ summary, onClose }: Props) {
               )}
 
               {/* TAB 2: EQUIPMENT */}
-              {activeTab === 'equipment' && (
-                <div className="space-y-6">
-                  {/* Solar Modules Section */}
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2 mb-3">
-                      <Layers className="w-4 h-4 text-amber-600" />
-                      Solar PV Modules (DCR Serial Numbers)
-                    </h3>
-                    {detail?.moduleList && detail.moduleList.length > 0 ? (
-                      <div className="space-y-3">
-                        {detail.moduleList.map((mod, idx) => (
-                          <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-gray-50/70">
-                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                              <span className="font-bold text-gray-900">{mod.manufacturerName || 'Solar Module'}</span>
-                              <div className="flex items-center gap-2">
+              {activeTab === 'equipment' && (() => {
+                // Determine modules list: prefer detail.moduleList, fallback to summary.panelSerials / summary.moduleMfr
+                const hasDetailModules = detail?.moduleList && detail.moduleList.length > 0;
+                const hasSummaryPanels = summary.panelSerials && summary.panelSerials.length > 0;
+                
+                // Determine inverters list: prefer detail.inverterList, fallback to summary.invSerials / summary.invMfr
+                const hasDetailInverters = detail?.inverterList && detail.inverterList.length > 0;
+                const hasSummaryInverters = (summary.invSerials && summary.invSerials.length > 0) || Boolean(summary.invMfr);
+
+                return (
+                  <div className="space-y-6">
+                    {/* Solar Modules Section */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-amber-600" />
+                          Solar PV Modules (DCR Serial Numbers)
+                        </h3>
+                        {(hasDetailModules || hasSummaryPanels) && (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                            {hasDetailModules
+                              ? `${detail!.moduleList!.reduce((acc, m) => acc + (m.serialNumbers?.length || m.qty || 1), 0)} Panels Registered`
+                              : `${summary.panelSerials!.length} Panels Registered`}
+                          </span>
+                        )}
+                      </div>
+
+                      {hasDetailModules ? (
+                        <div className="space-y-3">
+                          {detail!.moduleList!.map((mod, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-gray-50/70">
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <span className="font-bold text-gray-900">{mod.manufacturerName || summary.moduleMfr || 'Solar Module'}</span>
+                                <div className="flex items-center gap-2">
+                                  {mod.capacity && (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
+                                      {mod.capacity} Wp
+                                    </span>
+                                  )}
+                                  <span className="text-xs px-2 py-0.5 rounded bg-teal-100 text-teal-800 font-semibold">
+                                    Qty: {mod.qty || (mod.serialNumbers ? mod.serialNumbers.length : 0)} panels
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              {/* Serial Numbers Pills */}
+                              {mod.serialNumbers && mod.serialNumbers.length > 0 ? (
+                                <div className="mt-3">
+                                  <span className="text-xs text-gray-500 font-medium block mb-1.5">Registered Serial Numbers:</span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {mod.serialNumbers.map((rawSno, sIdx) => {
+                                      const snoStr = typeof rawSno === 'string' ? rawSno : (rawSno?.serialNumber || String(rawSno));
+                                      return (
+                                        <span
+                                          key={sIdx}
+                                          onClick={() => handleCopy(snoStr, `sno-${sIdx}`)}
+                                          className="inline-flex items-center gap-1 font-mono text-xs px-2 py-1 rounded bg-white border border-gray-300 text-gray-800 hover:border-teal-500 hover:bg-teal-50 cursor-pointer transition-colors shadow-2xs"
+                                          title="Click to copy serial number"
+                                        >
+                                          {snoStr}
+                                          {copiedKey === `sno-${sIdx}` ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-gray-400 opacity-60" />}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-500 italic mt-2">No individual serial numbers listed in portal record.</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : hasSummaryPanels ? (
+                        /* Fallback to summary panel serial numbers */
+                        <div className="border border-amber-200 rounded-xl p-4 bg-amber-50/40">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div>
+                              <span className="font-bold text-gray-900 block">{summary.moduleMfr || 'Waaree Energies / Solar Module'}</span>
+                              <span className="text-xs text-gray-500">DCR Certified Rooftop Solar Modules</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {summary.cap && (
                                 <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
-                                  {mod.capacity} Wp
+                                  {Math.round((summary.cap * 1000) / (summary.panelSerials?.length || 1))} Wp / module
                                 </span>
-                                <span className="text-xs px-2 py-0.5 rounded bg-teal-100 text-teal-800 font-semibold">
-                                  Qty: {mod.qty || (mod.serialNumbers ? mod.serialNumbers.length : 0)} panels
-                                </span>
-                              </div>
+                              )}
+                              <span className="text-xs px-2.5 py-0.5 rounded bg-teal-100 text-teal-800 font-bold">
+                                {summary.panelSerials!.length} Panels
+                              </span>
                             </div>
-                            
-                            {/* Serial Numbers Pills */}
-                            {mod.serialNumbers && mod.serialNumbers.length > 0 ? (
-                              <div className="mt-3">
-                                <span className="text-xs text-gray-500 font-medium block mb-1.5">Registered Serial Numbers:</span>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {mod.serialNumbers.map((rawSno, sIdx) => {
-                                    const snoStr = typeof rawSno === 'string' ? rawSno : (rawSno?.serialNumber || String(rawSno));
-                                    return (
-                                      <span
-                                        key={sIdx}
-                                        onClick={() => handleCopy(snoStr, `sno-${sIdx}`)}
-                                        className="inline-flex items-center gap-1 font-mono text-xs px-2 py-1 rounded bg-white border border-gray-300 text-gray-800 hover:border-teal-500 hover:bg-teal-50 cursor-pointer transition-colors shadow-2xs"
-                                        title="Click to copy serial number"
-                                      >
-                                        {snoStr}
-                                        {copiedKey === `sno-${sIdx}` ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-gray-400 opacity-60" />}
-                                      </span>
-                                    );
-                                  })}
+                          </div>
+
+                          <div className="mt-2">
+                            <span className="text-xs text-gray-600 font-semibold block mb-2">Registered DCR Module Serial Numbers:</span>
+                            <div className="flex flex-wrap gap-2">
+                              {summary.panelSerials!.map((sno, sIdx) => (
+                                <span
+                                  key={sIdx}
+                                  onClick={() => handleCopy(sno, `summary-sno-${sIdx}`)}
+                                  className="inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1.5 rounded-lg bg-white border border-gray-300 text-gray-900 hover:border-teal-600 hover:bg-teal-50 hover:text-teal-900 cursor-pointer transition-all shadow-2xs font-semibold"
+                                  title="Click to copy serial number"
+                                >
+                                  <span className="text-gray-400 text-[10px] font-normal">#{sIdx + 1}</span>
+                                  {sno}
+                                  {copiedKey === `summary-sno-${sIdx}` ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5 text-gray-400 opacity-60" />
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-6 text-center text-gray-500 bg-gray-50 border border-gray-200 rounded-xl text-sm">
+                          No module list recorded in this portal entry.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Inverters Section */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                          <Cpu className="w-4 h-4 text-teal-600" />
+                          Inverter Equipment
+                        </h3>
+                        {(hasDetailInverters || hasSummaryInverters) && (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-teal-100 text-teal-900 border border-teal-300">
+                            {hasDetailInverters
+                              ? `${detail!.inverterList!.length} Inverter Unit(s)`
+                              : `${summary.invSerials?.length || 1} Inverter Unit(s)`}
+                          </span>
+                        )}
+                      </div>
+
+                      {hasDetailInverters ? (
+                        <div className="space-y-3">
+                          {detail!.inverterList!.map((inv, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-gray-50/70">
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <span className="font-bold text-gray-900">{inv.manufacturerName || summary.invMfr || 'Solar Inverter'}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs px-2 py-0.5 rounded bg-teal-100 text-teal-800 font-semibold">
+                                    {inv.capacity || summary.cap} kW
+                                  </span>
+                                  <span className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">
+                                    Qty: {inv.qty || 1}
+                                  </span>
                                 </div>
                               </div>
-                            ) : (
-                              <p className="text-xs text-gray-500 italic mt-2">No individual serial numbers listed in portal record.</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-6 text-center text-gray-500 bg-gray-50 border border-gray-200 rounded-xl text-sm">
-                        No module list recorded in this portal entry.
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Inverters Section */}
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2 mb-3">
-                      <Cpu className="w-4 h-4 text-teal-600" />
-                      Inverter Equipment
-                    </h3>
-                    {detail?.inverterList && detail.inverterList.length > 0 ? (
-                      <div className="space-y-3">
-                        {detail.inverterList.map((inv, idx) => (
-                          <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-gray-50/70">
-                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                              <span className="font-bold text-gray-900">{inv.manufacturerName || 'Solar Inverter'}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs px-2 py-0.5 rounded bg-teal-100 text-teal-800 font-semibold">
-                                  {inv.capacity} kW
-                                </span>
-                                <span className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">
-                                  Qty: {inv.qty || 1}
-                                </span>
+                              {inv.serialNumbers && inv.serialNumbers.length > 0 && (
+                                <div className="mt-2">
+                                  <span className="text-xs text-gray-500 font-medium block mb-1">Inverter Serial Numbers:</span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {inv.serialNumbers.map((rawSno, sIdx) => {
+                                      const snoStr = typeof rawSno === 'string' ? rawSno : (rawSno?.serialNumber || String(rawSno));
+                                      return (
+                                        <span
+                                          key={sIdx}
+                                          onClick={() => handleCopy(snoStr, `inv-${sIdx}`)}
+                                          className="inline-flex items-center gap-1 font-mono text-xs px-2.5 py-1 rounded bg-white border border-gray-300 text-gray-800 hover:border-teal-500 hover:bg-teal-50 cursor-pointer shadow-2xs"
+                                          title="Click to copy serial number"
+                                        >
+                                          {snoStr}
+                                          {copiedKey === `inv-${sIdx}` ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-gray-400 opacity-60" />}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : hasSummaryInverters ? (
+                        /* Fallback to summary inverter info */
+                        <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/40">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <div>
+                              <span className="font-bold text-gray-900 block">{summary.invMfr || 'Grid-Tied Solar Inverter'}</span>
+                              <span className="text-xs text-gray-500">Grid Connected Solar Inverter</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs px-2.5 py-0.5 rounded bg-teal-100 text-teal-800 font-bold">
+                                {summary.cap || 3} kW Capacity
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700 font-medium">
+                                Qty: {summary.invSerials?.length || 1}
+                              </span>
+                            </div>
+                          </div>
+
+                          {summary.invSerials && summary.invSerials.length > 0 && (
+                            <div className="mt-3">
+                              <span className="text-xs text-gray-600 font-semibold block mb-1.5">Inverter Serial Number(s):</span>
+                              <div className="flex flex-wrap gap-2">
+                                {summary.invSerials.map((sno, sIdx) => (
+                                  <span
+                                    key={sIdx}
+                                    onClick={() => handleCopy(sno, `summary-inv-${sIdx}`)}
+                                    className="inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1.5 rounded-lg bg-white border border-gray-300 text-gray-900 hover:border-teal-600 hover:bg-teal-50 hover:text-teal-900 cursor-pointer transition-all shadow-2xs font-semibold"
+                                    title="Click to copy serial number"
+                                  >
+                                    {sno}
+                                    {copiedKey === `summary-inv-${sIdx}` ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5 text-gray-400 opacity-60" />
+                                    )}
+                                  </span>
+                                ))}
                               </div>
                             </div>
-
-                            {inv.serialNumbers && inv.serialNumbers.length > 0 && (
-                              <div className="mt-2">
-                                <span className="text-xs text-gray-500 font-medium block mb-1">Inverter Serial Numbers:</span>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {inv.serialNumbers.map((rawSno, sIdx) => {
-                                    const snoStr = typeof rawSno === 'string' ? rawSno : (rawSno?.serialNumber || String(rawSno));
-                                    return (
-                                      <span
-                                        key={sIdx}
-                                        onClick={() => handleCopy(snoStr, `inv-${sIdx}`)}
-                                        className="inline-flex items-center gap-1 font-mono text-xs px-2.5 py-1 rounded bg-white border border-gray-300 text-gray-800 hover:border-teal-500 hover:bg-teal-50 cursor-pointer shadow-2xs"
-                                        title="Click to copy serial number"
-                                      >
-                                        {snoStr}
-                                        {copiedKey === `inv-${sIdx}` ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-gray-400 opacity-60" />}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-6 text-center text-gray-500 bg-gray-50 border border-gray-200 rounded-xl text-sm">
-                        No inverter equipment listed in this portal entry.
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-6 text-center text-gray-500 bg-gray-50 border border-gray-200 rounded-xl text-sm">
+                          No inverter equipment listed in this portal entry.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* TAB 3: SUBSIDY & LOAN */}
               {activeTab === 'subsidy' && (
