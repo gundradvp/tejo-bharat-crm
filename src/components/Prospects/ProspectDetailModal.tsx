@@ -2,11 +2,18 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   X, Phone, Copy, Check, Link2, MapPin, Zap, Calendar, Mail,
   Phone as PhoneIcon, Clock, MessageSquare, MessageCircle, User, Save, Loader2, FileText,
-  Receipt, Gauge, IndianRupee, ClipboardList, Home,
+  Receipt, Gauge, IndianRupee, ClipboardList, Home, Globe, AlertCircle, Eye,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { LeadProspect, LeadProspectCall, CALL_STATUSES, CALL_STATUS_LABELS, CALL_STATUS_COLORS, ProspectBillRecord, fetchProspectBillHistory, extractAreaCode } from '../../lib/prospectApi';
 import { findVillagesForCode } from '../../lib/areaCodeCatalog';
+import {
+  getNationalPortalIndex,
+  matchProspectWithNationalPortal,
+  type NationalPortalIndex,
+  type NationalPortalSummary,
+} from '../../lib/nationalPortalApi';
+import NationalPortalDetailModal from '../NationalPortal/NationalPortalDetailModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -35,6 +42,17 @@ export default function ProspectDetailModal({ prospect, onClose, onUpdate }: Pro
   const [address, setAddress] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  const [npIndex, setNpIndex] = useState<NationalPortalIndex | null>(null);
+  const [selectedNpApp, setSelectedNpApp] = useState<NationalPortalSummary | null>(null);
+
+  useEffect(() => {
+    getNationalPortalIndex().then(setNpIndex).catch(console.error);
+  }, []);
+
+  const npApp = useMemo(() => {
+    if (!prospect || !npIndex) return null;
+    return matchProspectWithNationalPortal(prospect, npIndex);
+  }, [prospect, npIndex]);
 
   useEffect(() => {
     if (prospect) {
@@ -526,20 +544,94 @@ export default function ProspectDetailModal({ prospect, onClose, onUpdate }: Pro
             <StatBox label="Applied Solar (KW)" value={prospect.applied_solar_load_kw != null ? `${prospect.applied_solar_load_kw}` : '-'} icon={<Zap className="w-4 h-4 text-green-500" />} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <InfoItem icon={<FileText className="w-4 h-4" />} label="NP Registration No" value={prospect.np_registration_number} />
-            <InfoItem icon={<FileText className="w-4 h-4" />} label="EP Registration No" value={prospect.ep_registration_number} />
-          </div>
+          {/* Live PM Surya Ghar National Portal Intelligence Card */}
+          {npApp ? (
+            <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-teal-600 text-white">
+                    <Globe className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-teal-950 flex items-center gap-1.5">
+                      PM Surya Ghar National Portal
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        ✓ Mapped by SC #{prospect.sc_number}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-teal-700">Application #{npApp.id} ({npApp.appNum || 'Registered'})</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedNpApp(npApp)}
+                  className="px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  View Complete Dossier
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 text-xs">
+                <div className="bg-white p-2.5 rounded-lg border border-teal-100">
+                  <span className="text-gray-500 text-[11px] block">Current Stage</span>
+                  <span className="font-bold text-amber-900 bg-amber-50 px-2 py-0.5 rounded inline-block mt-0.5">
+                    ⚡ {npApp.step || 'Applied'}
+                  </span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-teal-100">
+                  <span className="text-gray-500 text-[11px] block">Applied Capacity</span>
+                  <span className="font-bold text-teal-900 mt-0.5 block">{npApp.cap} kW</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-teal-100">
+                  <span className="text-gray-500 text-[11px] block">Vendor Assigned</span>
+                  <span className="font-bold text-gray-900 mt-0.5 block truncate" title={npApp.vendor}>
+                    {npApp.vendor || '—'}
+                  </span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-teal-100">
+                  <span className="text-gray-500 text-[11px] block">CFA Subsidy</span>
+                  <span className="font-bold text-emerald-700 mt-0.5 block">
+                    {npApp.subsidyAmt ? `₹${Number(npApp.subsidyAmt).toLocaleString('en-IN')}` : 'Pending'}
+                  </span>
+                </div>
+              </div>
+
+              {(npApp.loanAppNo || npApp.panelSerials || npApp.invSerials) && (
+                <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
+                  {npApp.loanAppNo && (
+                    <span className="px-2 py-1 rounded bg-indigo-50 text-indigo-900 border border-indigo-200">
+                      🏦 Loan: <strong>{npApp.bankName || 'Sanctioned'}</strong> ({npApp.loanStatus || 'Active'})
+                    </span>
+                  )}
+                  {npApp.panelSerials && npApp.panelSerials.length > 0 && (
+                    <span className="px-2 py-1 rounded bg-purple-50 text-purple-900 border border-purple-200">
+                      📦 {npApp.panelSerials.length} Solar Panels tracked
+                    </span>
+                  )}
+                  {npApp.invSerials && npApp.invSerials.length > 0 && (
+                    <span className="px-2 py-1 rounded bg-amber-50 text-amber-900 border border-amber-200">
+                      🔌 {npApp.invSerials.length} Inverter(s)
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3.5 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-bold text-rose-900">National Portal: Information Not Available / Pending</h4>
+                <p className="text-xs text-rose-700 mt-0.5">
+                  No PM Surya Ghar application is found for Service Connection #{prospect.sc_number}. This prospect has not registered or application has not been submitted yet.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-gray-50 rounded-lg px-3 py-2">
-              <p className="text-xs text-gray-500 mb-0.5">National Portal Status</p>
-              <p className="text-sm font-medium text-gray-900">{prospect.national_portal_status || '-'}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg px-3 py-2">
-              <p className="text-xs text-gray-500 mb-0.5">EPDCL Portal Status</p>
-              <p className="text-sm font-medium text-gray-900">{prospect.epdcl_portal_status || '-'}</p>
-            </div>
+            <InfoItem icon={<FileText className="w-4 h-4" />} label="NP Registration No" value={npApp?.appNum || prospect.np_registration_number} />
+            <InfoItem icon={<FileText className="w-4 h-4" />} label="EP Registration No" value={prospect.ep_registration_number} />
           </div>
 
           {bills.length > 0 && (
@@ -753,6 +845,13 @@ export default function ProspectDetailModal({ prospect, onClose, onUpdate }: Pro
           </div>
         </div>
       </div>
+
+      {selectedNpApp && (
+        <NationalPortalDetailModal
+          summary={selectedNpApp}
+          onClose={() => setSelectedNpApp(null)}
+        />
+      )}
     </div>
   );
 }

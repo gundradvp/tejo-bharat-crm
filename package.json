@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "sync:pmsurya": "node scripts/sync_pmsurya_ap.mjs"
+    "sync:pmsurya": "node scripts/sync_pmsurya_ap.mjs",
+    "build:portal": "node scripts/build_national_portal_catalog.mjs",
+    "sync:portal": "node scripts/build_national_portal_catalog.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

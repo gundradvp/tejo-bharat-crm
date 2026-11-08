@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   Phone, Copy, Check, Search, Upload, Users, Filter,
   MapPin, Zap, Clock, Loader2, TrendingUp, Calendar,
-  Database, ChevronLeft, ChevronRight, RefreshCw, RotateCcw,
+  Database, RefreshCw, RotateCcw,
   Receipt, IndianRupee, Gauge, Link2, Layers, Download, X, Flame, ArrowUpDown, Sun, MessageSquare,
+  Globe, AlertCircle, Eye,
 } from 'lucide-react';
 import * as XLSX from 'xlsx/xlsx.mjs';
 import Pagination from '../Common/Pagination';
@@ -29,9 +30,19 @@ import {
   doesProspectSummaryMatchBillConditions,
   fetchProspectsForExport,
   fetchProspectSCOnlyForExport,
+  fetchProspectSNumberOnlyForExport,
+  fetchProspectNPIdOnlyForExport,
   extractAreaCode,
 } from '../../lib/prospectApi';
+import {
+  getNationalPortalIndex,
+  matchProspectWithNationalPortal,
+  hasNationalPortalInfo,
+  type NationalPortalIndex,
+  type NationalPortalSummary,
+} from '../../lib/nationalPortalApi';
 import ProspectDetailModal from './ProspectDetailModal';
+import NationalPortalDetailModal from '../NationalPortal/NationalPortalDetailModal';
 import MultiSelectDropdown from '../Common/MultiSelectDropdown';
 import AreaCodeFilter from './AreaCodeFilter';
 
@@ -70,6 +81,7 @@ interface SavedFilters {
   billUnitsVal: string;
   billUnitsMaxVal: string;
   billFilterMetric?: BillFilterMetric;
+  nationalPortalFilter?: string;
   importBatchId: string | null;
   dateFrom: string;
   dateTo: string;
@@ -106,6 +118,13 @@ export default function ProspectList() {
   const [areaCodeSelections, setAreaCodeSelections] = useState<string[]>(saved.areaCodes || []);
   const [hideSuryaGhar, setHideSuryaGhar] = useState<boolean>(saved.hideSuryaGhar || false);
   const [hideSolarInstalled, setHideSolarInstalled] = useState<boolean>(saved.hideSolarInstalled || false);
+
+  // National Portal Integration state
+  const [npIndex, setNpIndex] = useState<NationalPortalIndex | null>(null);
+  const [npFilter, setNpFilter] = useState<'ALL' | 'NOT_AVAILABLE' | 'AVAILABLE' | string>(saved.nationalPortalFilter || 'ALL');
+  const [selectedNpApp, setSelectedNpApp] = useState<NationalPortalSummary | null>(null);
+  const [syncingNp, setSyncingNp] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Bill filter input state
   const [billAmountOp, setBillAmountOp] = useState<FilterOperator>(saved.billAmountOp || 'gte');
@@ -151,7 +170,8 @@ export default function ProspectList() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportLimit, setExportLimit] = useState<number | 'all'>('all');
   const [exporting, setExporting] = useState(false);
-  const [exportType, setExportType] = useState<'full' | 'scOnly'>('full');
+  const [exportCount, setExportCount] = useState(0);
+  const [exportType, setExportType] = useState<'full' | 'sNumberOnly' | 'scOnly' | 'npIdOnly'>('full');
 
   const handleOpenWhatsAppCampaign = () => {
     const params = new URLSearchParams({
@@ -189,13 +209,25 @@ export default function ProspectList() {
       billAmountOp, billAmountVal, billAmountMaxVal,
       billUnitsOp, billUnitsVal, billUnitsMaxVal,
       billFilterMetric: appliedBillFilterMetric,
+      nationalPortalFilter: npFilter,
       importBatchId,
       dateFrom, dateTo,
       sortBy,
       pageSize,
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
-  }, [appliedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, appliedBillFilterMetric, importBatchId, dateFrom, dateTo, sortBy, pageSize]);
+  }, [appliedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, npFilter, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, appliedBillFilterMetric, importBatchId, dateFrom, dateTo, sortBy, pageSize]);
+
+  // Load National Portal index on mount for instant SC mapping
+  useEffect(() => {
+    getNationalPortalIndex()
+      .then((idx) => {
+        setNpIndex(idx);
+      })
+      .catch((err) => {
+        console.warn('Could not load national portal index:', err);
+      });
+  }, []);
 
   const loadFilterValues = useCallback(async () => {
     try {
@@ -259,6 +291,7 @@ export default function ProspectList() {
         areaCodes: areaCodeSelections,
         hideSuryaGhar,
         hideSolarInstalled,
+        nationalPortalFilter: npFilter,
         sortBy,
         ...billFilters,
         importBatchId: importBatchId || undefined,
@@ -285,7 +318,7 @@ export default function ProspectList() {
       }
     } catch (err) { console.error('Error loading prospects:', err); }
     finally { setLoading(false); }
-  }, [appliedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, buildBillFilters, importBatchId, dateFrom, dateTo, page, pageSize, statFilter, sortBy]);
+  }, [appliedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, npFilter, buildBillFilters, importBatchId, dateFrom, dateTo, page, pageSize, statFilter, sortBy]);
 
   useEffect(() => { loadProspects(); }, [loadProspects]);
   useEffect(() => { loadFilterValues(); loadStats(); }, [loadFilterValues, loadStats]);
@@ -328,6 +361,19 @@ export default function ProspectList() {
           }
         }
       }
+
+      // National Portal Mapping Filter
+      if (npFilter === 'NOT_AVAILABLE') {
+        if (npIndex && hasNationalPortalInfo(p, npIndex)) return false;
+      } else if (npFilter === 'AVAILABLE') {
+        if (!npIndex || !hasNationalPortalInfo(p, npIndex)) return false;
+      } else if (npFilter.startsWith('STEP_')) {
+        const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
+        const matched = npIndex ? matchProspectWithNationalPortal(p, npIndex) : null;
+        const currentStep = (matched?.step || p.national_portal_status || '').toLowerCase();
+        if (!currentStep.includes(stepTarget)) return false;
+      }
+
       return true;
     });
 
@@ -382,7 +428,7 @@ export default function ProspectList() {
     }
 
     return result;
-  }, [prospects, highUsageOnly, hideSuryaGhar, hideSolarInstalled, billSummaries, appliedBillAmount, appliedBillUnits, appliedBillFilterMetric, sortBy]);
+  }, [prospects, highUsageOnly, hideSuryaGhar, hideSolarInstalled, billSummaries, appliedBillAmount, appliedBillUnits, appliedBillFilterMetric, sortBy, npFilter, npIndex]);
 
   const totalPages = Math.ceil(total / pageSize);
   const highUsageCount = Array.from(billSummaries.values()).filter((bs) => bs.high_usage).length;
@@ -391,12 +437,13 @@ export default function ProspectList() {
     circleSelections.length > 0 || divisionSelections.length > 0 || subdivSelections.length > 0 ||
     eroSelections.length > 0 || sectionSelections.length > 0 || statusSelections.length > 0 ||
     callStatusSelections.length > 0 || categorySelections.length > 0 || mandalSelections.length > 0 ||
-    subStationSelections.length > 0 || areaCodeSelections.length > 0 || hideSuryaGhar || hideSolarInstalled || !!appliedBillAmount || !!appliedBillUnits || !!importBatchId || !!dateFrom || !!dateTo;
+    subStationSelections.length > 0 || areaCodeSelections.length > 0 || hideSuryaGhar || hideSolarInstalled ||
+    npFilter !== 'ALL' || !!appliedBillAmount || !!appliedBillUnits || !!importBatchId || !!dateFrom || !!dateTo;
 
   const activeFilterCount =
     [circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections]
       .filter((a) => a.length > 0).length +
-    (hideSuryaGhar ? 1 : 0) + (hideSolarInstalled ? 1 : 0) +
+    (hideSuryaGhar ? 1 : 0) + (hideSolarInstalled ? 1 : 0) + (npFilter !== 'ALL' ? 1 : 0) +
     [appliedBillAmount, appliedBillUnits].filter(Boolean).length +
     (importBatchId ? 1 : 0) + (dateFrom || dateTo ? 1 : 0);
 
@@ -415,6 +462,7 @@ export default function ProspectList() {
     setAreaCodeSelections([]);
     setHideSuryaGhar(false);
     setHideSolarInstalled(false);
+    setNpFilter('ALL');
     setBillAmountOp('gte'); setBillAmountVal(''); setBillAmountMaxVal('');
     setBillUnitsOp('gte'); setBillUnitsVal(''); setBillUnitsMaxVal('');
     setBillFilterMetric('avg');
@@ -422,7 +470,7 @@ export default function ProspectList() {
     setAppliedBillAmount(null); setAppliedBillUnits(null);
     setImportBatchId(null);
     setDateFrom(''); setDateTo('');
-    setSearchTerm(''); setDebouncedSearch('');
+    setSearchTerm(''); setAppliedSearch('');
     setSortBy('created_at_desc');
     setStatFilter(null); setPage(1);
   };
@@ -447,13 +495,35 @@ export default function ProspectList() {
 
   const handleModalUpdate = () => { loadProspects(); loadStats(); };
 
+  const handleSyncNationalPortal = async () => {
+    if (!npIndex) {
+      alert('National Portal repository is still loading. Please try again in a few seconds.');
+      return;
+    }
+    setSyncingNp(true);
+    setSyncMessage(null);
+    try {
+      const { syncNationalPortalToProspects } = await import('../../lib/prospectApi');
+      const res = await syncNationalPortalToProspects(prospects, npIndex);
+      setSyncMessage(`✓ Successfully mapped & synced ${res.updatedCount} prospects with live National Portal applications!`);
+      setTimeout(() => setSyncMessage(null), 5000);
+      loadProspects();
+    } catch (err: any) {
+      setSyncMessage(`Sync error: ${err.message || 'Failed to update prospects'}`);
+    } finally {
+      setSyncingNp(false);
+    }
+  };
+
   const handleExport = async () => {
     setShowExportModal(false);
     setExporting(true);
+    setExportCount(0);
     try {
       const billFilters = buildBillFilters();
+      const activeSearch = (appliedSearch || searchTerm || '').trim();
       const filters: ProspectFilterOptions = {
-        search: appliedSearch.trim() || undefined,
+        search: activeSearch || undefined,
         circles: circleSelections,
         divisions: divisionSelections,
         subdivs: subdivSelections,
@@ -467,6 +537,7 @@ export default function ProspectList() {
         areaCodes: areaCodeSelections,
         hideSuryaGhar,
         hideSolarInstalled,
+        nationalPortalFilter: npFilter,
         sortBy,
         ...billFilters,
         importBatchId: importBatchId || undefined,
@@ -480,8 +551,26 @@ export default function ProspectList() {
 
       const limit = exportLimit === 'all' ? undefined : exportLimit;
 
+      if (exportType === 'sNumberOnly') {
+        const sNumbers = await fetchProspectSNumberOnlyForExport(filters, limit, (c) => setExportCount(c));
+        if (sNumbers.length === 0) {
+          alert('No valid S-Numbers found in the filtered data.');
+          return;
+        }
+        const csvContent = 'S-Number\n' + sNumbers.map((n) => String(n)).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const dateStr = new Date().toISOString().split('T')[0];
+        link.download = `prospect_s_numbers_${dateStr}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
       if (exportType === 'scOnly') {
-        const scNumbers = await fetchProspectSCOnlyForExport(filters, limit);
+        const scNumbers = await fetchProspectSCOnlyForExport(filters, limit, (c) => setExportCount(c));
         if (scNumbers.length === 0) {
           alert('No SC numbers found in the filtered data.');
           return;
@@ -498,17 +587,46 @@ export default function ProspectList() {
         return;
       }
 
-      const exportData = await fetchProspectsForExport(filters, limit);
+      if (exportType === 'npIdOnly') {
+        const npIds = await fetchProspectNPIdOnlyForExport(filters, limit, (c) => setExportCount(c));
+        if (npIds.length === 0) {
+          alert('No National Portal Application IDs found matching the current filters.');
+          return;
+        }
+        const csvContent = 'app_id\n' + npIds.map((n) => String(n)).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const dateStr = new Date().toISOString().split('T')[0];
+        link.download = `prospect_app_ids_${dateStr}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      const exportData = await fetchProspectsForExport(filters, limit, (c) => setExportCount(c));
       if (exportData.length === 0) {
         alert('No prospects to export with current filters.');
         return;
       }
 
       const wb = XLSX.utils.book_new();
-      const rows = exportData.map((r) => ({
-        'SC Number': r.sc_number || '',
-        'Customer Name': r.customer_name || '',
-        'Circle': r.circle_name || '',
+      const rows = exportData.map((r) => {
+        const npApp = npIndex ? matchProspectWithNationalPortal(r, npIndex) : null;
+        return {
+          'SC Number': r.sc_number || '',
+          'Customer Name': r.customer_name || '',
+          'National Portal Mapped': npApp ? 'Yes' : 'No (Pending)',
+          'NP App ID': npApp?.id || '',
+          'NP Step / Status': npApp?.step || r.national_portal_status || '',
+          'NP Vendor Organization': npApp?.vendor || '',
+          'NP Applied Capacity (kW)': npApp?.cap || r.applied_solar_load_kw || '',
+          'NP CFA Subsidy (₹)': npApp?.subsidyAmt ?? '',
+          'NP Subsidy Status': npApp?.subsidyStatus || '',
+          'NP Loan Bank': npApp?.bankName || '',
+          'NP Loan Status': npApp?.loanStatus || '',
+          'Circle': r.circle_name || '',
         'Division': r.division_name || '',
         'Subdiv': r.subdiv_name || '',
         'ERO': r.ero_name || '',
@@ -558,7 +676,8 @@ export default function ProspectList() {
         'Recent Units': r.recent_units ?? '',
         'Recent Bill Amount': r.recent_bill_amount ?? '',
         'Recent Bill Month': r.recent_bill_month || '',
-      }));
+      };
+    });
       const ws = XLSX.utils.json_to_sheet(rows);
       XLSX.utils.book_append_sheet(wb, ws, 'Prospects');
 
@@ -569,6 +688,7 @@ export default function ProspectList() {
       alert('Export failed: ' + (err.message || 'Unknown error'));
     } finally {
       setExporting(false);
+      setExportCount(0);
     }
   };
 
@@ -593,10 +713,34 @@ export default function ProspectList() {
             className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors">
             <Receipt className="w-4 h-4" /> Import Bills
           </button>
-          <button onClick={() => setShowExportModal(true)} disabled={exporting || total === 0}
+          <button onClick={() => { setExportType('full'); setShowExportModal(true); }} disabled={exporting || total === 0}
             className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50" title="Export filtered prospects to Excel">
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {exporting ? 'Exporting...' : 'Export Excel'}
+            {exporting && exportCount > 0 ? `Exporting (${exportCount.toLocaleString()})...` : (exporting ? 'Exporting...' : 'Export Excel')}
+          </button>
+          <button
+            onClick={() => {
+              setExportType('npIdOnly');
+              setShowExportModal(true);
+            }}
+            disabled={exporting || total === 0}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50"
+            title="Export National Portal Application IDs only (CSV)"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            <span>{exporting && exportCount > 0 ? `Exporting (${exportCount.toLocaleString()})...` : (exporting ? 'Exporting...' : 'Export App IDs')}</span>
+          </button>
+          <button
+            onClick={() => {
+              setExportType('sNumberOnly');
+              setShowExportModal(true);
+            }}
+            disabled={exporting || total === 0}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50"
+            title="Export S-Numbers only (CSV) for filtered prospects"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            <span>{exporting && exportCount > 0 ? `Exporting (${exportCount.toLocaleString()})...` : (exporting ? 'Exporting...' : 'Export S-Numbers')}</span>
           </button>
           <button onClick={() => navigate('/prospects/import')}
             className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors shadow-sm"
@@ -751,6 +895,57 @@ export default function ProspectList() {
               <span>{hideSolarInstalled ? '✓ Solar Installed Hidden' : 'Hide Solar Installed'}</span>
             </button>
           </div>
+
+          {/* National Portal Mapping Filter Pills */}
+          <div className="flex items-center rounded-lg border border-gray-300 bg-gray-50/80 p-0.5 text-xs font-semibold flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setNpFilter('ALL');
+                setPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-md transition-all ${
+                npFilter === 'ALL'
+                  ? 'bg-white text-gray-900 shadow-2xs font-bold'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+              title="Show all prospects (Both Mapped and Unmapped)"
+            >
+              All Prospects
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNpFilter(npFilter === 'NOT_AVAILABLE' ? 'ALL' : 'NOT_AVAILABLE');
+                setPage(1);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
+                npFilter === 'NOT_AVAILABLE'
+                  ? 'bg-rose-600 text-white shadow-2xs font-bold'
+                  : 'text-rose-700 hover:bg-rose-100/60'
+              }`}
+              title="Filter prospects whose National Portal information is NOT available (Pending registration)"
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>NP Not Available</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNpFilter(npFilter === 'AVAILABLE' ? 'ALL' : 'AVAILABLE');
+                setPage(1);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
+                npFilter === 'AVAILABLE'
+                  ? 'bg-teal-700 text-white shadow-2xs font-bold'
+                  : 'text-teal-700 hover:bg-teal-100/60'
+              }`}
+              title="Filter prospects who have active National Portal applications"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>On National Portal</span>
+            </button>
+          </div>
           {hasActiveFilters && (
             <button onClick={clearFilters}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors bg-red-50 border-red-300 text-red-700 hover:bg-red-100 flex-shrink-0">
@@ -767,9 +962,39 @@ export default function ProspectList() {
         </div>
 
         {/* Active Filter Chips */}
-        {(areaCodeSelections.length > 0 || hideSuryaGhar || hideSolarInstalled) && (
+        {(areaCodeSelections.length > 0 || hideSuryaGhar || hideSolarInstalled || npFilter !== 'ALL') && (
           <div className="flex items-center gap-1.5 flex-wrap pt-1 px-0.5">
-            <span className="text-xs font-semibold text-gray-700">Active Exclusions & Codes:</span>
+            <span className="text-xs font-semibold text-gray-700">Active Exclusions & Filters:</span>
+            {npFilter !== 'ALL' && (
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full border shadow-2xs ${
+                npFilter === 'NOT_AVAILABLE'
+                  ? 'bg-rose-100 text-rose-900 border-rose-300'
+                  : 'bg-teal-100 text-teal-900 border-teal-300'
+              }`}>
+                {npFilter === 'NOT_AVAILABLE' ? (
+                  <>
+                    <AlertCircle className="w-3 h-3 text-rose-600" />
+                    NP Not Available (Pending)
+                  </>
+                ) : (
+                  <>
+                    <Globe className="w-3 h-3 text-teal-600" />
+                    Active on National Portal
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNpFilter('ALL');
+                    setPage(1);
+                  }}
+                  className="hover:opacity-75 ml-1 p-0.5"
+                  title="Clear National Portal filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
             {hideSuryaGhar && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold bg-green-100 text-green-800 rounded-full border border-green-300 shadow-sm">
                 <Link2 className="w-3 h-3" />
@@ -840,6 +1065,67 @@ export default function ProspectList() {
 
         {showFilters && (
           <div className="space-y-4 pt-3 border-t border-gray-100">
+            {/* National Portal Integration & SC Mapping Card */}
+            <div className="bg-teal-50/60 p-3.5 rounded-xl border border-teal-200">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                <p className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                  <Globe className="w-4 h-4 text-teal-600" />
+                  National Portal Application Intelligence & SC Mapping
+                  <span className="text-[10px] font-medium text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
+                    {npIndex ? `${npIndex.bySc.size.toLocaleString()} Applications Indexed` : 'Indexing...'}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  disabled={syncingNp || !npIndex}
+                  onClick={handleSyncNationalPortal}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1.5 shadow-2xs disabled:opacity-50 transition-colors cursor-pointer"
+                  title="Update matching National Portal application stages into database"
+                >
+                  {syncingNp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  <span>Sync NP Status to Database</span>
+                </button>
+              </div>
+
+              {syncMessage && (
+                <div className="mb-2.5 px-3 py-1.5 rounded-lg bg-teal-100 text-teal-900 text-xs font-medium border border-teal-300">
+                  {syncMessage}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                    Filter by National Portal Availability & Stage
+                  </label>
+                  <select
+                    value={npFilter}
+                    onChange={(e) => {
+                      setNpFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full text-xs py-2 px-3 rounded-lg border border-teal-300 bg-white font-medium text-gray-900 focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                  >
+                    <option value="ALL">All Prospects (Show Both Mapped & Unmapped)</option>
+                    <option value="NOT_AVAILABLE">⚠️ National Portal Information Not Available / Pending Registration</option>
+                    <option value="AVAILABLE">✅ Active on National Portal</option>
+                    <option value="STEP_Feasibility">⚙️ Stage: Feasibility Approved</option>
+                    <option value="STEP_Agreement">⚙️ Stage: Vendor Selection / Upload Agreement</option>
+                    <option value="STEP_Installation">⚡ Stage: Installation / Work in Progress</option>
+                    <option value="STEP_Inspection">🔍 Stage: Inspection Pending / Completed</option>
+                    <option value="STEP_Disbursed">💰 Stage: CFA Subsidy Disbursed</option>
+                  </select>
+                </div>
+
+                <div className="text-xs text-teal-950 bg-white/80 p-2.5 rounded-lg border border-teal-200 flex flex-col justify-center">
+                  <span className="font-semibold text-[11px] uppercase tracking-wide text-teal-800">Automatic Linking</span>
+                  <span className="text-[11px] text-gray-600 mt-0.5">
+                    Prospects are automatically mapped with National Portal apps by <strong>SC Number</strong>, <strong>NP Reg #</strong>, and <strong>Mobile Phone</strong>.
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Lead Exclusions Filter Card */}
             <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200">
               <p className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
@@ -1118,9 +1404,24 @@ export default function ProspectList() {
         </div>
       )}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-sm text-gray-600">
-          Showing <strong>{((page - 1) * pageSize + 1).toLocaleString('en-IN')}–{Math.min(page * pageSize, total).toLocaleString('en-IN')}</strong> of <strong>{total.toLocaleString('en-IN')}</strong> prospects
-          {totalPages > 1 && <span className="text-xs text-gray-400 ml-2 font-medium">(Page {page} of {totalPages})</span>}
+        <p className="text-sm text-gray-600 flex items-center flex-wrap gap-1.5">
+          <span>Showing <strong>{((page - 1) * pageSize + 1).toLocaleString('en-IN')}–{Math.min(page * pageSize, total).toLocaleString('en-IN')}</strong> of <strong>{total.toLocaleString('en-IN')}</strong> prospects</span>
+          {npFilter === 'NOT_AVAILABLE' && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-200">
+              NP Not Available (Pending Registration)
+            </span>
+          )}
+          {npFilter === 'AVAILABLE' && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-800 border border-teal-200">
+              On National Portal
+            </span>
+          )}
+          {npFilter.startsWith('STEP_') && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+              Stage: {npFilter.replace('STEP_', '')}
+            </span>
+          )}
+          {totalPages > 1 && <span className="text-xs text-gray-400 ml-1 font-medium">(Page {page} of {totalPages})</span>}
         </p>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
@@ -1217,6 +1518,34 @@ export default function ProspectList() {
                           <Link2 className="w-3 h-3" /> Surya Ghar
                         </span>
                       )}
+                      {(() => {
+                        const npApp = npIndex ? matchProspectWithNationalPortal(prospect, npIndex) : null;
+                        if (npApp) {
+                          return (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedNpApp(npApp);
+                              }}
+                              className="px-2 py-0.5 text-xs font-semibold rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1 hover:bg-teal-200 transition-colors shadow-2xs"
+                              title="Click to view National Portal Application record"
+                            >
+                              <Globe className="w-3 h-3 text-teal-600" />
+                              NP: {npApp.step || 'Applied'} ({npApp.cap} kW)
+                            </span>
+                          );
+                        } else {
+                          return (
+                            <span
+                              className="px-2 py-0.5 text-xs font-medium rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1"
+                              title="No National Portal application found for this SC number"
+                            >
+                              <AlertCircle className="w-3 h-3 text-rose-500" />
+                              NP: Not Available
+                            </span>
+                          );
+                        }
+                      })()}
                       {prospect.follow_up_date && (
                         <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />{new Date(prospect.follow_up_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
@@ -1303,19 +1632,70 @@ export default function ProspectList() {
                         </div>
                       );
                     })()}
+
+                    {/* Live National Portal Intelligence row if mapped */}
+                    {(() => {
+                      const npApp = npIndex ? matchProspectWithNationalPortal(prospect, npIndex) : null;
+                      if (!npApp) return null;
+                      return (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedNpApp(npApp);
+                          }}
+                          className="mt-2.5 p-2.5 rounded-lg bg-teal-50/70 border border-teal-200 hover:border-teal-300 hover:bg-teal-50 transition-all flex items-center justify-between gap-2 flex-wrap cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 flex-wrap text-xs">
+                            <span className="font-bold text-teal-900 flex items-center gap-1">
+                              <Globe className="w-3.5 h-3.5 text-teal-600" />
+                              National Portal #{npApp.id}:
+                            </span>
+                            <span className="font-semibold px-2 py-0.5 rounded-full text-[11px] bg-amber-100 text-amber-900 border border-amber-200">
+                              ⚡ {npApp.step}
+                            </span>
+                            <span className="font-semibold text-teal-900 bg-teal-100/60 px-1.5 py-0.5 rounded text-[11px]">
+                              {npApp.cap} kW
+                            </span>
+                            {npApp.vendor && (
+                              <span className="text-gray-700 truncate max-w-[220px]" title={npApp.vendor}>
+                                Vendor: <strong className="text-gray-900">{npApp.vendor}</strong>
+                              </span>
+                            )}
+                            {npApp.subsidyAmt > 0 && (
+                              <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[11px]">
+                                CFA Subsidy: ₹{Number(npApp.subsidyAmt).toLocaleString('en-IN')}
+                              </span>
+                            )}
+                            {npApp.loanAppNo && (
+                              <span className="text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 text-[11px] font-medium">
+                                🏦 {npApp.bankName || 'Loan'}: {npApp.loanStatus || 'Sanctioned'}
+                              </span>
+                            )}
+                            {npApp.panelSerials && npApp.panelSerials.length > 0 && (
+                              <span className="text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 text-[11px] font-medium">
+                                📦 {npApp.panelSerials.length} Panels
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs font-semibold text-teal-700 group-hover:text-teal-900 flex items-center gap-1 underline underline-offset-2 shrink-0">
+                            <Eye className="w-3.5 h-3.5" /> View Dossier
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                    {(prospect.mobile_number || prospect.phone) && (
+                    {prospect.mobile_number && (
                       <div className="flex items-center gap-1">
                         <a
-                          href={`tel:${prospect.mobile_number || prospect.phone}`}
+                          href={`tel:${prospect.mobile_number}`}
                           className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                           title="Click to Call"
                         >
                           <Phone className="w-4 h-4" />
                         </a>
                         <button
-                          onClick={() => copyToClipboard(prospect.mobile_number || prospect.phone!, `${prospect.id}-mobile`)}
+                          onClick={() => copyToClipboard(prospect.mobile_number!, `${prospect.id}-mobile`)}
                           className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                           title="Copy mobile number"
                         >
@@ -1359,23 +1739,56 @@ export default function ProspectList() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowExportModal(false)}>
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Export to Excel</h3>
+              <h3 className="text-lg font-bold text-gray-900">Export Prospects</h3>
               <button onClick={() => setShowExportModal(false)} className="p-1 rounded-lg hover:bg-gray-100">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            <p className="text-sm text-gray-600 mb-4">Export <strong>{total.toLocaleString('en-IN')}</strong> prospects with current filters applied. Bill summary data from EB billing history will be included.</p>
-            <div className="space-y-3 mb-6">
+            <p className="text-sm text-gray-600 mb-4">
+              Export <strong>{total.toLocaleString('en-IN')}</strong> prospects matching current filters.
+            </p>
+            <div className="space-y-4 mb-6">
               <div className="space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-lg hover:bg-gray-50 border border-gray-200 transition-colors">
                   <input type="radio" name="exportType" checked={exportType === 'full'} onChange={() => setExportType('full')}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-sm font-medium text-gray-700">Full Excel export (all columns + bill summaries)</span>
+                    className="w-4 h-4 mt-0.5 text-blue-600 focus:ring-blue-500" />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-800">Full Excel Export (.xlsx)</span>
+                    <span className="text-xs text-gray-500">All prospect columns, EB bills, national portal status</span>
+                  </div>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-lg bg-purple-50/50 hover:bg-purple-50 border border-purple-200 transition-colors">
+                  <input type="radio" name="exportType" checked={exportType === 'sNumberOnly'} onChange={() => setExportType('sNumberOnly')}
+                    className="w-4 h-4 mt-0.5 text-purple-600 focus:ring-purple-500" />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-purple-900 flex items-center gap-1.5">
+                      ⚡ S-Numbers Only (.csv)
+                      <span className="text-[10px] bg-purple-200 text-purple-900 font-bold px-1.5 py-0.2 rounded">e.g. S325...</span>
+                    </span>
+                    <span className="text-xs text-purple-700/80">APEPDCL Solar Rooftop Complaint/Registration numbers (one per row)</span>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-lg hover:bg-blue-50/50 border border-gray-200 transition-colors">
                   <input type="radio" name="exportType" checked={exportType === 'scOnly'} onChange={() => setExportType('scOnly')}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-sm font-medium text-gray-700">SC Numbers only (CSV)</span>
+                    className="w-4 h-4 mt-0.5 text-blue-600 focus:ring-blue-500" />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                      📄 SC Numbers Only (.csv)
+                      <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.2 rounded">e.g. 1544...</span>
+                    </span>
+                    <span className="text-xs text-gray-500">DISCOM Service Connection numbers (one per row)</span>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-lg bg-teal-50/50 hover:bg-teal-50 border border-teal-200 transition-colors">
+                  <input type="radio" name="exportType" checked={exportType === 'npIdOnly'} onChange={() => setExportType('npIdOnly')}
+                    className="w-4 h-4 mt-0.5 text-teal-600 focus:ring-teal-500" />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-teal-900 flex items-center gap-1.5">
+                      🌐 National Portal App IDs Only (.csv)
+                      <span className="text-[10px] bg-teal-200 text-teal-900 font-bold px-1.5 py-0.2 rounded">e.g. 7190750</span>
+                    </span>
+                    <span className="text-xs text-teal-700/80">Pure Application IDs without year (e.g. extracts 7190750 from 7190750/2024)</span>
+                  </div>
                 </label>
               </div>
               <div className="border-t border-gray-100 pt-3">
@@ -1404,7 +1817,7 @@ export default function ProspectList() {
               <button onClick={handleExport} disabled={exporting}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50">
                 {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {exporting ? 'Exporting...' : 'Export Now'}
+                {exporting && exportCount > 0 ? `Exporting (${exportCount.toLocaleString()})...` : (exporting ? 'Exporting...' : 'Export Now')}
               </button>
             </div>
           </div>
@@ -1413,6 +1826,13 @@ export default function ProspectList() {
 
       {selectedProspect && (
         <ProspectDetailModal prospect={selectedProspect} onClose={() => setSelectedProspect(null)} onUpdate={handleModalUpdate} />
+      )}
+
+      {selectedNpApp && (
+        <NationalPortalDetailModal
+          summary={selectedNpApp}
+          onClose={() => setSelectedNpApp(null)}
+        />
       )}
     </div>
   );

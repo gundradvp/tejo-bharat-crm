@@ -66,6 +66,7 @@ import VendorCRMHub from './components/Vendors/VendorCRMHub';
 import EBCustomerList from './components/EBCustomers/EBCustomerList';
 import EBCustomerImport from './components/EBCustomers/EBCustomerImport';
 import EBBillImport from './components/EBCustomers/EBBillImport';
+import NationalPortalApps from './components/NationalPortal/NationalPortalApps';
 import ConnectionTest from './components/Debug/ConnectionTest';
 import SystemHealthDashboard from './components/Settings/SystemHealthDashboard';
 import JSPHierarchyBrowser from './components/JSP/Hierarchy/HierarchyBrowser';
@@ -197,6 +198,7 @@ function ProtectedRoutes() {
           <Route path="/eb-customers" element={<EBCustomerList />} />
           <Route path="/eb-customers/import" element={<EBCustomerImport />} />
           <Route path="/eb-customers/import-bills" element={<EBBillImport />} />
+          <Route path="/national-portal" element={<NationalPortalApps />} />
           <Route path="/users" element={<UserManagement />} />
           <Route path="/settings/custom-status" element={<CustomStatusManagement />} />
           <Route path="/settings/master-data" element={<MasterDataManagement />} />

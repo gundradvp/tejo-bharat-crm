@@ -103,6 +103,7 @@ export interface ProspectFilterOptions {
   dateTo?: string | null;
   followUpDue?: boolean;
   calledOnly?: boolean;
+  nationalPortalFilter?: string;
   sortBy?: ProspectSortOption;
   page?: number;
   pageSize?: number;
@@ -379,6 +380,81 @@ export function doesProspectSummaryMatchBillConditions(
   return true;
 }
 
+/**
+ * Applies standard database-level filters to a lead_prospects Supabase query.
+ */
+export function applyProspectDbFilters(query: any, filters: ProspectFilterOptions): any {
+  if (filters.search) {
+    const searchTrimmed = filters.search.trim();
+    const matchedAreaCodes = findAreaCodesForQuery(searchTrimmed, 12);
+    let searchCond = `sc_number.ilike.%${searchTrimmed}%,customer_name.ilike.%${searchTrimmed}%,mobile_number.ilike.%${searchTrimmed}%,meter_no.ilike.%${searchTrimmed}%,np_registration_number.ilike.%${searchTrimmed}%,ep_registration_number.ilike.%${searchTrimmed}%,village_name.ilike.%${searchTrimmed}%,email.ilike.%${searchTrimmed}%`;
+    if (matchedAreaCodes.length > 0) {
+      const areaConds = matchedAreaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
+      searchCond += `,${areaConds}`;
+    }
+    query = query.or(searchCond);
+  }
+  if (filters.circles && filters.circles.length > 0) query = query.in('circle_name', filters.circles);
+  if (filters.divisions && filters.divisions.length > 0) query = query.in('division_name', filters.divisions);
+  if (filters.subdivs && filters.subdivs.length > 0) query = query.in('subdiv_name', filters.subdivs);
+  if (filters.eros && filters.eros.length > 0) query = query.in('ero_name', filters.eros);
+  if (filters.sections && filters.sections.length > 0) query = query.in('section_name', filters.sections);
+  if (filters.statuses && filters.statuses.length > 0) query = query.in('eb_status', filters.statuses);
+  if (filters.callStatuses && filters.callStatuses.length > 0) query = query.in('call_status', filters.callStatuses);
+  if (filters.categories && filters.categories.length > 0) {
+    const expandedCats = expandCategoryFilter(filters.categories);
+    query = query.in('category', expandedCats);
+  }
+  if (filters.mandals && filters.mandals.length > 0) query = query.in('mandal_name', filters.mandals);
+  if (filters.subStations && filters.subStations.length > 0) query = query.in('sub_station_name', filters.subStations);
+  if (filters.areaCodes && filters.areaCodes.length > 0) {
+    if (filters.areaCodes.length === 1) {
+      query = query.like('sc_number', `%${filters.areaCodes[0]}______`);
+    } else {
+      const orConds = filters.areaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
+      query = query.or(orConds);
+    }
+  }
+  if (filters.hideSuryaGhar) {
+    query = query.eq('is_existing_customer', false);
+  }
+  if (filters.hideSolarInstalled) {
+    query = query
+      .not('call_status', 'in', '("solar_already_installed","already_installed")')
+      .is('ep_registration_number', null);
+  }
+  if (filters.importBatchId) query = query.eq('import_batch_id', filters.importBatchId);
+  if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom + 'T00:00:00');
+  if (filters.dateTo) query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+  if (filters.followUpDue) {
+    const today = new Date().toISOString().split('T')[0];
+    query = query.lte('follow_up_date', today).not('call_status', 'in', '("converted","not_interested")');
+  }
+  if (filters.calledOnly) {
+    query = query.neq('call_status', 'not_called');
+  }
+  return query;
+}
+
+/**
+ * Applies sorting to a lead_prospects Supabase query.
+ */
+export function applyProspectDbSorting(query: any, sortBy?: ProspectSortOption): any {
+  if (sortBy === 'created_at_asc') {
+    return query.order('created_at', { ascending: true });
+  } else if (sortBy === 'name_asc') {
+    return query.order('customer_name', { ascending: true, nullsFirst: false });
+  } else if (sortBy === 'name_desc') {
+    return query.order('customer_name', { ascending: false, nullsFirst: false });
+  } else if (sortBy === 'load_desc') {
+    return query.order('applied_solar_load_kw', { ascending: false, nullsFirst: false });
+  } else if (sortBy === 'load_asc') {
+    return query.order('applied_solar_load_kw', { ascending: true, nullsFirst: false });
+  } else {
+    return query.order('created_at', { ascending: false });
+  }
+}
+
 export async function fetchProspects(
   filters: ProspectFilterOptions
 ): Promise<ProspectPaginatedResult> {
@@ -453,6 +529,21 @@ export async function fetchProspects(
           });
         }
 
+        if (filters.nationalPortalFilter && filters.nationalPortalFilter !== 'ALL') {
+          const { getNationalPortalIndex, hasNationalPortalInfo, matchProspectWithNationalPortal } = await import('./nationalPortalApi');
+          const npIndex = await getNationalPortalIndex();
+          rows = rows.filter((p) => {
+            if (filters.nationalPortalFilter === 'NOT_AVAILABLE') return !hasNationalPortalInfo(p, npIndex);
+            if (filters.nationalPortalFilter === 'AVAILABLE') return hasNationalPortalInfo(p, npIndex);
+            if (filters.nationalPortalFilter!.startsWith('STEP_')) {
+              const stepTarget = filters.nationalPortalFilter!.replace('STEP_', '').toLowerCase();
+              const matched = matchProspectWithNationalPortal(p, npIndex);
+              return matched?.step?.toLowerCase().includes(stepTarget);
+            }
+            return true;
+          });
+        }
+
         // Fetch bill summaries for these candidate prospects to strictly filter by average/max/latest
         const scNumbers = rows.map((p) => p.sc_number).filter(Boolean) as string[];
         const summaryMap = await fetchProspectBillSummaries(scNumbers);
@@ -507,78 +598,98 @@ export async function fetchProspects(
     }
   }
 
+  const npFilter = filters.nationalPortalFilter || 'ALL';
+  const hasNpFilter = npFilter !== 'ALL';
+
+  const hasSpecificFilters = Boolean(
+    filters.search ||
+    (filters.circles && filters.circles.length > 0) ||
+    (filters.divisions && filters.divisions.length > 0) ||
+    (filters.subdivs && filters.subdivs.length > 0) ||
+    (filters.eros && filters.eros.length > 0) ||
+    (filters.sections && filters.sections.length > 0) ||
+    (filters.statuses && filters.statuses.length > 0) ||
+    (filters.callStatuses && filters.callStatuses.length > 0) ||
+    (filters.categories && filters.categories.length > 0) ||
+    (filters.mandals && filters.mandals.length > 0) ||
+    (filters.subStations && filters.subStations.length > 0) ||
+    (filters.areaCodes && filters.areaCodes.length > 0) ||
+    filters.importBatchId ||
+    filters.dateFrom ||
+    filters.dateTo ||
+    filters.followUpDue ||
+    filters.calledOnly
+  );
+
+  if (hasNpFilter) {
+    const { getNationalPortalIndex, hasNationalPortalInfo, matchProspectWithNationalPortal } = await import('./nationalPortalApi');
+    const npIndex = await getNationalPortalIndex();
+
+    const CHUNK_SIZE = 400;
+    const collected: LeadProspect[] = [];
+    let currentOffset = 0;
+    let dbCount = 0;
+
+    while (collected.length < offset + pageSize) {
+      let q = supabase
+        .from('lead_prospects')
+        .select('*, called_by_profile:profiles!lead_prospects_called_by_fkey(id, full_name)', { count: currentOffset === 0 ? 'exact' : undefined });
+
+      q = applyProspectDbSorting(q, filters.sortBy);
+      q = applyProspectDbFilters(q, filters);
+      q = q.range(currentOffset, currentOffset + CHUNK_SIZE - 1);
+
+      const { data, error, count } = await q;
+      if (error) {
+        if (error.code === 'PGRST103') break;
+        throw error;
+      }
+      if (currentOffset === 0 && count != null) dbCount = count;
+      if (!data || data.length === 0) break;
+
+      for (const p of data) {
+        let matches = true;
+        if (npFilter === 'NOT_AVAILABLE') {
+          matches = !hasNationalPortalInfo(p, npIndex);
+        } else if (npFilter === 'AVAILABLE') {
+          matches = hasNationalPortalInfo(p, npIndex);
+        } else if (npFilter.startsWith('STEP_')) {
+          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
+          const matched = matchProspectWithNationalPortal(p, npIndex);
+          matches = Boolean((matched?.step || p.national_portal_status || '').toLowerCase().includes(stepTarget));
+        }
+        if (matches) collected.push(p);
+      }
+
+      currentOffset += data.length;
+      if (data.length < CHUNK_SIZE) break;
+      if (dbCount > 0 && currentOffset >= dbCount) break;
+      if (currentOffset >= 2500 && collected.length >= offset + pageSize) break;
+    }
+
+    const pageSlice = collected.slice(offset, offset + pageSize);
+    const estimatedTotal = dbCount > 0
+      ? Math.round(dbCount * (npFilter === 'AVAILABLE' ? 0.35 : 0.65))
+      : collected.length;
+
+    return { prospects: pageSlice, total: Math.max(collected.length, estimatedTotal) };
+  }
+
   let query = supabase
     .from('lead_prospects')
-    .select('*, called_by_profile:profiles!lead_prospects_called_by_fkey(id, full_name)', { count: 'exact' })
-    .range(offset, offset + pageSize - 1);
+    .select('*, called_by_profile:profiles!lead_prospects_called_by_fkey(id, full_name)', { count: 'exact' });
 
-  const sortBy = filters.sortBy || 'created_at_desc';
-  if (sortBy === 'created_at_asc') {
-    query = query.order('created_at', { ascending: true });
-  } else if (sortBy === 'name_asc') {
-    query = query.order('customer_name', { ascending: true, nullsFirst: false });
-  } else if (sortBy === 'name_desc') {
-    query = query.order('customer_name', { ascending: false, nullsFirst: false });
-  } else if (sortBy === 'load_desc') {
-    query = query.order('applied_solar_load_kw', { ascending: false, nullsFirst: false });
-  } else if (sortBy === 'load_asc') {
-    query = query.order('applied_solar_load_kw', { ascending: true, nullsFirst: false });
-  } else {
-    query = query.order('created_at', { ascending: false });
-  }
-
-  if (filters.search) {
-    const searchTrimmed = filters.search.trim();
-    const matchedAreaCodes = findAreaCodesForQuery(searchTrimmed, 12);
-    let searchCond = `sc_number.ilike.%${searchTrimmed}%,customer_name.ilike.%${searchTrimmed}%,mobile_number.ilike.%${searchTrimmed}%,meter_no.ilike.%${searchTrimmed}%,np_registration_number.ilike.%${searchTrimmed}%,ep_registration_number.ilike.%${searchTrimmed}%,village_name.ilike.%${searchTrimmed}%,email.ilike.%${searchTrimmed}%`;
-    if (matchedAreaCodes.length > 0) {
-      const areaConds = matchedAreaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
-      searchCond += `,${areaConds}`;
-    }
-    query = query.or(searchCond);
-  }
-  if (filters.circles && filters.circles.length > 0) query = query.in('circle_name', filters.circles);
-  if (filters.divisions && filters.divisions.length > 0) query = query.in('division_name', filters.divisions);
-  if (filters.subdivs && filters.subdivs.length > 0) query = query.in('subdiv_name', filters.subdivs);
-  if (filters.eros && filters.eros.length > 0) query = query.in('ero_name', filters.eros);
-  if (filters.sections && filters.sections.length > 0) query = query.in('section_name', filters.sections);
-  if (filters.statuses && filters.statuses.length > 0) query = query.in('eb_status', filters.statuses);
-  if (filters.callStatuses && filters.callStatuses.length > 0) query = query.in('call_status', filters.callStatuses);
-  if (filters.categories && filters.categories.length > 0) {
-    const expandedCats = expandCategoryFilter(filters.categories);
-    query = query.in('category', expandedCats);
-  }
-  if (filters.mandals && filters.mandals.length > 0) query = query.in('mandal_name', filters.mandals);
-  if (filters.subStations && filters.subStations.length > 0) query = query.in('sub_station_name', filters.subStations);
-  if (filters.areaCodes && filters.areaCodes.length > 0) {
-    if (filters.areaCodes.length === 1) {
-      query = query.like('sc_number', `%${filters.areaCodes[0]}______`);
-    } else {
-      const orConds = filters.areaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
-      query = query.or(orConds);
-    }
-  }
-  if (filters.hideSuryaGhar) {
-    query = query.eq('is_existing_customer', false);
-  }
-  if (filters.hideSolarInstalled) {
-    query = query
-      .not('call_status', 'in', '("solar_already_installed","already_installed")')
-      .is('ep_registration_number', null);
-  }
-  if (filters.importBatchId) query = query.eq('import_batch_id', filters.importBatchId);
-  if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom + 'T00:00:00');
-  if (filters.dateTo) query = query.lte('created_at', filters.dateTo + 'T23:59:59');
-  if (filters.followUpDue) {
-    const today = new Date().toISOString().split('T')[0];
-    query = query.lte('follow_up_date', today).not('call_status', 'in', '("converted","not_interested")');
-  }
-  if (filters.calledOnly) {
-    query = query.neq('call_status', 'not_called');
-  }
+  query = query.range(offset, offset + pageSize - 1);
+  query = applyProspectDbSorting(query, filters.sortBy);
+  query = applyProspectDbFilters(query, filters);
 
   const { data, error, count } = await query;
-  if (error) throw error;
+  if (error) {
+    if (error.code === 'PGRST103') {
+      return { prospects: [], total: 0 };
+    }
+    throw error;
+  }
 
   let prospects = (data as any) || [];
   let totalCount = count ?? 0;
@@ -998,31 +1109,72 @@ export interface ProspectExportRow {
 
 export async function fetchProspectsForExport(
   filters: ProspectFilterOptions,
-  limit?: number
+  limit?: number,
+  onProgress?: (count: number) => void
 ): Promise<ProspectExportRow[]> {
   const allProspects: LeadProspect[] = [];
-  let currentPage = 1;
-  const exportPageSize = 500;
-  let totalCount = 0;
+  const npFilter = filters.nationalPortalFilter || 'ALL';
+  const hasNpFilter = npFilter !== 'ALL';
 
-  do {
-    const remaining = limit != null ? limit - allProspects.length : undefined;
-    const pageSize = remaining != null ? Math.min(exportPageSize, remaining) : exportPageSize;
-    if (remaining != null && remaining <= 0) break;
+  let npIndex: any = null;
+  let hasNationalPortalInfoFn: any = null;
+  let matchProspectWithNationalPortalFn: any = null;
+  if (hasNpFilter) {
+    const npApi = await import('./nationalPortalApi');
+    npIndex = await npApi.getNationalPortalIndex().catch(() => null);
+    hasNationalPortalInfoFn = npApi.hasNationalPortalInfo;
+    matchProspectWithNationalPortalFn = npApi.matchProspectWithNationalPortal;
+  }
 
-    const result = await fetchProspects({
-      ...filters,
-      page: currentPage,
-      pageSize,
-    });
-    allProspects.push(...result.prospects);
-    totalCount = result.total;
-    currentPage++;
-  } while (allProspects.length < totalCount && allProspects.length > 0 && (limit == null || allProspects.length < limit));
+  const BATCH_SIZE = 1000;
+  let offset = 0;
+  let totalInDb: number | null = null;
+
+  while (limit == null || allProspects.length < limit) {
+    let q = supabase
+      .from('lead_prospects')
+      .select('*, called_by_profile:profiles!lead_prospects_called_by_fkey(id, full_name)', { count: totalInDb === null ? 'exact' : undefined });
+
+    q = applyProspectDbFilters(q, filters);
+    q = applyProspectDbSorting(q, filters.sortBy);
+    q = q.range(offset, offset + BATCH_SIZE - 1);
+
+    const { data, count, error } = await q;
+    if (error) {
+      if (error.code === 'PGRST103') break;
+      throw error;
+    }
+    if (!data || data.length === 0) break;
+    if (totalInDb === null && count != null) {
+      totalInDb = count;
+    }
+
+    for (const p of data) {
+      if (hasNpFilter && npIndex && hasNationalPortalInfoFn) {
+        let matches = true;
+        if (npFilter === 'NOT_AVAILABLE') matches = !hasNationalPortalInfoFn(p, npIndex);
+        else if (npFilter === 'AVAILABLE') matches = hasNationalPortalInfoFn(p, npIndex);
+        else if (npFilter.startsWith('STEP_')) {
+          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
+          const matched = matchProspectWithNationalPortalFn(p, npIndex);
+          matches = Boolean(matched?.step?.toLowerCase().includes(stepTarget));
+        }
+        if (!matches) continue;
+      }
+
+      allProspects.push(p);
+      if (limit != null && allProspects.length >= limit) break;
+    }
+
+    onProgress?.(allProspects.length);
+    offset += data.length;
+    if (totalInDb != null && offset >= totalInDb) break;
+    if (data.length < BATCH_SIZE) break;
+  }
 
   const exportProspects = limit != null ? allProspects.slice(0, limit) : allProspects;
 
-  const scNumbers = exportProspects.map((p) => p.sc_number).filter(Boolean) as string[];
+  const scNumbers = exportProspects.slice(0, 2500).map((p) => p.sc_number).filter(Boolean) as string[];
   const billSummaries = scNumbers.length > 0 ? await fetchProspectBillSummaries(scNumbers) : new Map<string, ProspectBillSummary>();
 
   if (filters.sortBy === 'avg_units_desc') {
@@ -1118,134 +1270,323 @@ export async function fetchProspectsForExport(
 
 export async function fetchProspectSCOnlyForExport(
   filters: ProspectFilterOptions,
-  limit?: number
+  limit?: number,
+  onProgress?: (count: number) => void
 ): Promise<string[]> {
-  const billConditions: { column: string; op: FilterOperator; value: number; maxValue?: number }[] = [];
-  if (filters.billAmount && filters.billAmount.value > 0)
-    billConditions.push({ column: 'bill_amount', op: filters.billAmount.operator, value: filters.billAmount.value, maxValue: filters.billAmount.maxValue });
-  if (filters.billUnits && filters.billUnits.value > 0)
-    billConditions.push({ column: 'billed_units', op: filters.billUnits.operator, value: filters.billUnits.value, maxValue: filters.billUnits.maxValue });
+  const allScNumbers: string[] = [];
+  const seen = new Set<string>();
+  const npFilter = filters.nationalPortalFilter || 'ALL';
+  const hasNpFilter = npFilter !== 'ALL';
 
-  if (billConditions.length > 0) {
-    const allScNumbers: string[] = [];
-    let currentPage = 1;
-    const pageSize = 1000;
-    let totalCount = 0;
-
-    do {
-      const remaining = limit != null ? limit - allScNumbers.length : undefined;
-      const curPageSize = remaining != null ? Math.min(pageSize, remaining) : pageSize;
-      if (remaining != null && remaining <= 0) break;
-
-      const result = await fetchProspects({
-        ...filters,
-        page: currentPage,
-        pageSize: curPageSize,
-      });
-
-      for (const p of result.prospects) {
-        if (p.sc_number) allScNumbers.push(p.sc_number);
-      }
-
-      totalCount = result.total;
-      currentPage++;
-    } while (allScNumbers.length < totalCount && (limit == null || allScNumbers.length < limit));
-
-    return limit != null ? allScNumbers.slice(0, limit) : allScNumbers;
+  let npIndex: any = null;
+  let hasNationalPortalInfoFn: any = null;
+  let matchProspectWithNationalPortalFn: any = null;
+  if (hasNpFilter) {
+    const npApi = await import('./nationalPortalApi');
+    npIndex = await npApi.getNationalPortalIndex().catch(() => null);
+    hasNationalPortalInfoFn = npApi.hasNationalPortalInfo;
+    matchProspectWithNationalPortalFn = npApi.matchProspectWithNationalPortal;
   }
 
-  const allScNumbers: string[] = [];
-  const pageSize = 1000;
+  const BATCH_SIZE = 1000;
   let offset = 0;
-  let totalCount = 0;
+  let totalInDb: number | null = null;
 
-  do {
-    const remaining = limit != null ? limit - allScNumbers.length : undefined;
-    const curPageSize = remaining != null ? Math.min(pageSize, remaining) : pageSize;
-    if (remaining != null && remaining <= 0) break;
-    if (totalCount > 0 && offset >= totalCount) break;
-
-    let query = supabase
+  while (limit == null || allScNumbers.length < limit) {
+    let q = supabase
       .from('lead_prospects')
-      .select('sc_number', { count: 'exact' })
-      .range(offset, offset + curPageSize - 1);
+      .select('id, sc_number, ep_registration_number, np_registration_number, mobile_number, customer_name', { count: totalInDb === null ? 'exact' : undefined });
 
-    const sortBy = filters.sortBy || 'created_at_desc';
-    if (sortBy === 'created_at_asc') {
-      query = query.order('created_at', { ascending: true });
-    } else if (sortBy === 'name_asc') {
-      query = query.order('customer_name', { ascending: true, nullsFirst: false });
-    } else if (sortBy === 'name_desc') {
-      query = query.order('customer_name', { ascending: false, nullsFirst: false });
-    } else if (sortBy === 'load_desc') {
-      query = query.order('applied_solar_load_kw', { ascending: false, nullsFirst: false });
-    } else if (sortBy === 'load_asc') {
-      query = query.order('applied_solar_load_kw', { ascending: true, nullsFirst: false });
-    } else {
-      query = query.order('created_at', { ascending: false });
+    q = applyProspectDbFilters(q, filters);
+    q = applyProspectDbSorting(q, filters.sortBy);
+    q = q.range(offset, offset + BATCH_SIZE - 1);
+
+    const { data, count, error } = await q;
+    if (error) {
+      if (error.code === 'PGRST103') break;
+      throw error;
+    }
+    if (!data || data.length === 0) break;
+    if (totalInDb === null && count != null) {
+      totalInDb = count;
     }
 
-    if (filters.search) {
-      const searchTrimmed = filters.search.trim();
-      const matchedAreaCodes = findAreaCodesForQuery(searchTrimmed, 12);
-      let searchCond = `sc_number.ilike.%${searchTrimmed}%,customer_name.ilike.%${searchTrimmed}%,mobile_number.ilike.%${searchTrimmed}%,meter_no.ilike.%${searchTrimmed}%,np_registration_number.ilike.%${searchTrimmed}%,ep_registration_number.ilike.%${searchTrimmed}%,village_name.ilike.%${searchTrimmed}%,email.ilike.%${searchTrimmed}%`;
-      if (matchedAreaCodes.length > 0) {
-        const areaConds = matchedAreaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
-        searchCond += `,${areaConds}`;
+    for (const p of data) {
+      if (hasNpFilter && npIndex && hasNationalPortalInfoFn) {
+        let matches = true;
+        if (npFilter === 'NOT_AVAILABLE') matches = !hasNationalPortalInfoFn(p, npIndex);
+        else if (npFilter === 'AVAILABLE') matches = hasNationalPortalInfoFn(p, npIndex);
+        else if (npFilter.startsWith('STEP_')) {
+          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
+          const matched = matchProspectWithNationalPortalFn(p, npIndex);
+          matches = Boolean(matched?.step?.toLowerCase().includes(stepTarget));
+        }
+        if (!matches) continue;
       }
-      query = query.or(searchCond);
-    }
-    if (filters.circles && filters.circles.length > 0) query = query.in('circle_name', filters.circles);
-    if (filters.divisions && filters.divisions.length > 0) query = query.in('division_name', filters.divisions);
-    if (filters.subdivs && filters.subdivs.length > 0) query = query.in('subdiv_name', filters.subdivs);
-    if (filters.eros && filters.eros.length > 0) query = query.in('ero_name', filters.eros);
-    if (filters.sections && filters.sections.length > 0) query = query.in('section_name', filters.sections);
-    if (filters.statuses && filters.statuses.length > 0) query = query.in('eb_status', filters.statuses);
-    if (filters.callStatuses && filters.callStatuses.length > 0) query = query.in('call_status', filters.callStatuses);
-    if (filters.categories && filters.categories.length > 0) query = query.in('category', filters.categories);
-    if (filters.mandals && filters.mandals.length > 0) query = query.in('mandal_name', filters.mandals);
-    if (filters.subStations && filters.subStations.length > 0) query = query.in('sub_station_name', filters.subStations);
-    if (filters.areaCodes && filters.areaCodes.length > 0) {
-      if (filters.areaCodes.length === 1) {
-        query = query.like('sc_number', `%${filters.areaCodes[0]}______`);
-      } else {
-        const orConds = filters.areaCodes.map((c) => `sc_number.like.%${c}______`).join(',');
-        query = query.or(orConds);
+
+      if (p.sc_number && p.sc_number.trim()) {
+        const sc = p.sc_number.trim();
+        if (!seen.has(sc)) {
+          seen.add(sc);
+          allScNumbers.push(sc);
+          if (limit != null && allScNumbers.length >= limit) break;
+        }
       }
     }
-    if (filters.hideSuryaGhar) {
-      query = query.eq('is_existing_customer', false);
-    }
-    if (filters.hideSolarInstalled) {
-      query = query
-        .not('call_status', 'in', '("solar_already_installed","already_installed")')
-        .is('ep_registration_number', null);
-    }
-    if (filters.importBatchId) query = query.eq('import_batch_id', filters.importBatchId);
-    if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom + 'T00:00:00');
-    if (filters.dateTo) query = query.lte('created_at', filters.dateTo + 'T23:59:59');
-    if (filters.followUpDue) {
-      const today = new Date().toISOString().split('T')[0];
-      query = query.lte('follow_up_date', today).not('call_status', 'in', '("converted","not_interested")');
-    }
-    if (filters.calledOnly) {
-      query = query.neq('call_status', 'not_called');
-    }
 
-    const { data, error, count } = await query;
-    if (error) throw error;
-
-    if (count != null) totalCount = count;
-    const rows = data || [];
-    if (rows.length === 0) break;
-
-    for (const r of rows) {
-      if (r.sc_number) allScNumbers.push(r.sc_number);
-    }
-
-    offset += rows.length;
-  } while (allScNumbers.length < totalCount && (limit == null || allScNumbers.length < limit));
+    onProgress?.(allScNumbers.length);
+    offset += data.length;
+    if (totalInDb != null && offset >= totalInDb) break;
+    if (data.length < BATCH_SIZE) break;
+  }
 
   return limit != null ? allScNumbers.slice(0, limit) : allScNumbers;
+}
+
+/**
+ * Sanitizes and checks if a string is a valid S-Number (APEPDCL Solar Rooftop Registration/Complaint No).
+ */
+export function isValidSNumber(s: string | null | undefined): boolean {
+  if (!s) return false;
+  const trimmed = s.trim();
+  if (!trimmed || trimmed === '-' || trimmed === '--' || trimmed === 'N/A' || trimmed === 'NA') return false;
+  return true;
+}
+
+/**
+ * Fetches S-Numbers (ep_registration_number) for all prospects matching the given filters.
+ * Returns only valid, sanitized S-Numbers (skipping null, '-', '--', etc.).
+ */
+export async function fetchProspectSNumberOnlyForExport(
+  filters: ProspectFilterOptions,
+  limit?: number,
+  onProgress?: (count: number) => void
+): Promise<string[]> {
+  const allSNumbers: string[] = [];
+  const seen = new Set<string>();
+  const npFilter = filters.nationalPortalFilter || 'ALL';
+  const hasNpFilter = npFilter !== 'ALL';
+
+  let npIndex: any = null;
+  let hasNationalPortalInfoFn: any = null;
+  let matchProspectWithNationalPortalFn: any = null;
+  if (hasNpFilter) {
+    const npApi = await import('./nationalPortalApi');
+    npIndex = await npApi.getNationalPortalIndex().catch(() => null);
+    hasNationalPortalInfoFn = npApi.hasNationalPortalInfo;
+    matchProspectWithNationalPortalFn = npApi.matchProspectWithNationalPortal;
+  }
+
+  const BATCH_SIZE = 1000;
+  let offset = 0;
+  let totalInDb: number | null = null;
+
+  while (limit == null || allSNumbers.length < limit) {
+    let q = supabase
+      .from('lead_prospects')
+      .select('id, sc_number, ep_registration_number, np_registration_number, mobile_number, customer_name', { count: totalInDb === null ? 'exact' : undefined });
+
+    q = applyProspectDbFilters(q, filters);
+    q = applyProspectDbSorting(q, filters.sortBy);
+    q = q.range(offset, offset + BATCH_SIZE - 1);
+
+    const { data, count, error } = await q;
+    if (error) {
+      if (error.code === 'PGRST103') break;
+      throw error;
+    }
+    if (!data || data.length === 0) break;
+    if (totalInDb === null && count != null) {
+      totalInDb = count;
+    }
+
+    for (const p of data) {
+      if (hasNpFilter && npIndex && hasNationalPortalInfoFn) {
+        let matches = true;
+        if (npFilter === 'NOT_AVAILABLE') matches = !hasNationalPortalInfoFn(p, npIndex);
+        else if (npFilter === 'AVAILABLE') matches = hasNationalPortalInfoFn(p, npIndex);
+        else if (npFilter.startsWith('STEP_')) {
+          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
+          const matched = matchProspectWithNationalPortalFn(p, npIndex);
+          matches = Boolean(matched?.step?.toLowerCase().includes(stepTarget));
+        }
+        if (!matches) continue;
+      }
+
+      if (isValidSNumber(p.ep_registration_number)) {
+        const raw = p.ep_registration_number!.trim();
+        const parts = raw.split(/[,;\n]+/).map((s: string) => s.trim()).filter(isValidSNumber);
+        const candidates = parts.length > 0 ? parts : [raw];
+        for (const snum of candidates) {
+          if (isValidSNumber(snum) && !seen.has(snum)) {
+            seen.add(snum);
+            allSNumbers.push(snum);
+            if (limit != null && allSNumbers.length >= limit) break;
+          }
+        }
+      }
+      if (limit != null && allSNumbers.length >= limit) break;
+    }
+
+    onProgress?.(allSNumbers.length);
+    offset += data.length;
+    if (totalInDb != null && offset >= totalInDb) break;
+    if (data.length < BATCH_SIZE) break;
+  }
+
+  return limit != null ? allSNumbers.slice(0, limit) : allSNumbers;
+}
+
+/**
+ * Extracts the numeric ID from an NP Registration Number or Application ID.
+ *
+ * Supported patterns:
+ *   NP/Reg-7190750/2024   → "7190750" (strips /2024 year)
+ *   7190750/2024          → "7190750"
+ *   NP-APEPD26-12030118   → "12030118"
+ *   NP-APEPD26-15997632   → "15997632"
+ *   R-APEPD24-8152349     → "8152349"
+ *   16424836              → "16424836"
+ *
+ * Returns null if the value is empty, dash, or has no valid ID segment.
+ */
+export function extractNPId(npRegistrationNumber: string | null | undefined): string | null {
+  if (!npRegistrationNumber) return null;
+  let str = String(npRegistrationNumber).trim();
+  if (!str || str === '-' || str === '--' || str === 'N/A' || str === 'NA') return null;
+
+  // 1. Strip trailing year segment (e.g. "/2024", "/2023", "/2025", "/2026", "/24")
+  str = str.replace(/\/\d{2,4}$/, '');
+
+  // 2. Extract after the last hyphen (e.g. "NP-APEPD26-14705882" -> "14705882", "NP/Reg-7190750" -> "7190750")
+  const lastHyphen = str.lastIndexOf('-');
+  if (lastHyphen !== -1) {
+    str = str.slice(lastHyphen + 1).trim();
+  }
+
+  // 3. In case any remaining slash exists (e.g. "7190750/anything")
+  const slashIdx = str.indexOf('/');
+  if (slashIdx !== -1) {
+    str = str.slice(0, slashIdx).trim();
+  }
+
+  return str.length > 0 ? str : null;
+}
+
+/**
+ * Fetches NP Application IDs for all prospects matching the given filters.
+ * Extracts pure numeric IDs (stripping year prefixes/suffixes like /2024).
+ * Fully respects all active filters, pagination limits, and portal statuses.
+ */
+export async function fetchProspectNPIdOnlyForExport(
+  filters: ProspectFilterOptions,
+  limit?: number,
+  onProgress?: (count: number) => void
+): Promise<string[]> {
+  const allNPIds: string[] = [];
+  const seen = new Set<string>();
+  const npFilter = filters.nationalPortalFilter || 'ALL';
+  const hasNpFilter = npFilter !== 'ALL';
+
+  const { getNationalPortalIndex, hasNationalPortalInfo, matchProspectWithNationalPortal } = await import('./nationalPortalApi');
+  const npIndex = await getNationalPortalIndex().catch(() => null);
+
+  const BATCH_SIZE = 1000;
+  let offset = 0;
+  let totalInDb: number | null = null;
+
+  while (limit == null || allNPIds.length < limit) {
+    let q = supabase
+      .from('lead_prospects')
+      .select('id, sc_number, ep_registration_number, np_registration_number, mobile_number, customer_name', { count: totalInDb === null ? 'exact' : undefined });
+
+    q = applyProspectDbFilters(q, filters);
+    q = applyProspectDbSorting(q, filters.sortBy);
+    q = q.range(offset, offset + BATCH_SIZE - 1);
+
+    const { data, count, error } = await q;
+    if (error) {
+      if (error.code === 'PGRST103') break;
+      throw error;
+    }
+    if (!data || data.length === 0) break;
+    if (totalInDb === null && count != null) {
+      totalInDb = count;
+    }
+
+    for (const p of data) {
+      if (hasNpFilter && npIndex) {
+        let matches = true;
+        if (npFilter === 'NOT_AVAILABLE') matches = !hasNationalPortalInfo(p, npIndex);
+        else if (npFilter === 'AVAILABLE') matches = hasNationalPortalInfo(p, npIndex);
+        else if (npFilter.startsWith('STEP_')) {
+          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
+          const matched = matchProspectWithNationalPortal(p, npIndex);
+          matches = Boolean(matched?.step?.toLowerCase().includes(stepTarget));
+        }
+        if (!matches) continue;
+      }
+
+      let id = extractNPId(p.np_registration_number);
+
+      if (!id && npIndex) {
+        const matched = matchProspectWithNationalPortal(p, npIndex);
+        if (matched) {
+          id = matched.id ? extractNPId(matched.id) : extractNPId(matched.appNum);
+        }
+      }
+
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        allNPIds.push(id);
+        if (limit != null && allNPIds.length >= limit) break;
+      }
+    }
+
+    onProgress?.(allNPIds.length);
+    offset += data.length;
+    if (totalInDb != null && offset >= totalInDb) break;
+    if (data.length < BATCH_SIZE) break;
+  }
+
+  return limit != null ? allNPIds.slice(0, limit) : allNPIds;
+}
+
+/** Sync matched National Portal application status directly to Lead Prospects in Supabase */
+export async function syncNationalPortalToProspects(
+  prospects: LeadProspect[],
+  index: any
+): Promise<{ updatedCount: number; errors: string[] }> {
+  let updatedCount = 0;
+  const errors: string[] = [];
+  const { matchProspectWithNationalPortal } = await import('./nationalPortalApi');
+
+  for (const p of prospects) {
+    const npApp = matchProspectWithNationalPortal(p, index);
+    if (npApp) {
+      const updates: Record<string, any> = {
+        national_portal_status: npApp.step || null,
+        np_registration_number: npApp.appNum || (npApp.id ? `NP-${npApp.id}` : null),
+        applied_solar_load_kw: npApp.cap || p.applied_solar_load_kw || null,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('lead_prospects')
+        .update(updates)
+        .eq('id', p.id);
+
+      if (error) {
+        errors.push(`Error updating prospect ${p.sc_number || p.id}: ${error.message}`);
+      } else {
+        updatedCount++;
+        p.national_portal_status = npApp.step;
+        if (npApp.appNum) p.np_registration_number = npApp.appNum;
+        if (npApp.cap) p.applied_solar_load_kw = npApp.cap;
+      }
+    }
+  }
+
+  return { updatedCount, errors };
 }
 

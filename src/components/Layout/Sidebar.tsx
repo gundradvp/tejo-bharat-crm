@@ -30,6 +30,7 @@ import {
   BarChart3,
   Network,
   Sun,
+  Globe,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
@@ -269,6 +270,9 @@ export default function Sidebar() {
 
                   {(isAdmin || isEmployee || isLeadGen || isFinanceUser) &&
                     renderNavItem('/eb-customers', 'EB Customers', Zap)}
+
+                  {(isAdmin || isEmployee || isLeadGen || isFinanceUser) &&
+                    renderNavItem('/national-portal', 'National Portal Apps', Globe)}
 
                   {isAdmin &&
                     renderNavItem('/s-numbers', 'S-Numbers Hub', Sun)}

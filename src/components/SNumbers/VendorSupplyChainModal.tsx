@@ -104,6 +104,14 @@ interface MasterData {
   snumber_dcr_map?: Record<string, any>;
 }
 
+export const getShortBrandName = (name: string): string => {
+  if (!name) return '';
+  const cleaned = name
+    .replace(/\s+(Private|Pvt\.?|Limited|Ltd\.?)\b/gi, '')
+    .trim();
+  return cleaned || name;
+};
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -212,12 +220,18 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
     type: 'buyers' | 'suppliers',
     items: Array<{ name: string; panels: number; brands: string[]; invoices: string[]; contact?: VendorContact | null; district?: string }>,
     vendorName: string,
-    districtLabel?: string
+    districtLabel?: string,
+    brandLabel?: string
   ) => {
     if (items.length === 0) return;
     const baseTitle = type === 'buyers' ? `Who is Purchasing from ${vendorName}` : `Where ${vendorName} is Purchasing From`;
-    const locTag = districtLabel && districtLabel !== 'ALL' ? ` [${districtLabel}]` : '';
-    const header = `📋 *${baseTitle}${locTag}* (${items.length} Vendors)\n\n`;
+    const filterParts = [
+      districtLabel && districtLabel !== 'ALL' ? districtLabel : '',
+      brandLabel && brandLabel !== 'ALL' ? getShortBrandName(brandLabel) : ''
+    ].filter(Boolean);
+    const locTag = filterParts.length > 0 ? ` [${filterParts.join(' • ')}]` : '';
+    const partnerRole = type === 'buyers' ? 'Vendors/Buyers' : 'Sellers/Suppliers';
+    const header = `📋 *${baseTitle}${locTag}* (${items.length} ${partnerRole})\n\n`;
     const entries = items.map((item, idx) => {
       const c = item.contact !== undefined ? item.contact : (contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null);
       const dist = item.district || c?.district;
@@ -287,12 +301,14 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
     type: 'buyers' | 'suppliers',
     items: Array<{ name: string; panels: number; brands: string[]; invoices: string[]; contact?: VendorContact | null; district?: string }>,
     vendorName: string,
-    districtLabel?: string
+    districtLabel?: string,
+    brandLabel?: string
   ) => {
     if (items.length === 0) return;
     const cleanVendorName = vendorName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 24);
     const typeLabel = type === 'buyers' ? 'Buyers' : 'Suppliers';
     const cleanDist = districtLabel && districtLabel !== 'ALL' ? `_${districtLabel.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '';
+    const cleanBrand = brandLabel && brandLabel !== 'ALL' ? `_${getShortBrandName(brandLabel).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 16)}` : '';
 
     const rows = items.map((item, idx) => {
       const c = item.contact !== undefined ? item.contact : (contactsMaster ? lookupVendorContact(item.name, contactsMaster) : null);
@@ -327,7 +343,7 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `${typeLabel}`.slice(0, 31));
-    XLSX.writeFile(wb, `${cleanVendorName}_${typeLabel}${cleanDist}.xlsx`);
+    XLSX.writeFile(wb, `${cleanVendorName}_${typeLabel}${cleanDist}${cleanBrand}.xlsx`);
   };
 
   // List of all vendors in database
@@ -346,6 +362,166 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
     const q = searchTerm.toLowerCase().trim();
     return allVendorsList.filter((v) => v.toLowerCase().includes(q)).slice(0, 50);
   }, [searchTerm, allVendorsList]);
+
+  // Always-Visible Global Brand Filter state
+  const [globalBrandFilter, setGlobalBrandFilter] = useState<string>('ALL');
+
+  // Compute all 41 brands across the entire dataset (always available, regardless of vendor)
+  const allGlobalBrands = useMemo(() => {
+    if (!data) return [];
+    const brandMap: Record<string, { name: string; panels: number; rank: number; sellers: Set<string>; buyers: Set<string> }> = {};
+
+    if (data.manufacturers_ranking) {
+      data.manufacturers_ranking.forEach((m) => {
+        brandMap[m.manufacturer_name] = {
+          name: m.manufacturer_name,
+          panels: m.total_panels,
+          rank: m.rank,
+          sellers: new Set(),
+          buyers: new Set()
+        };
+      });
+    }
+
+    if (data.vendor_intelligence) {
+      Object.entries(data.vendor_intelligence).forEach(([_, vData]) => {
+        (vData.suppliers || []).forEach((s) => {
+          (s.manufacturers || []).forEach((m) => {
+            const brand = m?.trim();
+            if (!brand) return;
+            if (!brandMap[brand]) {
+              brandMap[brand] = { name: brand, panels: 0, rank: 999, sellers: new Set(), buyers: new Set() };
+            }
+            brandMap[brand].sellers.add(s.supplier_name);
+          });
+        });
+
+        (vData.buyers || []).forEach((b) => {
+          (b.manufacturers || []).forEach((m) => {
+            const brand = m?.trim();
+            if (!brand) return;
+            if (!brandMap[brand]) {
+              brandMap[brand] = { name: brand, panels: 0, rank: 999, sellers: new Set(), buyers: new Set() };
+            }
+            brandMap[brand].buyers.add(b.buyer_name);
+          });
+        });
+      });
+    }
+
+    return Object.values(brandMap)
+      .map((b) => ({
+        name: b.name,
+        panels: b.panels,
+        rank: b.rank,
+        sellersCount: b.sellers.size,
+        buyersCount: b.buyers.size
+      }))
+      .sort((a, b) => b.panels - a.panels);
+  }, [data]);
+
+  // Top brands for quick 1-click pills
+  const topBrandsList = useMemo(() => {
+    return allGlobalBrands.slice(0, 8);
+  }, [allGlobalBrands]);
+
+  // Synthesize network-wide vendor data when a brand is selected without a specific vendor
+  const brandNetworkData = useMemo(() => {
+    if (!data?.vendor_intelligence || globalBrandFilter === 'ALL') return null;
+
+    const brand = globalBrandFilter;
+    const supplierMap = new Map<string, SupplierInfo & { invSet: Set<string> }>();
+    const buyerMap = new Map<string, BuyerInfo & { invSet: Set<string> }>();
+
+    for (const [_, vData] of Object.entries(data.vendor_intelligence)) {
+      (vData.suppliers || []).forEach((s) => {
+        if ((s.manufacturers || []).some((m) => m.toLowerCase().trim() === brand.toLowerCase().trim())) {
+          const key = s.supplier_name;
+          if (!supplierMap.has(key)) {
+            supplierMap.set(key, {
+              supplier_name: key,
+              panels_count: 0,
+              invoices: [],
+              manufacturers: [brand],
+              sample_serials: [],
+              panels: [],
+              invSet: new Set()
+            });
+          }
+          const entry = supplierMap.get(key)!;
+          entry.panels_count += s.panels_count;
+          (s.invoices || []).forEach((inv) => entry.invSet.add(inv));
+          if (s.panels && entry.panels && entry.panels.length < 500) {
+            entry.panels.push(...s.panels.slice(0, 500 - entry.panels.length));
+          }
+        }
+      });
+
+      (vData.buyers || []).forEach((b) => {
+        if ((b.manufacturers || []).some((m) => m.toLowerCase().trim() === brand.toLowerCase().trim())) {
+          const key = b.buyer_name;
+          if (!buyerMap.has(key)) {
+            buyerMap.set(key, {
+              buyer_name: key,
+              panels_count: 0,
+              invoices: [],
+              manufacturers: [brand],
+              sample_serials: [],
+              panels: [],
+              invSet: new Set()
+            });
+          }
+          const entry = buyerMap.get(key)!;
+          entry.panels_count += b.panels_count;
+          (b.invoices || []).forEach((inv) => entry.invSet.add(inv));
+          if (b.panels && entry.panels && entry.panels.length < 500) {
+            entry.panels.push(...b.panels.slice(0, 500 - entry.panels.length));
+          }
+        }
+      });
+    }
+
+    const suppliers: SupplierInfo[] = Array.from(supplierMap.values())
+      .map((s) => ({
+        supplier_name: s.supplier_name,
+        panels_count: s.panels_count,
+        invoices: Array.from(s.invSet),
+        manufacturers: s.manufacturers,
+        sample_serials: s.sample_serials,
+        panels: s.panels
+      }))
+      .sort((a, b) => b.panels_count - a.panels_count);
+
+    const buyers: BuyerInfo[] = Array.from(buyerMap.values())
+      .map((b) => ({
+        buyer_name: b.buyer_name,
+        panels_count: b.panels_count,
+        invoices: Array.from(b.invSet),
+        manufacturers: b.manufacturers,
+        sample_serials: b.sample_serials,
+        panels: b.panels
+      }))
+      .sort((a, b) => b.panels_count - a.panels_count);
+
+    const rankingInfo = (data.manufacturers_ranking || []).find(
+      (m) => m.manufacturer_name.toLowerCase().trim() === brand.toLowerCase().trim()
+    );
+    const inboundTotal = suppliers.reduce((acc, s) => acc + s.panels_count, 0);
+    const outboundTotal = buyers.reduce((acc, b) => acc + b.panels_count, 0);
+    const totalPanels = rankingInfo?.total_panels || inboundTotal;
+
+    const res: VendorData = {
+      vendor_name: `${brand} (All State Entities Consolidated)`,
+      total_inbound_panels: totalPanels,
+      total_outbound_panels: outboundTotal,
+      b2b_outbound_panels: outboundTotal,
+      b2c_consumer_panels: 0,
+      suppliers,
+      buyers,
+      manufacturers_handled: { [brand]: totalPanels }
+    };
+    return res;
+  }, [data, globalBrandFilter]);
 
   // Best matching selected vendor
   const currentVendorData = useMemo(() => {
@@ -375,8 +551,13 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
       if (substringMatch) return data.vendor_intelligence[substringMatch];
     }
 
+    // 5. If no specific vendor matched, but a brand is selected globally -> show complete brand network
+    if (brandNetworkData) {
+      return brandNetworkData;
+    }
+
     return null;
-  }, [selectedVendorName, searchTerm, data, allVendorsList]);
+  }, [selectedVendorName, searchTerm, data, allVendorsList, brandNetworkData]);
 
   // Look up verified contact details for selected vendor
   const activeVendorContact = useMemo(() => {
@@ -387,10 +568,28 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
   // District & Location Filter state
   const [districtFilter, setDistrictFilter] = useState<string>('ALL');
 
-  // Reset district filter whenever selected vendor changes
+  // Brand Filter state (unified master filter or individual seller / buyer filters)
+  const [supplierBrandFilter, setSupplierBrandFilter] = useState<string>('ALL');
+  const [buyerBrandFilter, setBuyerBrandFilter] = useState<string>('ALL');
+
+  // Global brand selector handler (syncs top dropdown and table filters)
+  const handleSelectGlobalBrand = (brand: string) => {
+    setGlobalBrandFilter(brand);
+    setSupplierBrandFilter(brand);
+    setBuyerBrandFilter(brand);
+  };
+
+  // Master brand selector handler (sets both sellers and buyers together)
+  const handleSelectMasterBrand = (brand: string) => {
+    handleSelectGlobalBrand(brand);
+  };
+
+  // Reset district filter whenever selected vendor changes, sync brand filters
   useEffect(() => {
     setDistrictFilter('ALL');
-  }, [selectedVendorName, searchTerm]);
+    setSupplierBrandFilter(globalBrandFilter);
+    setBuyerBrandFilter(globalBrandFilter);
+  }, [selectedVendorName, searchTerm, globalBrandFilter]);
 
   // Enrich suppliers with verified contact details and detected district
   const enrichedSuppliers = useMemo(() => {
@@ -452,17 +651,122 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
       .sort((a, b) => b.totalCount - a.totalCount);
   }, [enrichedSuppliers, enrichedBuyers, currentVendorData]);
 
-  // Filtered suppliers based on selected district
-  const filteredSuppliers = useMemo(() => {
-    if (districtFilter === 'ALL') return enrichedSuppliers;
-    return enrichedSuppliers.filter((s) => s.district === districtFilter);
-  }, [enrichedSuppliers, districtFilter]);
+  // Compute available brands for suppliers (sellers)
+  const supplierBrandOptions = useMemo(() => {
+    if (!enrichedSuppliers.length) return [];
+    const map: Record<string, { suppliersCount: number; panelsCount: number }> = {};
+    enrichedSuppliers.forEach(({ supplier }) => {
+      (supplier.manufacturers || []).forEach((mfr) => {
+        const brand = mfr.trim();
+        if (!brand) return;
+        if (!map[brand]) map[brand] = { suppliersCount: 0, panelsCount: 0 };
+        map[brand].suppliersCount += 1;
+        map[brand].panelsCount += supplier.panels_count;
+      });
+    });
+    return Object.entries(map)
+      .map(([brand, stats]) => ({ brand, ...stats }))
+      .sort((a, b) => b.panelsCount - a.panelsCount);
+  }, [enrichedSuppliers]);
 
-  // Filtered buyers based on selected district
+  // Compute available brands for buyers (vendors)
+  const buyerBrandOptions = useMemo(() => {
+    if (!enrichedBuyers.length) return [];
+    const map: Record<string, { buyersCount: number; panelsCount: number }> = {};
+    enrichedBuyers.forEach(({ buyer }) => {
+      (buyer.manufacturers || []).forEach((mfr) => {
+        const brand = mfr.trim();
+        if (!brand) return;
+        if (!map[brand]) map[brand] = { buyersCount: 0, panelsCount: 0 };
+        map[brand].buyersCount += 1;
+        map[brand].panelsCount += buyer.panels_count;
+      });
+    });
+    return Object.entries(map)
+      .map(([brand, stats]) => ({ brand, ...stats }))
+      .sort((a, b) => b.panelsCount - a.panelsCount);
+  }, [enrichedBuyers]);
+
+  // Compute all available brands across both sellers & buyers (and vendor's own handled brands)
+  const allBrandOptions = useMemo(() => {
+    if (!currentVendorData) return [];
+    const map: Record<string, { suppliersCount: number; buyersCount: number; panelsCount: number }> = {};
+
+    // First seed from manufacturers_handled if present
+    if (currentVendorData.manufacturers_handled) {
+      Object.entries(currentVendorData.manufacturers_handled).forEach(([mfr, count]) => {
+        const brand = mfr.trim();
+        if (!brand) return;
+        map[brand] = { suppliersCount: 0, buyersCount: 0, panelsCount: count };
+      });
+    }
+
+    // Aggregate supplier counts
+    enrichedSuppliers.forEach(({ supplier }) => {
+      (supplier.manufacturers || []).forEach((mfr) => {
+        const brand = mfr.trim();
+        if (!brand) return;
+        if (!map[brand]) map[brand] = { suppliersCount: 0, buyersCount: 0, panelsCount: 0 };
+        map[brand].suppliersCount += 1;
+        if (!currentVendorData.manufacturers_handled?.[brand]) {
+          map[brand].panelsCount += supplier.panels_count;
+        }
+      });
+    });
+
+    // Aggregate buyer counts
+    enrichedBuyers.forEach(({ buyer }) => {
+      (buyer.manufacturers || []).forEach((mfr) => {
+        const brand = mfr.trim();
+        if (!brand) return;
+        if (!map[brand]) map[brand] = { suppliersCount: 0, buyersCount: 0, panelsCount: 0 };
+        map[brand].buyersCount += 1;
+        if (!currentVendorData.manufacturers_handled?.[brand]) {
+          map[brand].panelsCount += buyer.panels_count;
+        }
+      });
+    });
+
+    return Object.entries(map)
+      .map(([brand, stats]) => ({
+        brand,
+        ...stats,
+        totalPartners: stats.suppliersCount + stats.buyersCount
+      }))
+      .sort((a, b) => b.panelsCount - a.panelsCount);
+  }, [currentVendorData, enrichedSuppliers, enrichedBuyers]);
+
+  // Current unified master brand value ('ALL', a specific brand, or 'CUSTOM' if mismatched)
+  const masterBrandValue =
+    supplierBrandFilter === buyerBrandFilter
+      ? supplierBrandFilter
+      : 'CUSTOM';
+
+  // Filtered suppliers based on selected district and brand
+  const filteredSuppliers = useMemo(() => {
+    return enrichedSuppliers.filter((s) => {
+      const matchDistrict = districtFilter === 'ALL' || s.district === districtFilter;
+      const matchBrand =
+        supplierBrandFilter === 'ALL' ||
+        (s.supplier.manufacturers || []).some(
+          (m) => m.toLowerCase().trim() === supplierBrandFilter.toLowerCase().trim()
+        );
+      return matchDistrict && matchBrand;
+    });
+  }, [enrichedSuppliers, districtFilter, supplierBrandFilter]);
+
+  // Filtered buyers based on selected district and brand
   const filteredBuyers = useMemo(() => {
-    if (districtFilter === 'ALL') return enrichedBuyers;
-    return enrichedBuyers.filter((b) => b.district === districtFilter);
-  }, [enrichedBuyers, districtFilter]);
+    return enrichedBuyers.filter((b) => {
+      const matchDistrict = districtFilter === 'ALL' || b.district === districtFilter;
+      const matchBrand =
+        buyerBrandFilter === 'ALL' ||
+        (b.buyer.manufacturers || []).some(
+          (m) => m.toLowerCase().trim() === buyerBrandFilter.toLowerCase().trim()
+        );
+      return matchDistrict && matchBrand;
+    });
+  }, [enrichedBuyers, districtFilter, buyerBrandFilter]);
 
   // Panel Details Modal State (triggered when clicking on panel count pills e.g. 56)
   const [activePanelsModal, setActivePanelsModal] = useState<PanelDetailsModalData | null>(null);
@@ -699,43 +1003,132 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
           </button>
         </div>
 
-        {/* Search & Quick Filter Bar */}
-        <div className="p-4 bg-gray-50 border-b border-gray-200 space-y-3">
-          {/* Main Full-Width Search Input */}
-          <div className="relative w-full">
-            <Search className="w-5 h-5 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => {
-                const val = e.target.value;
-                setSearchTerm(val);
-                if (data?.vendor_intelligence && data.vendor_intelligence[val]) {
-                  setSelectedVendorName(val);
-                }
-              }}
-              placeholder="Type any vendor name to track (e.g. Venkata Siri, Tejo Bharat, Effisol, Freyr, Laxmi, Spectra...)"
-              className="w-full pl-11 pr-10 py-3 bg-white border-2 border-indigo-200 rounded-2xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 shadow-sm transition-all"
-              autoFocus
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedVendorName('');
+        {/* Search & Global Brand Filter Bar (ALWAYS VISIBLE AT TOP) */}
+        <div className="p-4 bg-slate-50/95 border-b border-gray-200 space-y-3">
+          {/* Row 1: Vendor Search Input + Always-Visible Brand Dropdown */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+            {/* Main Vendor Search Input */}
+            <div className="relative flex-1">
+              <Search className="w-5 h-5 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchTerm(val);
+                  if (data?.vendor_intelligence && data.vendor_intelligence[val]) {
+                    setSelectedVendorName(val);
+                  }
                 }}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
-                title="Clear search"
-              >
-                <X className="w-4 h-4" />
-              </button>
+                placeholder="Search vendor name (e.g. Venkata Siri, Tejo Bharat, Spectra, Laxmi...)"
+                className="w-full pl-11 pr-10 py-2.5 bg-white border-2 border-indigo-200 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs transition-all"
+                autoFocus
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedVendorName('');
+                  }}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  title="Clear vendor search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* ALWAYS VISIBLE BRAND / MANUFACTURER DROPDOWN */}
+            <div className="relative md:w-80 shrink-0">
+              <div className="relative flex items-center">
+                <Factory className="w-4 h-4 text-amber-600 absolute left-3 pointer-events-none" />
+                <select
+                  value={globalBrandFilter}
+                  onChange={(e) => handleSelectGlobalBrand(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2.5 bg-amber-50/80 border-2 border-amber-300 hover:border-amber-400 rounded-xl text-xs font-bold text-slate-800 shadow-2xs focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 cursor-pointer transition-all"
+                >
+                  <option value="ALL">
+                    🏭 Filter All by Brand: All Brands ({allGlobalBrands.length})
+                  </option>
+                  {allGlobalBrands.map((m) => (
+                    <option key={m.name} value={m.name}>
+                      {m.name} ({m.panels.toLocaleString('en-IN')} panels • {m.sellersCount} sellers, {m.buyersCount} vendors)
+                    </option>
+                  ))}
+                </select>
+                {globalBrandFilter !== 'ALL' && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectGlobalBrand('ALL')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                    title="Reset brand filter to show all"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Top Brands Quick Pills (ALWAYS VISIBLE) */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1">
+              <Factory className="w-3 h-3 text-amber-600" />
+              <span>Brands:</span>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => handleSelectGlobalBrand('ALL')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                globalBrandFilter === 'ALL'
+                  ? 'bg-amber-600 text-white shadow-2xs'
+                  : 'bg-white hover:bg-amber-50 text-slate-700 border border-slate-200'
+              }`}
+            >
+              All Brands
+            </button>
+
+            {topBrandsList.map((m) => {
+              const isSelected = globalBrandFilter === m.name;
+              return (
+                <button
+                  key={m.name}
+                  type="button"
+                  onClick={() => handleSelectGlobalBrand(isSelected ? 'ALL' : m.name)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                    isSelected
+                      ? 'bg-amber-600 text-white shadow-2xs ring-2 ring-amber-300'
+                      : 'bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-200'
+                  }`}
+                  title={`${m.name}: ${m.panels.toLocaleString('en-IN')} panels • ${m.sellersCount} sellers, ${m.buyersCount} buyers`}
+                >
+                  <span>{getShortBrandName(m.name)}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      isSelected
+                        ? 'bg-amber-800 text-amber-100'
+                        : 'bg-amber-50 text-amber-800 border border-amber-200/50'
+                    }`}
+                  >
+                    {m.panels >= 1000 ? `${(m.panels / 1000).toFixed(m.panels % 1000 === 0 ? 0 : 1)}k` : m.panels}
+                  </span>
+                </button>
+              );
+            })}
+
+            {globalBrandFilter !== 'ALL' && (
+              <span className="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1 ml-auto">
+                <Check className="w-3 h-3 text-amber-700" />
+                <span>Active: {getShortBrandName(globalBrandFilter)}</span>
+              </span>
             )}
           </div>
 
-          {/* Quick Presets Strip */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-gray-500 font-bold uppercase tracking-wider mr-1">Quick Trace:</span>
+          {/* Row 3: Quick Presets Strip (Vendors) */}
+          <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-slate-200/70">
+            <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mr-1">Quick Trace:</span>
             {[
               { label: 'Venkata Siri (All)', full: 'Venkata Siri (All Entities Consolidated)' },
               { label: 'Venkata Siri Pvt Ltd', full: 'Venkata Siri Solar Private Limited' },
@@ -746,23 +1139,38 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
               { label: 'Effisol Energy', full: 'Effisol Energy Solutions Private Limited' },
               { label: 'Freyr Energy', full: 'Freyr Energy Services Private Limited' },
               { label: 'Deepa Natural', full: 'Deepa natural power systems' },
-            ].map(({ label, full }) => (
-              <button
-                key={full}
-                type="button"
-                onClick={() => {
-                  setSearchTerm(full);
-                  setSelectedVendorName(full);
-                }}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
-                  currentVendorData?.vendor_name === full
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+            ].map(({ label, full }) => {
+              const vData = data?.vendor_intelligence?.[full];
+              const brandPanels = globalBrandFilter !== 'ALL' && vData?.manufacturers_handled?.[globalBrandFilter];
+              const isSelected = currentVendorData?.vendor_name === full;
+              return (
+                <button
+                  key={full}
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm(full);
+                    setSelectedVendorName(full);
+                  }}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-xl border transition-all flex items-center gap-1 ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400'
+                  }`}
+                >
+                  <span>{label}</span>
+                  {brandPanels ? (
+                    <span
+                      className={`text-[10px] px-1 py-0.2 rounded-full font-mono ${
+                        isSelected ? 'bg-indigo-800 text-indigo-100' : 'bg-amber-100 text-amber-900 font-bold'
+                      }`}
+                      title={`${brandPanels} panels of ${globalBrandFilter}`}
+                    >
+                      {brandPanels}p
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
 
           {/* Autocomplete / Suggested Matching Vendors */}
@@ -798,12 +1206,70 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
               <p className="text-xs text-gray-500">Loading verified DCR Supply Chain records (3,970+ chains)...</p>
             </div>
           ) : !currentVendorData ? (
-            <div className="text-center py-16 space-y-3 bg-gray-50 rounded-2xl border border-gray-200">
-              <Building2 className="w-10 h-10 text-gray-400 mx-auto" />
-              <p className="text-sm font-semibold text-gray-700">No vendor found matching "{searchTerm}"</p>
-              <p className="text-xs text-gray-400">
-                Please select from the quick trace buttons above or type another vendor name.
-              </p>
+            <div className="space-y-6">
+              {searchTerm ? (
+                <div className="text-center py-12 space-y-3 bg-gray-50 rounded-2xl border border-gray-200">
+                  <Building2 className="w-10 h-10 text-gray-400 mx-auto" />
+                  <p className="text-sm font-semibold text-gray-700">No vendor found matching "{searchTerm}"</p>
+                  <p className="text-xs text-gray-400">
+                    Please select a brand from the dropdown above or pick from the quick trace buttons.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedVendorName('');
+                    }}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline"
+                  >
+                    Clear search filter
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-10 px-4 bg-gradient-to-br from-indigo-50/40 via-white to-amber-50/40 rounded-2xl border border-indigo-100 space-y-2">
+                  <Network className="w-10 h-10 text-indigo-600 mx-auto" />
+                  <h3 className="text-base font-bold text-gray-900">
+                    Solar Panel DCR Network Intelligence
+                  </h3>
+                  <p className="text-xs text-gray-500 max-w-lg mx-auto">
+                    Select any brand from the dropdown above to filter all sellers and vendors across Andhra Pradesh, or search for a specific vendor.
+                  </p>
+                </div>
+              )}
+
+              {/* Grid of all Brands */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Factory className="w-4 h-4 text-amber-600" />
+                  <span>Explore All {allGlobalBrands.length} Solar Panel Brands (Click to Filter All Sellers & Vendors)</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {allGlobalBrands.map((m) => (
+                    <button
+                      key={m.name}
+                      type="button"
+                      onClick={() => handleSelectGlobalBrand(m.name)}
+                      className="p-3.5 bg-white hover:bg-amber-50/60 border border-slate-200 hover:border-amber-300 rounded-xl text-left transition-all shadow-2xs hover:shadow-xs group cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-xs text-slate-900 group-hover:text-amber-800 truncate">
+                          {m.name}
+                        </span>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-700 shrink-0" />
+                      </div>
+                      <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-500">
+                        <span className="font-bold text-amber-700">
+                          {m.panels.toLocaleString('en-IN')} panels
+                        </span>
+                        <span>•</span>
+                        <span>{m.sellersCount} Sellers</span>
+                        <span>•</span>
+                        <span>{m.buyersCount} Vendors</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
@@ -864,16 +1330,43 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                   <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-indigo-100/60">
                     <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
                       <Factory className="w-3.5 h-3.5 text-gray-400" />
-                      Manufacturers / Brands Handled:
+                      <span>Manufacturers / Brands Handled:</span>
+                      <span className="text-[10px] text-indigo-500 font-normal hidden sm:inline">(click to filter)</span>
                     </span>
-                    {Object.entries(currentVendorData.manufacturers_handled).map(([brand, count]) => (
-                      <span
-                        key={brand}
-                        className="px-2 py-0.5 bg-white border border-gray-200 text-gray-800 rounded-lg text-xs font-medium shadow-2xs"
+                    {Object.entries(currentVendorData.manufacturers_handled).map(([brand, count]) => {
+                      const isSelected = supplierBrandFilter === brand && buyerBrandFilter === brand;
+                      return (
+                        <button
+                          key={brand}
+                          type="button"
+                          onClick={() => handleSelectMasterBrand(isSelected ? 'ALL' : brand)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 shadow-2xs ${
+                            isSelected
+                              ? 'bg-amber-600 text-white font-bold ring-2 ring-amber-300 shadow-sm'
+                              : 'bg-white hover:bg-amber-50 text-gray-800 border border-gray-200 hover:border-amber-300 cursor-pointer'
+                          }`}
+                          title={`Click to filter all sellers and vendors by ${brand}`}
+                        >
+                          <span>{brand}:</span>
+                          <strong className={isSelected ? 'text-amber-100' : 'text-indigo-600'}>{count}</strong>
+                          {isSelected && <Check className="w-3 h-3 text-white ml-0.5" />}
+                        </button>
+                      );
+                    })}
+                    {(supplierBrandFilter !== 'ALL' || buyerBrandFilter !== 'ALL') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSupplierBrandFilter('ALL');
+                          setBuyerBrandFilter('ALL');
+                        }}
+                        className="px-2 py-0.5 text-xs text-rose-600 hover:text-rose-800 font-bold hover:bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-1 transition-colors ml-1"
+                        title="Clear brand filters"
                       >
-                        {brand}: <strong className="text-indigo-600">{count}</strong>
-                      </span>
-                    ))}
+                        <X className="w-3 h-3" />
+                        <span>Clear Brand</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -986,7 +1479,7 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                         : 'bg-gray-100 text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Inbound: Where Purchasing From ({districtFilter === 'ALL' ? currentVendorData.suppliers.length : `${filteredSuppliers.length}/${currentVendorData.suppliers.length}`})
+                    Inbound: Where Purchasing From ({districtFilter === 'ALL' && supplierBrandFilter === 'ALL' ? currentVendorData.suppliers.length : `${filteredSuppliers.length}/${currentVendorData.suppliers.length}`})
                   </button>
                   <button
                     type="button"
@@ -997,7 +1490,7 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                         : 'bg-gray-100 text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Outbound: Who is Purchasing From ({districtFilter === 'ALL' ? currentVendorData.buyers.length : `${filteredBuyers.length}/${currentVendorData.buyers.length}`})
+                    Outbound: Who is Purchasing From ({districtFilter === 'ALL' && buyerBrandFilter === 'ALL' ? currentVendorData.buyers.length : `${filteredBuyers.length}/${currentVendorData.buyers.length}`})
                   </button>
                   <button
                     type="button"
@@ -1015,106 +1508,221 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
 
                 <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
                   <span>
-                    {districtFilter === 'ALL'
+                    {districtFilter === 'ALL' && supplierBrandFilter === 'ALL' && buyerBrandFilter === 'ALL'
                       ? `${currentVendorData.suppliers.length} Suppliers • ${currentVendorData.buyers.length} Buyers`
-                      : `${filteredSuppliers.length} Sup • ${filteredBuyers.length} Buy (${districtFilter})`}
+                      : `${filteredSuppliers.length} Sup • ${filteredBuyers.length} Buy (Filtered)`}
                   </span>
                 </div>
               </div>
 
-              {/* District & Location Filter Bar (Active for Both, Suppliers, and Buyers) */}
+              {/* Dual Filter Bar: District/Location & Brand/Manufacturer */}
               {activeTab !== 'manufacturers' && (
-                <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-2xs">
-                  <div className="flex items-center gap-2 flex-wrap flex-1">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 shrink-0">
-                      <MapPin className="w-4 h-4 text-indigo-600" />
-                      <span>Filter by District / Location:</span>
-                    </div>
+                <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-3.5 space-y-3 shadow-2xs">
+                  {/* Row 1: Filter by District / Location */}
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200/80">
+                    <div className="flex items-center gap-2 flex-wrap flex-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 shrink-0">
+                        <MapPin className="w-4 h-4 text-indigo-600" />
+                        <span>Filter by District / Location:</span>
+                      </div>
 
-                    {/* District Dropdown Selector */}
-                    <div className="relative min-w-[240px]">
-                      <select
-                        value={districtFilter}
-                        onChange={(e) => setDistrictFilter(e.target.value)}
-                        className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-slate-800 shadow-2xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none cursor-pointer"
-                      >
-                        <option value="ALL">
-                          🌐 All Districts / Locations ({currentVendorData.suppliers.length} Suppliers, {currentVendorData.buyers.length} Buyers)
-                        </option>
-                        {districtOptions.map((opt) => (
-                          <option key={opt.district} value={opt.district}>
-                            📍 {opt.district} ({opt.buyersCount} Buyers{opt.suppliersCount > 0 ? `, ${opt.suppliersCount} Suppliers` : ''})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Quick District Filter Pills for top districts */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setDistrictFilter('ALL')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                          districtFilter === 'ALL'
-                            ? 'bg-indigo-600 text-white shadow-2xs'
-                            : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                        }`}
-                      >
-                        All ({currentVendorData.suppliers.length + currentVendorData.buyers.length})
-                      </button>
-
-                      {districtOptions.slice(0, 6).map((opt) => (
-                        <button
-                          key={opt.district}
-                          type="button"
-                          onClick={() => setDistrictFilter(opt.district)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
-                            districtFilter === opt.district
-                              ? 'bg-indigo-600 text-white shadow-2xs'
-                              : 'bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200'
-                          }`}
+                      {/* District Dropdown Selector */}
+                      <div className="relative min-w-[220px]">
+                        <select
+                          value={districtFilter}
+                          onChange={(e) => setDistrictFilter(e.target.value)}
+                          className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-slate-800 shadow-2xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none cursor-pointer"
                         >
-                          <span>{opt.district}</span>
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                              districtFilter === opt.district
-                                ? 'bg-indigo-800 text-indigo-100'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {activeTab === 'buyers'
-                              ? opt.buyersCount
-                              : activeTab === 'suppliers'
-                              ? opt.suppliersCount
-                              : opt.totalCount}
-                          </span>
-                        </button>
-                      ))}
+                          <option value="ALL">
+                            🌐 All Districts / Locations ({currentVendorData.suppliers.length} Sellers, {currentVendorData.buyers.length} Vendors)
+                          </option>
+                          {districtOptions.map((opt) => (
+                            <option key={opt.district} value={opt.district}>
+                              📍 {opt.district} ({opt.buyersCount} Vendors{opt.suppliersCount > 0 ? `, ${opt.suppliersCount} Sellers` : ''})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                      {districtFilter !== 'ALL' && (
+                      {/* Quick District Filter Pills for top districts */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
                           onClick={() => setDistrictFilter('ALL')}
-                          className="text-[11px] text-rose-600 hover:text-rose-700 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 border border-rose-200 flex items-center gap-1 transition-colors"
-                          title="Reset district filter to show all"
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                            districtFilter === 'ALL'
+                              ? 'bg-indigo-600 text-white shadow-2xs'
+                              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}
                         >
-                          <X className="w-3 h-3" />
-                          <span>Reset</span>
+                          All ({currentVendorData.suppliers.length + currentVendorData.buyers.length})
                         </button>
+
+                        {districtOptions.slice(0, 6).map((opt) => (
+                          <button
+                            key={opt.district}
+                            type="button"
+                            onClick={() => setDistrictFilter(opt.district)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                              districtFilter === opt.district
+                                ? 'bg-indigo-600 text-white shadow-2xs'
+                                : 'bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200'
+                            }`}
+                          >
+                            <span>{opt.district}</span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                districtFilter === opt.district
+                                  ? 'bg-indigo-800 text-indigo-100'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {activeTab === 'buyers'
+                                ? opt.buyersCount
+                                : activeTab === 'suppliers'
+                                ? opt.suppliersCount
+                                : opt.totalCount}
+                            </span>
+                          </button>
+                        ))}
+
+                        {districtFilter !== 'ALL' && (
+                          <button
+                            type="button"
+                            onClick={() => setDistrictFilter('ALL')}
+                            className="text-[11px] text-rose-600 hover:text-rose-700 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 border border-rose-200 flex items-center gap-1 transition-colors"
+                            title="Reset district filter to show all"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>Reset District</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Filter Status Badge */}
+                    <div className="text-right shrink-0">
+                      {districtFilter === 'ALL' ? (
+                        <span className="text-[11px] text-slate-400">All locations shown</span>
+                      ) : (
+                        <span className="text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg inline-flex items-center gap-1 text-[11px]">
+                          <MapPin className="w-3 h-3 text-indigo-600" />
+                          {districtFilter} ({filteredSuppliers.length} Sup, {filteredBuyers.length} Buy)
+                        </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Filter Status Badge */}
-                  <div className="text-right shrink-0">
-                    {districtFilter === 'ALL' ? (
-                      <span className="text-[11px] text-slate-400">All locations shown</span>
-                    ) : (
-                      <span className="text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg inline-flex items-center gap-1 text-[11px]">
-                        <MapPin className="w-3 h-3 text-indigo-600" />
-                        {districtFilter} ({filteredSuppliers.length} Sup, {filteredBuyers.length} Buy)
-                      </span>
-                    )}
+                  {/* Row 2: Filter by Solar Brand / Manufacturer (All Sellers & Vendors) */}
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2 flex-wrap flex-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 shrink-0">
+                        <Factory className="w-4 h-4 text-amber-600" />
+                        <span>Filter by Brand:</span>
+                      </div>
+
+                      {/* Brand Dropdown Selector */}
+                      <div className="relative min-w-[240px]">
+                        <select
+                          value={masterBrandValue}
+                          onChange={(e) => handleSelectMasterBrand(e.target.value)}
+                          className="w-full text-xs font-semibold bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-slate-800 shadow-2xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none cursor-pointer"
+                        >
+                          <option value="ALL">
+                            🏷️ All Brands / Manufacturers ({allBrandOptions.length} Brands Available)
+                          </option>
+                          {allBrandOptions.map((opt) => (
+                            <option key={opt.brand} value={opt.brand}>
+                              🏭 {opt.brand} ({opt.suppliersCount} Sellers, {opt.buyersCount} Vendors{opt.panelsCount ? ` • ${opt.panelsCount.toLocaleString()} panels` : ''})
+                            </option>
+                          ))}
+                          {masterBrandValue === 'CUSTOM' && (
+                            <option value="CUSTOM" disabled>
+                              ⚡ Custom Brand Filter (Sellers & Vendors have individual filters)
+                            </option>
+                          )}
+                        </select>
+                      </div>
+
+                      {/* Quick Brand Pills for top brands */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectMasterBrand('ALL')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                            supplierBrandFilter === 'ALL' && buyerBrandFilter === 'ALL'
+                              ? 'bg-amber-600 text-white shadow-2xs'
+                              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}
+                        >
+                          All Brands
+                        </button>
+
+                        {allBrandOptions.slice(0, 6).map((opt) => {
+                          const isMatch = supplierBrandFilter === opt.brand && buyerBrandFilter === opt.brand;
+                          return (
+                            <button
+                              key={opt.brand}
+                              type="button"
+                              onClick={() => handleSelectMasterBrand(isMatch ? 'ALL' : opt.brand)}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                                isMatch
+                                  ? 'bg-amber-600 text-white shadow-2xs ring-1 ring-amber-400'
+                                  : 'bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-200'
+                              }`}
+                              title={`${opt.brand}: ${opt.suppliersCount} Sellers, ${opt.buyersCount} Vendors (${opt.panelsCount.toLocaleString()} panels)`}
+                            >
+                              <span>{getShortBrandName(opt.brand)}</span>
+                              {opt.panelsCount > 0 && (
+                                <span
+                                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                    isMatch
+                                      ? 'bg-amber-800 text-amber-100'
+                                      : 'bg-amber-50 text-amber-700 border border-amber-200/50'
+                                  }`}
+                                >
+                                  {opt.panelsCount >= 1000
+                                    ? `${(opt.panelsCount / 1000).toFixed(opt.panelsCount % 1000 === 0 ? 0 : 1)}k`
+                                    : opt.panelsCount}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+
+                        {(supplierBrandFilter !== 'ALL' || buyerBrandFilter !== 'ALL') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSupplierBrandFilter('ALL');
+                              setBuyerBrandFilter('ALL');
+                            }}
+                            className="text-[11px] text-rose-600 hover:text-rose-700 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 border border-rose-200 flex items-center gap-1 transition-colors"
+                            title="Reset brand filter to show all"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>Reset Brand</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Brand Status Badge */}
+                    <div className="text-right shrink-0">
+                      {supplierBrandFilter === 'ALL' && buyerBrandFilter === 'ALL' ? (
+                        <span className="text-[11px] text-slate-400">All brands shown</span>
+                      ) : supplierBrandFilter === buyerBrandFilter ? (
+                        <span className="text-amber-800 font-bold bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg inline-flex items-center gap-1 text-[11px]">
+                          <Factory className="w-3 h-3 text-amber-600" />
+                          {getShortBrandName(supplierBrandFilter)} ({filteredSuppliers.length} Sellers, {filteredBuyers.length} Vendors)
+                        </span>
+                      ) : (
+                        <span className="text-amber-800 font-bold bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg inline-flex items-center gap-1 text-[11px]">
+                          <Factory className="w-3 h-3 text-amber-600" />
+                          Custom: Sup({getShortBrandName(supplierBrandFilter)}) • Buy({getShortBrandName(buyerBrandFilter)})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1230,17 +1838,48 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                       <div className="flex items-center gap-2 flex-wrap">
                         <ArrowDownRight className="w-4 h-4 text-emerald-600 shrink-0" />
                         <h4 className="text-sm font-bold text-gray-900">
-                          Where {currentVendorData.vendor_name} is Purchasing From
+                          Where {currentVendorData.vendor_name} is Purchasing From (Sellers)
                         </h4>
                         <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full shrink-0">
-                          {districtFilter === 'ALL'
-                            ? `${currentVendorData.suppliers.length} Suppliers`
-                            : `${filteredSuppliers.length} / ${currentVendorData.suppliers.length} Suppliers (${districtFilter})`}
+                          {districtFilter === 'ALL' && supplierBrandFilter === 'ALL'
+                            ? `${currentVendorData.suppliers.length} Sellers`
+                            : `${filteredSuppliers.length} / ${currentVendorData.suppliers.length} Sellers (${[districtFilter !== 'ALL' && districtFilter, supplierBrandFilter !== 'ALL' && getShortBrandName(supplierBrandFilter)].filter(Boolean).join(' • ')})`}
                         </span>
                       </div>
 
-                      {/* Bulk Copy & Export Options */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Seller Brand Filter Dropdown & Bulk Export Options */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Dropdown to filter sellers by brand */}
+                        <div className="flex items-center gap-1.5 bg-emerald-50/70 border border-emerald-200/90 rounded-lg px-2 py-1 shadow-2xs">
+                          <Factory className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                          <label htmlFor="seller-brand-select" className="text-[11px] font-bold text-emerald-900 shrink-0">
+                            Brand:
+                          </label>
+                          <select
+                            id="seller-brand-select"
+                            value={supplierBrandFilter}
+                            onChange={(e) => setSupplierBrandFilter(e.target.value)}
+                            className="text-xs font-semibold bg-white border border-emerald-300 rounded-md px-2 py-0.5 text-slate-800 shadow-2xs focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer max-w-[180px]"
+                          >
+                            <option value="ALL">All Brands ({currentVendorData.suppliers.length} Sellers)</option>
+                            {supplierBrandOptions.map((opt) => (
+                              <option key={opt.brand} value={opt.brand}>
+                                {opt.brand} ({opt.suppliersCount} sellers • {opt.panelsCount.toLocaleString()} panels)
+                              </option>
+                            ))}
+                          </select>
+                          {supplierBrandFilter !== 'ALL' && (
+                            <button
+                              type="button"
+                              onClick={() => setSupplierBrandFilter('ALL')}
+                              className="text-[11px] text-rose-600 hover:text-rose-800 font-bold p-0.5 hover:bg-rose-50 rounded"
+                              title="Reset seller brand filter"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+
                         <button
                           type="button"
                           onClick={() => handleCopyBulkWhatsApp(
@@ -1254,7 +1893,8 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                               district: s.district
                             })),
                             currentVendorData.vendor_name,
-                            districtFilter
+                            districtFilter,
+                            supplierBrandFilter
                           )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
                           title={`Copy ${filteredSuppliers.length} suppliers with phone numbers & addresses formatted for WhatsApp`}
@@ -1296,7 +1936,8 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                               district: s.district
                             })),
                             currentVendorData.vendor_name,
-                            districtFilter
+                            districtFilter,
+                            supplierBrandFilter
                           )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
                           title="Download Excel spreadsheet file (.xlsx)"
@@ -1441,8 +2082,34 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                                         <ExternalLink className="w-3 h-3 text-emerald-700 opacity-60 group-hover:opacity-100 transition-opacity" />
                                       </button>
                                     </td>
-                                    <td className="px-3.5 py-2.5 text-gray-600 truncate max-w-[140px]" title={s.manufacturers.join(', ')}>
-                                      {s.manufacturers.join(', ') || '-'}
+                                    <td className="px-3.5 py-2.5">
+                                      {s.manufacturers.length > 0 ? (
+                                        <div className="flex items-center gap-1 flex-wrap">
+                                          {s.manufacturers.map((brandName) => {
+                                            const isSelected = supplierBrandFilter === brandName;
+                                            return (
+                                              <button
+                                                key={brandName}
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setSupplierBrandFilter(isSelected ? 'ALL' : brandName);
+                                                }}
+                                                className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                  isSelected
+                                                    ? 'bg-emerald-700 text-white shadow-2xs'
+                                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200/80 cursor-pointer'
+                                                }`}
+                                                title={`Click to filter sellers by ${brandName}`}
+                                              >
+                                                {getShortBrandName(brandName)}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : (
+                                        <span className="text-gray-400">-</span>
+                                      )}
                                     </td>
                                     <td className="px-3.5 py-2.5 font-mono text-[11px] text-gray-500 truncate max-w-[130px]" title={s.invoices.join(', ')}>
                                       {s.invoices.length > 0 ? (
@@ -1468,15 +2135,30 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                               <tr>
                                 <td colSpan={4} className="text-center py-10 space-y-2">
                                   <p className="text-xs text-gray-500 font-medium">
-                                    No suppliers found for {currentVendorData.vendor_name} in <strong className="text-indigo-700">{districtFilter}</strong>.
+                                    No sellers found for {currentVendorData.vendor_name}
+                                    {districtFilter !== 'ALL' && <> in <strong className="text-indigo-700">{districtFilter}</strong></>}
+                                    {supplierBrandFilter !== 'ALL' && <> carrying brand <strong className="text-emerald-700">{supplierBrandFilter}</strong></>}.
                                   </p>
-                                  <button
-                                    type="button"
-                                    onClick={() => setDistrictFilter('ALL')}
-                                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold underline"
-                                  >
-                                    Reset filter to show all {currentVendorData.suppliers.length} suppliers
-                                  </button>
+                                  <div className="flex items-center justify-center gap-2">
+                                    {supplierBrandFilter !== 'ALL' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setSupplierBrandFilter('ALL')}
+                                        className="text-xs text-emerald-600 hover:text-emerald-800 font-bold underline cursor-pointer"
+                                      >
+                                        Reset brand filter
+                                      </button>
+                                    )}
+                                    {districtFilter !== 'ALL' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setDistrictFilter('ALL')}
+                                        className="text-xs text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
+                                      >
+                                        Reset location filter
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             )}
@@ -1494,17 +2176,48 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                       <div className="flex items-center gap-2 flex-wrap">
                         <ArrowUpRight className="w-4 h-4 text-blue-600 shrink-0" />
                         <h4 className="text-sm font-bold text-gray-900">
-                          Who is Purchasing from {currentVendorData.vendor_name}
+                          Who is Purchasing from {currentVendorData.vendor_name} (Vendors)
                         </h4>
                         <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full shrink-0">
-                          {districtFilter === 'ALL'
-                            ? `${currentVendorData.buyers.length} Buyers`
-                            : `${filteredBuyers.length} / ${currentVendorData.buyers.length} Buyers (${districtFilter})`}
+                          {districtFilter === 'ALL' && buyerBrandFilter === 'ALL'
+                            ? `${currentVendorData.buyers.length} Vendors`
+                            : `${filteredBuyers.length} / ${currentVendorData.buyers.length} Vendors (${[districtFilter !== 'ALL' && districtFilter, buyerBrandFilter !== 'ALL' && getShortBrandName(buyerBrandFilter)].filter(Boolean).join(' • ')})`}
                         </span>
                       </div>
 
-                      {/* Bulk Copy & Export Options */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Buyer Brand Filter Dropdown & Bulk Export Options */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Dropdown to filter vendors by brand */}
+                        <div className="flex items-center gap-1.5 bg-blue-50/70 border border-blue-200/90 rounded-lg px-2 py-1 shadow-2xs">
+                          <Factory className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                          <label htmlFor="buyer-brand-select" className="text-[11px] font-bold text-blue-900 shrink-0">
+                            Brand:
+                          </label>
+                          <select
+                            id="buyer-brand-select"
+                            value={buyerBrandFilter}
+                            onChange={(e) => setBuyerBrandFilter(e.target.value)}
+                            className="text-xs font-semibold bg-white border border-blue-300 rounded-md px-2 py-0.5 text-slate-800 shadow-2xs focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer max-w-[180px]"
+                          >
+                            <option value="ALL">All Brands ({currentVendorData.buyers.length} Vendors)</option>
+                            {buyerBrandOptions.map((opt) => (
+                              <option key={opt.brand} value={opt.brand}>
+                                {opt.brand} ({opt.buyersCount} vendors • {opt.panelsCount.toLocaleString()} panels)
+                              </option>
+                            ))}
+                          </select>
+                          {buyerBrandFilter !== 'ALL' && (
+                            <button
+                              type="button"
+                              onClick={() => setBuyerBrandFilter('ALL')}
+                              className="text-[11px] text-rose-600 hover:text-rose-800 font-bold p-0.5 hover:bg-rose-50 rounded"
+                              title="Reset vendor brand filter"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+
                         <button
                           type="button"
                           onClick={() => handleCopyBulkWhatsApp(
@@ -1518,7 +2231,8 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                               district: b.district
                             })),
                             currentVendorData.vendor_name,
-                            districtFilter
+                            districtFilter,
+                            buyerBrandFilter
                           )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
                           title={`Copy ${filteredBuyers.length} buyers with phone numbers & addresses formatted for WhatsApp`}
@@ -1560,7 +2274,8 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                               district: b.district
                             })),
                             currentVendorData.vendor_name,
-                            districtFilter
+                            districtFilter,
+                            buyerBrandFilter
                           )}
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all active:scale-95"
                           title="Download Excel spreadsheet file (.xlsx)"
@@ -1705,8 +2420,34 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                                         <ExternalLink className="w-3 h-3 text-blue-700 opacity-60 group-hover:opacity-100 transition-opacity" />
                                       </button>
                                     </td>
-                                    <td className="px-3.5 py-2.5 text-gray-600 truncate max-w-[140px]" title={b.manufacturers.join(', ')}>
-                                      {b.manufacturers.join(', ') || '-'}
+                                    <td className="px-3.5 py-2.5">
+                                      {b.manufacturers.length > 0 ? (
+                                        <div className="flex items-center gap-1 flex-wrap">
+                                          {b.manufacturers.map((brandName) => {
+                                            const isSelected = buyerBrandFilter === brandName;
+                                            return (
+                                              <button
+                                                key={brandName}
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setBuyerBrandFilter(isSelected ? 'ALL' : brandName);
+                                                }}
+                                                className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                  isSelected
+                                                    ? 'bg-blue-700 text-white shadow-2xs'
+                                                    : 'bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200/80 cursor-pointer'
+                                                }`}
+                                                title={`Click to filter vendors by ${brandName}`}
+                                              >
+                                                {getShortBrandName(brandName)}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : (
+                                        <span className="text-gray-400">-</span>
+                                      )}
                                     </td>
                                     <td className="px-3.5 py-2.5 font-mono text-[11px] text-gray-500 truncate max-w-[130px]" title={b.invoices.join(', ')}>
                                       {b.invoices.length > 0 ? (
@@ -1732,15 +2473,30 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
                               <tr>
                                 <td colSpan={4} className="text-center py-10 space-y-2">
                                   <p className="text-xs text-gray-500 font-medium">
-                                    No buyers found for {currentVendorData.vendor_name} in <strong className="text-indigo-700">{districtFilter}</strong>.
+                                    No vendors / buyers found for {currentVendorData.vendor_name}
+                                    {districtFilter !== 'ALL' && <> in <strong className="text-indigo-700">{districtFilter}</strong></>}
+                                    {buyerBrandFilter !== 'ALL' && <> buying brand <strong className="text-blue-700">{buyerBrandFilter}</strong></>}.
                                   </p>
-                                  <button
-                                    type="button"
-                                    onClick={() => setDistrictFilter('ALL')}
-                                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold underline"
-                                  >
-                                    Reset filter to show all {currentVendorData.buyers.length} buyers
-                                  </button>
+                                  <div className="flex items-center justify-center gap-2">
+                                    {buyerBrandFilter !== 'ALL' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setBuyerBrandFilter('ALL')}
+                                        className="text-xs text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+                                      >
+                                        Reset brand filter
+                                      </button>
+                                    )}
+                                    {districtFilter !== 'ALL' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setDistrictFilter('ALL')}
+                                        className="text-xs text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
+                                      >
+                                        Reset location filter
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             )}
