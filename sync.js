@@ -244,7 +244,6 @@ const filesToSync = [
   'src/vite-env.d.ts',
   'supabase/LATEST_MIGRATIONS_BUNDLE.sql',
   'supabase/functions/whatsapp-webhook/index.ts',
-  'sync.js',
   'tailwind.config.js',
   'tsconfig.app.json',
   'tsconfig.json',
