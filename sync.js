@@ -1,6 +1,10 @@
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
+import fs from 'fs';
+import path from 'path';
+import https from 'https';
+import { execSync } from 'child_process';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 const COMMIT_SHA = 'main';
 
@@ -322,7 +326,6 @@ async function run() {
   } catch (err) {
     console.log('📦 Installing html2pdf.js in Bolt...');
     try {
-      const { execSync } = require('child_process');
       execSync('npm i html2pdf.js', { stdio: 'inherit' });
       console.log('✅ Installed html2pdf.js successfully!');
     } catch (e) {
