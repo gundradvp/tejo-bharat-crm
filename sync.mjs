@@ -252,7 +252,7 @@ const filesToSync = [
   'vite.config.ts'
 ];
 
-function fetchWithHttps(url, maxRedirects = 5) {
+function fetchWithHttps(url, maxRedirects = 5, timeoutMs = 180000) {
   return new Promise((resolve, reject) => {
     if (maxRedirects < 0) return reject(new Error('Too many redirects'));
     const req = https.get(url, {
@@ -262,20 +262,22 @@ function fetchWithHttps(url, maxRedirects = 5) {
       }
     }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchWithHttps(res.headers.location, maxRedirects - 1).then(resolve).catch(reject);
+        return fetchWithHttps(res.headers.location, maxRedirects - 1, timeoutMs).then(resolve).catch(reject);
       }
       if (res.statusCode !== 200) {
         return reject(new Error(`HTTP ${res.statusCode}`));
       }
-      let data = '';
-      res.setEncoding('utf8');
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(data));
+      const chunks = [];
+      res.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+      res.on('end', () => {
+        const fullBuffer = Buffer.concat(chunks);
+        resolve(fullBuffer.toString('utf8'));
+      });
     });
     req.on('error', reject);
-    req.setTimeout(15000, () => {
+    req.setTimeout(timeoutMs, () => {
       req.destroy();
-      reject(new Error('Timeout'));
+      reject(new Error(`Timeout after ${timeoutMs / 1000}s`));
     });
   });
 }
@@ -285,12 +287,16 @@ async function syncFile(file, index, total) {
   const rawUrl = `https://raw.githubusercontent.com/gundradvp/tejo-bharat-crm/${COMMIT_SHA}/${file}?t=${ts}`;
   const cdnUrl = `https://cdn.jsdelivr.net/gh/gundradvp/tejo-bharat-crm@${COMMIT_SHA}/${file}`;
 
+  // Allow up to 3 minutes for large json files like national_portal_summary.json (72MB)
+  const isLarge = file.endsWith('.json') && file.includes('national_portal');
+  const timeoutMs = isLarge ? 180000 : 30000;
+
   let content = null;
   try {
-    content = await fetchWithHttps(rawUrl);
+    content = await fetchWithHttps(rawUrl, 5, timeoutMs);
   } catch (e) {
     try {
-      content = await fetchWithHttps(cdnUrl);
+      content = await fetchWithHttps(cdnUrl, 5, timeoutMs);
     } catch (e2) {}
   }
 
