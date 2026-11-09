@@ -190,47 +190,77 @@ function nationalPortalImportPlugin(): Plugin {
             if (SUPABASE_URL && SERVICE_KEY && rawRecords.length > 0) {
               try {
                 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-                const stepToScs = new Map<string, string[]>();
-                const stepToNps = new Map<string, string[]>();
 
+                // Map of SC -> National Portal Record for deep field-level enrichment
+                const scToRecord = new Map<string, any>();
                 for (const d of rawRecords) {
                   if (!d || d.error || !d.appId) continue;
-                  const step = d.stepName || 'Registered on National Portal';
                   const sc = (d.consumerNo || d.consumerNumber || '').trim();
-                  const np = (d.applicationNumber || d.registrationNumber || `NP-${d.appId}`).trim();
-
-                  if (sc) {
-                    if (!stepToScs.has(step)) stepToScs.set(step, []);
-                    stepToScs.get(step)!.push(sc);
-                  }
-                  if (np) {
-                    if (!stepToNps.has(step)) stepToNps.set(step, []);
-                    stepToNps.get(step)!.push(np);
+                  if (sc && sc.length > 5) {
+                    scToRecord.set(sc, d);
                   }
                 }
 
-                const BATCH = 200;
-                for (const [step, scList] of stepToScs.entries()) {
-                  for (let i = 0; i < scList.length; i += BATCH) {
-                    const chunk = scList.slice(i, i + BATCH);
-                    const { data: up } = await supabase
-                      .from('lead_prospects')
-                      .update({ national_portal_status: step, updated_at: new Date().toISOString() })
-                      .in('sc_number', chunk)
-                      .select('id');
-                    if (up) prospectsUpdated += up.length;
-                  }
-                }
+                const allScs = Array.from(scToRecord.keys());
+                const BATCH = 100;
+                for (let i = 0; i < allScs.length; i += BATCH) {
+                  const chunk = allScs.slice(i, i + BATCH);
+                  const { data: matchedProspects } = await supabase
+                    .from('lead_prospects')
+                    .select('id, sc_number, customer_name, np_registration_number, national_portal_status, applied_solar_load_kw, mobile_number, email, village_name, remark')
+                    .in('sc_number', chunk);
 
-                for (const [step, npList] of stepToNps.entries()) {
-                  for (let i = 0; i < npList.length; i += BATCH) {
-                    const chunk = npList.slice(i, i + BATCH);
-                    const { data: up } = await supabase
-                      .from('lead_prospects')
-                      .update({ national_portal_status: step, updated_at: new Date().toISOString() })
-                      .in('np_registration_number', chunk)
-                      .select('id');
-                    if (up) prospectsUpdated += up.length;
+                  if (matchedProspects && matchedProspects.length > 0) {
+                    for (const p of matchedProspects) {
+                      const d = scToRecord.get(p.sc_number);
+                      if (!d) continue;
+
+                      const step = d.stepName || 'Registered on National Portal';
+                      const npNum = (d.applicationNumber || d.registrationNumber || (d.appId ? `NP-${d.appId}` : '')).trim();
+                      const name = (d.consumerName || d.applicantName || '').trim();
+                      const cap = Number(d.appliedCapacity) || Number(d.pvCapacity) || 0;
+                      const phone = (d.mobile || '').replace(/\D/g, '').slice(-10);
+                      const email = (d.email || '').trim();
+                      const village = (d.villagePanchayatName || d.villageName || '').trim();
+                      const vendor = (d.vendorName || '').trim();
+
+                      const updates: Record<string, any> = {};
+
+                      if (step && p.national_portal_status !== step) {
+                        updates.national_portal_status = step;
+                      }
+                      if (npNum && (!p.np_registration_number || p.np_registration_number !== npNum)) {
+                        updates.np_registration_number = npNum;
+                      }
+                      if (name && (!p.customer_name || p.customer_name.trim() === '')) {
+                        updates.customer_name = name;
+                      }
+                      if (cap > 0 && (!p.applied_solar_load_kw || p.applied_solar_load_kw === 0)) {
+                        updates.applied_solar_load_kw = cap;
+                      }
+                      if (phone.length === 10 && (!p.mobile_number || p.mobile_number.length < 10)) {
+                        updates.mobile_number = phone;
+                      }
+                      if (email && email !== '-' && (!p.email || p.email.trim() === '')) {
+                        updates.email = email;
+                      }
+                      if (village && village !== '0' && (!p.village_name || p.village_name === '0')) {
+                        updates.village_name = village;
+                      }
+                      if (vendor && (!p.remark || !p.remark.includes(vendor))) {
+                        const vendorTag = `[NP Vendor: ${vendor}]`;
+                        updates.remark = p.remark ? `${p.remark} ${vendorTag}` : vendorTag;
+                      }
+
+                      if (Object.keys(updates).length > 0) {
+                        updates.updated_at = new Date().toISOString();
+                        const { error: upErr } = await supabase
+                          .from('lead_prospects')
+                          .update(updates)
+                          .eq('id', p.id);
+                        if (!upErr) prospectsUpdated++;
+                      }
+                    }
                   }
                 }
 
