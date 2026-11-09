@@ -568,3 +568,180 @@ export function hasNationalPortalInfo(
   if (!index) return false;
   return matchProspectWithNationalPortal(prospect, index) !== null;
 }
+
+function extractSerials(list: any[]): string[] {
+  if (!Array.isArray(list)) return [];
+  const serials: string[] = [];
+  for (const item of list) {
+    if (!item) continue;
+    if (Array.isArray(item.serialNumbers)) {
+      for (const s of item.serialNumbers) {
+        if (typeof s === 'string') {
+          const t = s.trim(); if (t) serials.push(t);
+        } else if (s && typeof s === 'object' && s.serialNumber) {
+          const t = String(s.serialNumber).trim(); if (t) serials.push(t);
+        }
+      }
+    } else if (item.serialNumber && typeof item.serialNumber === 'string') {
+      const t = item.serialNumber.trim(); if (t) serials.push(t);
+    }
+  }
+  return Array.from(new Set(serials));
+}
+
+/**
+ * Direct Browser-to-Supabase Importer
+ * Reliably processes batches of records directly into Supabase without proxy or server middleware limits.
+ */
+export async function importNationalPortalRecordsToSupabase(
+  records: any[],
+  onProgress?: (processed: number, total: number) => void
+): Promise<{ added: number; updated: number; skipped: number; total: number; prospectsUpdated: number; customersUpdated: number }> {
+  let added = 0;
+  let updated = 0;
+  let skipped = 0;
+  let prospectsUpdated = 0;
+  let customersUpdated = 0;
+
+  const BATCH_SIZE = 200;
+  for (let i = 0; i < records.length; i += BATCH_SIZE) {
+    const chunk = records.slice(i, i + BATCH_SIZE);
+    const dbRows: any[] = [];
+    const scToRecord = new Map<string, any>();
+
+    for (const d of chunk) {
+      if (!d || d.error || !d.appId) {
+        skipped++;
+        continue;
+      }
+
+      const pSerials = extractSerials(d.moduleList);
+      const iSerials = extractSerials(d.inverterList);
+      const sc = (d.consumerNo || d.consumerNumber || '').trim();
+      if (sc && sc.length > 5) scToRecord.set(sc, d);
+
+      dbRows.push({
+        id: String(d.appId),
+        app_num: d.applicationNumber || d.registrationNumber || null,
+        name: d.consumerName || d.applicantName || null,
+        phone: (d.mobile || '').replace(/\D/g, '').slice(-10) || null,
+        email: d.email || null,
+        sc: sc || null,
+        state: d.stateName || null,
+        district: d.districtName || null,
+        circle: d.circleName || null,
+        division: d.divisionName || null,
+        subdiv: d.subDivisionName || null,
+        village: d.villagePanchayatName || d.villageName || null,
+        address: d.address || null,
+        pincode: d.pinCode ? String(d.pinCode) : null,
+        cap: Number(d.appliedCapacity) || Number(d.pvCapacity) || 0,
+        sanction_load: Number(d.sanctionLoad) || 0,
+        step_id: d.stepId ? String(d.stepId) : null,
+        step: d.stepName || null,
+        vendor: d.vendorName || null,
+        subsidy_amt: Number(d.subsidyAmount) || 0,
+        subsidy_status: d.subsidyStatus || null,
+        modules_count: (d.moduleList || []).length,
+        inverters_count: (d.inverterList || []).length,
+        docs_count: (d.documentList || []).length,
+        has_dcr: Boolean(d.dcrType || d.hasDcr),
+        panel_serials: pSerials,
+        inv_serials: iSerials,
+        module_mfr: d.brand || null,
+        loan_app_no: d.loanApplicationNumber || null,
+        loan_amt: Number(d.sanctionAmount) || 0,
+        loan_status: d.currentLoanStatus || null,
+        bank_name: d.bankName || null,
+        account_no: d.accountNumber || null,
+        ifsc: d.ifscCode || null,
+        account_holder: d.accountHolderName || null,
+        net_meter_date: d.netMeteringDate || null,
+        submission_date: d.appSubmissionDate || d.submittedDate || null,
+        raw_details: d,
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    if (dbRows.length > 0) {
+      const { error: upsertErr } = await supabase
+        .from('national_portal_applications')
+        .upsert(dbRows, { onConflict: 'id' });
+
+      if (upsertErr) {
+        console.error('Error upserting batch to Supabase:', upsertErr.message);
+        throw new Error(`Database error: ${upsertErr.message}`);
+      }
+      added += dbRows.length;
+    }
+
+    // Enrich lead_prospects for this batch by SC number
+    const scList = Array.from(scToRecord.keys());
+    if (scList.length > 0) {
+      try {
+        const { data: matchedProspects } = await supabase
+          .from('lead_prospects')
+          .select('id, sc_number, customer_name, np_registration_number, national_portal_status, applied_solar_load_kw, mobile_number, email, village_name, remark')
+          .in('sc_number', scList);
+
+        if (matchedProspects && matchedProspects.length > 0) {
+          for (const p of matchedProspects) {
+            const d = scToRecord.get(p.sc_number);
+            if (!d) continue;
+
+            const step = d.stepName || 'Registered on National Portal';
+            const npNum = (d.applicationNumber || d.registrationNumber || (d.appId ? `NP-${d.appId}` : '')).trim();
+            const name = (d.consumerName || d.applicantName || '').trim();
+            const cap = Number(d.appliedCapacity) || Number(d.pvCapacity) || 0;
+            const phone = (d.mobile || '').replace(/\D/g, '').slice(-10);
+            const email = (d.email || '').trim();
+            const village = (d.villagePanchayatName || d.villageName || '').trim();
+            const vendor = (d.vendorName || '').trim();
+
+            const updates: Record<string, any> = {};
+            if (step && p.national_portal_status !== step) updates.national_portal_status = step;
+            if (npNum && (!p.np_registration_number || p.np_registration_number !== npNum)) updates.np_registration_number = npNum;
+            if (name && (!p.customer_name || p.customer_name.trim() === '')) updates.customer_name = name;
+            if (cap > 0 && (!p.applied_solar_load_kw || p.applied_solar_load_kw === 0)) updates.applied_solar_load_kw = cap;
+            if (phone.length === 10 && (!p.mobile_number || p.mobile_number.length < 10)) updates.mobile_number = phone;
+            if (email && email !== '-' && (!p.email || p.email.trim() === '')) updates.email = email;
+            if (village && village !== '0' && (!p.village_name || p.village_name === '0')) updates.village_name = village;
+            if (vendor && (!p.remark || !p.remark.includes(vendor))) {
+              const vendorTag = `[NP Vendor: ${vendor}]`;
+              updates.remark = p.remark ? `${p.remark} ${vendorTag}` : vendorTag;
+            }
+
+            if (Object.keys(updates).length > 0) {
+              updates.updated_at = new Date().toISOString();
+              const { error: upErr } = await supabase
+                .from('lead_prospects')
+                .update(updates)
+                .eq('id', p.id);
+              if (!upErr) prospectsUpdated++;
+            }
+          }
+        }
+      } catch (prospectErr) {
+        console.warn('Could not enrich prospects for batch:', prospectErr);
+      }
+    }
+
+    if (onProgress) {
+      onProgress(Math.min(i + BATCH_SIZE, records.length), records.length);
+    }
+  }
+
+  // Get total in database
+  const { count: totalInDb } = await supabase
+    .from('national_portal_applications')
+    .select('id', { count: 'exact', head: true });
+
+  return {
+    added,
+    updated,
+    skipped,
+    total: totalInDb ?? added,
+    prospectsUpdated,
+    customersUpdated
+  };
+}

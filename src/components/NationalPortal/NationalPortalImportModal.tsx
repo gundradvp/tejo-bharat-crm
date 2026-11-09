@@ -15,7 +15,7 @@ import {
 
 import {
   invalidateNationalPortalCache,
-  fetchNationalPortalSummary,
+  importNationalPortalRecordsToSupabase
 } from '../../lib/nationalPortalApi';
 
 interface ParsedRecord {
@@ -130,6 +130,7 @@ export default function NationalPortalImportModal({ existingIds, onClose, onImpo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [parsedRecords, setParsedRecords] = useState<ParsedRecord[]>([]);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -224,34 +225,31 @@ export default function NationalPortalImportModal({ existingIds, onClose, onImpo
   const errorRecords = parsedRecords.filter((r) => r.status === 'error');
 
   const handleImport = async () => {
-    // Import both new AND updated (duplicates) records
+    // Import both new AND updated (duplicates) records directly to Supabase
     const toImport = parsedRecords.filter((r) => r.status === 'ok' || r.status === 'duplicate');
     if (!toImport.length) return;
 
     setImporting(true);
     setImportError(null);
     setResult(null);
+    setImportProgress({ current: 0, total: toImport.length });
 
     try {
-      const res = await fetch('/api/import-national-portal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ records: toImport.map((r) => r.raw) }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || `HTTP ${res.status}`);
-      }
+      const data = await importNationalPortalRecordsToSupabase(
+        toImport.map((r) => r.raw),
+        (current, total) => {
+          setImportProgress({ current, total });
+        }
+      );
 
       setResult(data as ImportResult);
       invalidateNationalPortalCache();
-      await fetchNationalPortalSummary(true);
       onImportComplete();
     } catch (e: any) {
       setImportError(e.message || 'Import failed');
     } finally {
       setImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -428,8 +426,27 @@ export default function NationalPortalImportModal({ existingIds, onClose, onImpo
                 </div>
               )}
               <p className="text-xs text-emerald-700">
-                Both <code>national_portal_summary.json</code> and <code>national_portal_catalog.json</code> have been updated.
+                All records have been saved directly to Supabase cloud database with zero browser memory overhead.
               </p>
+            </div>
+          )}
+
+          {/* Real-time Progress Bar */}
+          {importing && importProgress && (
+            <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-teal-900">
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
+                  Saving directly to Supabase database in batches...
+                </span>
+                <span>{importProgress.current} / {importProgress.total} ({Math.round((importProgress.current / Math.max(1, importProgress.total)) * 100)}%)</span>
+              </div>
+              <div className="w-full bg-teal-200/60 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-teal-600 h-2 rounded-full transition-all duration-200"
+                  style={{ width: `${(importProgress.current / Math.max(1, importProgress.total)) * 100}%` }}
+                />
+              </div>
             </div>
           )}
 
@@ -457,7 +474,7 @@ export default function NationalPortalImportModal({ existingIds, onClose, onImpo
                   className="flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-xl bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {importing ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Importing…</>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> {importProgress ? `Saving ${importProgress.current} / ${importProgress.total}…` : 'Importing…'}</>
                   ) : (
                     <><ArrowRight className="w-4 h-4" /> Import {okRecords.length + duplicateRecords.length} records</>
                   )}
