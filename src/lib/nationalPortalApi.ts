@@ -617,7 +617,7 @@ export async function importNationalPortalRecordsToSupabase(
   let prospectsUpdated = 0;
   let customersUpdated = 0;
 
-  const BATCH_SIZE = 200;
+  const BATCH_SIZE = 50;
   for (let i = 0; i < records.length; i += BATCH_SIZE) {
     const chunk = records.slice(i, i + BATCH_SIZE);
     const dbRows: any[] = [];

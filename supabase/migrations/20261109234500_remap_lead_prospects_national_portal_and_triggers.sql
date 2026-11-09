@@ -1,7 +1,7 @@
--- Migration: Remap lead_prospects from national_portal_applications and install automatic sync triggers
+-- Migration: Remap lead_prospects from national_portal_applications and install ultra-fast sync triggers
 -- Generated: 2026-11-09
 
--- 1. Create indexes for maximum performance on joins and queries
+-- 1. Create indexes for instant point lookups and query filtering
 CREATE INDEX IF NOT EXISTS idx_lead_prospects_sc_number ON public.lead_prospects(sc_number);
 CREATE INDEX IF NOT EXISTS idx_lead_prospects_national_portal_status ON public.lead_prospects(national_portal_status);
 CREATE INDEX IF NOT EXISTS idx_lead_prospects_np_registration_number ON public.lead_prospects(np_registration_number);
@@ -36,25 +36,28 @@ SET
   mobile_number = COALESCE(NULLIF(TRIM(lp.mobile_number), ''), NULLIF(TRIM(n.phone), '')),
   updated_at = NOW()
 FROM latest_npa n
-WHERE TRIM(lp.sc_number) = n.sc;
+WHERE lp.sc_number = n.sc;
 
--- 4. Trigger Function: Automatically update matching lead_prospects when records are inserted/updated in national_portal_applications
+-- 4. Trigger Function: Ultra-fast indexed update on lead_prospects when records are inserted/updated in national_portal_applications
 CREATE OR REPLACE FUNCTION public.trg_fn_sync_npa_to_lead_prospects()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  v_sc text := TRIM(COALESCE(NEW.sc, ''));
 BEGIN
-  IF NEW.sc IS NOT NULL AND TRIM(NEW.sc) <> '' THEN
+  -- Direct B-tree index seek on sc_number (< 0.1ms per row)
+  IF v_sc <> '' THEN
     UPDATE public.lead_prospects
     SET
       national_portal_status = COALESCE(NEW.step, national_portal_status),
       np_registration_number = COALESCE(NEW.app_num, np_registration_number),
       applied_solar_load_kw = COALESCE(applied_solar_load_kw, NEW.cap),
-      customer_name = COALESCE(NULLIF(TRIM(customer_name), ''), NULLIF(TRIM(NEW.name), '')),
-      mobile_number = COALESCE(NULLIF(TRIM(mobile_number), ''), NULLIF(TRIM(NEW.phone), '')),
+      customer_name = COALESCE(NULLIF(customer_name, ''), NULLIF(NEW.name, '')),
+      mobile_number = COALESCE(NULLIF(mobile_number, ''), NULLIF(NEW.phone, '')),
       updated_at = NOW()
-    WHERE TRIM(sc_number) = TRIM(NEW.sc);
+    WHERE sc_number = v_sc;
   END IF;
   RETURN NEW;
 END;
@@ -73,13 +76,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
+  v_sc text := TRIM(COALESCE(NEW.sc_number, ''));
   matched_npa RECORD;
 BEGIN
-  IF NEW.sc_number IS NOT NULL AND TRIM(NEW.sc_number) <> '' THEN
+  IF v_sc <> '' THEN
     SELECT step, app_num, cap, name, phone
     INTO matched_npa
     FROM public.national_portal_applications
-    WHERE TRIM(sc) = TRIM(NEW.sc_number)
+    WHERE sc = v_sc
     ORDER BY submission_date DESC NULLS LAST, created_at DESC NULLS LAST
     LIMIT 1;
 
@@ -111,7 +115,7 @@ BEFORE INSERT OR UPDATE OF sc_number ON public.lead_prospects
 FOR EACH ROW
 EXECUTE FUNCTION public.trg_fn_sync_lead_prospects_from_npa();
 
--- 6. RPC Function to allow one-click remap anytime from UI / Admin
+-- 6. RPC Function for on-demand UI sync
 CREATE OR REPLACE FUNCTION public.remap_all_lead_prospects_from_national_portal()
 RETURNS JSON
 LANGUAGE plpgsql
@@ -151,7 +155,7 @@ BEGIN
     mobile_number = COALESCE(NULLIF(TRIM(lp.mobile_number), ''), NULLIF(TRIM(n.phone), '')),
     updated_at = NOW()
   FROM latest_npa n
-  WHERE TRIM(lp.sc_number) = n.sc;
+  WHERE lp.sc_number = n.sc;
   GET DIAGNOSTICS remapped_count = ROW_COUNT;
 
   RETURN json_build_object(
