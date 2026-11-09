@@ -364,13 +364,12 @@ export default function ProspectList() {
 
       // National Portal Mapping Filter
       if (npFilter === 'NOT_AVAILABLE') {
-        if (npIndex && hasNationalPortalInfo(p, npIndex)) return false;
+        if (p.national_portal_status && p.national_portal_status.trim() !== '') return false;
       } else if (npFilter === 'AVAILABLE') {
-        if (!npIndex || !hasNationalPortalInfo(p, npIndex)) return false;
+        if (!p.national_portal_status || p.national_portal_status.trim() === '') return false;
       } else if (npFilter.startsWith('STEP_')) {
         const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
-        const matched = npIndex ? matchProspectWithNationalPortal(p, npIndex) : null;
-        const currentStep = (matched?.step || p.national_portal_status || '').toLowerCase();
+        const currentStep = (p.national_portal_status || '').toLowerCase();
         if (!currentStep.includes(stepTarget)) return false;
       }
 
@@ -496,17 +495,13 @@ export default function ProspectList() {
   const handleModalUpdate = () => { loadProspects(); loadStats(); };
 
   const handleSyncNationalPortal = async () => {
-    if (!npIndex) {
-      alert('National Portal repository is still loading. Please try again in a few seconds.');
-      return;
-    }
     setSyncingNp(true);
     setSyncMessage(null);
     try {
       const { syncNationalPortalToProspects } = await import('../../lib/prospectApi');
-      const res = await syncNationalPortalToProspects(prospects, npIndex);
-      setSyncMessage(`✓ Successfully mapped & synced ${res.updatedCount} prospects with live National Portal applications!`);
-      setTimeout(() => setSyncMessage(null), 5000);
+      const res = await syncNationalPortalToProspects(prospects);
+      setSyncMessage(`✓ Successfully mapped & synced ${res.updatedCount.toLocaleString('en-IN')} prospects with live National Portal applications!`);
+      setTimeout(() => setSyncMessage(null), 6000);
       loadProspects();
     } catch (err: any) {
       setSyncMessage(`Sync error: ${err.message || 'Failed to update prospects'}`);
@@ -1518,34 +1513,31 @@ export default function ProspectList() {
                           <Link2 className="w-3 h-3" /> Surya Ghar
                         </span>
                       )}
-                      {(() => {
-                        const npApp = npIndex ? matchProspectWithNationalPortal(prospect, npIndex) : null;
-                        if (npApp) {
-                          return (
-                            <span
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedNpApp(npApp);
-                              }}
-                              className="px-2 py-0.5 text-xs font-semibold rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1 hover:bg-teal-200 transition-colors shadow-2xs"
-                              title="Click to view National Portal Application record"
-                            >
-                              <Globe className="w-3 h-3 text-teal-600" />
-                              NP: {npApp.step || 'Applied'} ({npApp.cap} kW)
-                            </span>
-                          );
-                        } else {
-                          return (
-                            <span
-                              className="px-2 py-0.5 text-xs font-medium rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1"
-                              title="No National Portal application found for this SC number"
-                            >
-                              <AlertCircle className="w-3 h-3 text-rose-500" />
-                              NP: Not Available
-                            </span>
-                          );
-                        }
-                      })()}
+                      {prospect.national_portal_status ? (
+                        <span
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (prospect.sc_number) {
+                              const { fetchNationalPortalBySc } = await import('../../lib/nationalPortalApi');
+                              const app = await fetchNationalPortalBySc(prospect.sc_number);
+                              if (app) setSelectedNpApp(app);
+                            }
+                          }}
+                          className="px-2 py-0.5 text-xs font-semibold rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1 hover:bg-teal-200 transition-colors shadow-2xs"
+                          title={`National Portal Application: ${prospect.np_registration_number || ''}. Click to view details.`}
+                        >
+                          <Globe className="w-3 h-3 text-teal-600" />
+                          NP: {prospect.national_portal_status} {prospect.applied_solar_load_kw ? `(${prospect.applied_solar_load_kw} kW)` : ''}
+                        </span>
+                      ) : (
+                        <span
+                          className="px-2 py-0.5 text-xs font-medium rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1"
+                          title="No National Portal application found for this SC number"
+                        >
+                          <AlertCircle className="w-3 h-3 text-rose-500" />
+                          NP: Not Available
+                        </span>
+                      )}
                       {prospect.follow_up_date && (
                         <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />{new Date(prospect.follow_up_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}

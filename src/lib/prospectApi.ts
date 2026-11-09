@@ -433,6 +433,16 @@ export function applyProspectDbFilters(query: any, filters: ProspectFilterOption
   if (filters.calledOnly) {
     query = query.neq('call_status', 'not_called');
   }
+  if (filters.nationalPortalFilter && filters.nationalPortalFilter !== 'ALL') {
+    if (filters.nationalPortalFilter === 'NOT_AVAILABLE') {
+      query = query.or('national_portal_status.is.null,national_portal_status.eq.');
+    } else if (filters.nationalPortalFilter === 'AVAILABLE') {
+      query = query.not('national_portal_status', 'is', null).neq('national_portal_status', '');
+    } else if (filters.nationalPortalFilter.startsWith('STEP_')) {
+      const stepTarget = filters.nationalPortalFilter.replace('STEP_', '');
+      query = query.ilike('national_portal_status', `%${stepTarget}%`);
+    }
+  }
   return query;
 }
 
@@ -596,84 +606,6 @@ export async function fetchProspects(
     } catch (err) {
       console.warn('search_prospects RPC failed:', err);
     }
-  }
-
-  const npFilter = filters.nationalPortalFilter || 'ALL';
-  const hasNpFilter = npFilter !== 'ALL';
-
-  const hasSpecificFilters = Boolean(
-    filters.search ||
-    (filters.circles && filters.circles.length > 0) ||
-    (filters.divisions && filters.divisions.length > 0) ||
-    (filters.subdivs && filters.subdivs.length > 0) ||
-    (filters.eros && filters.eros.length > 0) ||
-    (filters.sections && filters.sections.length > 0) ||
-    (filters.statuses && filters.statuses.length > 0) ||
-    (filters.callStatuses && filters.callStatuses.length > 0) ||
-    (filters.categories && filters.categories.length > 0) ||
-    (filters.mandals && filters.mandals.length > 0) ||
-    (filters.subStations && filters.subStations.length > 0) ||
-    (filters.areaCodes && filters.areaCodes.length > 0) ||
-    filters.importBatchId ||
-    filters.dateFrom ||
-    filters.dateTo ||
-    filters.followUpDue ||
-    filters.calledOnly
-  );
-
-  if (hasNpFilter) {
-    const { getNationalPortalIndex, hasNationalPortalInfo, matchProspectWithNationalPortal } = await import('./nationalPortalApi');
-    const npIndex = await getNationalPortalIndex();
-
-    const CHUNK_SIZE = 400;
-    const collected: LeadProspect[] = [];
-    let currentOffset = 0;
-    let dbCount = 0;
-
-    while (collected.length < offset + pageSize) {
-      let q = supabase
-        .from('lead_prospects')
-        .select('*, called_by_profile:profiles!lead_prospects_called_by_fkey(id, full_name)', { count: currentOffset === 0 ? 'exact' : undefined });
-
-      q = applyProspectDbSorting(q, filters.sortBy);
-      q = applyProspectDbFilters(q, filters);
-      q = q.range(currentOffset, currentOffset + CHUNK_SIZE - 1);
-
-      const { data, error, count } = await q;
-      if (error) {
-        if (error.code === 'PGRST103') break;
-        throw error;
-      }
-      if (currentOffset === 0 && count != null) dbCount = count;
-      if (!data || data.length === 0) break;
-
-      for (const p of data) {
-        let matches = true;
-        if (npFilter === 'NOT_AVAILABLE') {
-          matches = !hasNationalPortalInfo(p, npIndex);
-        } else if (npFilter === 'AVAILABLE') {
-          matches = hasNationalPortalInfo(p, npIndex);
-        } else if (npFilter.startsWith('STEP_')) {
-          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
-          const matched = matchProspectWithNationalPortal(p, npIndex);
-          matches = Boolean((matched?.step || p.national_portal_status || '').toLowerCase().includes(stepTarget));
-        }
-        if (matches) collected.push(p);
-      }
-
-      currentOffset += data.length;
-      if (data.length < CHUNK_SIZE) break;
-      if (dbCount > 0 && currentOffset >= dbCount) break;
-      if (currentOffset >= 2500 && collected.length >= offset + pageSize) break;
-    }
-
-    const pageSlice = collected.slice(offset, offset + pageSize);
-    // Use the actual count of matches when complete, or extrapolate proportionally from scanned rows
-    const estimatedTotal = dbCount > 0 && currentOffset > 0
-      ? Math.round((collected.length / currentOffset) * dbCount)
-      : collected.length;
-
-    return { prospects: pageSlice, total: Math.max(collected.length, estimatedTotal) };
   }
 
   let query = supabase
@@ -1555,15 +1487,29 @@ export async function fetchProspectNPIdOnlyForExport(
 
 /** Sync matched National Portal application status directly to Lead Prospects in Supabase */
 export async function syncNationalPortalToProspects(
-  prospects: LeadProspect[],
-  index: any
+  prospects?: LeadProspect[],
+  _index?: any
 ): Promise<{ updatedCount: number; errors: string[] }> {
+  try {
+    const { data, error } = await supabase.rpc('remap_all_lead_prospects_from_national_portal');
+    if (!error && data && data.success) {
+      return { updatedCount: data.remapped_count || 0, errors: [] };
+    }
+  } catch (err: any) {
+    console.warn('remap_all_lead_prospects_from_national_portal RPC fallback:', err?.message);
+  }
+
   let updatedCount = 0;
   const errors: string[] = [];
-  const { matchProspectWithNationalPortal } = await import('./nationalPortalApi');
+  if (!prospects || prospects.length === 0) return { updatedCount: 0, errors: [] };
+
+  const scList = prospects.map((p) => p.sc_number).filter(Boolean) as string[];
+  const { fetchNationalPortalByScBatch } = await import('./nationalPortalApi');
+  const npMap = await fetchNationalPortalByScBatch(scList);
 
   for (const p of prospects) {
-    const npApp = matchProspectWithNationalPortal(p, index);
+    if (!p.sc_number) continue;
+    const npApp = npMap.get(p.sc_number.trim());
     if (npApp) {
       const updates: Record<string, any> = {
         national_portal_status: npApp.step || null,

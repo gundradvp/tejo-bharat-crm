@@ -529,6 +529,20 @@ export async function fetchNationalPortalByScBatch(scList: string[]): Promise<Ma
   return map;
 }
 
+export async function fetchNationalPortalBySc(sc: string): Promise<NationalPortalSummary | null> {
+  const cleanSc = sc?.trim();
+  if (!cleanSc) return null;
+  const { data, error } = await supabase
+    .from('national_portal_applications')
+    .select('*')
+    .eq('sc', cleanSc)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapRowToSummary(data);
+}
+
 export function matchProspectWithNationalPortal(
   prospect: {
     sc_number?: string | null;
