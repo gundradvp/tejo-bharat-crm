@@ -1,12 +1,24 @@
-import fs from 'fs';
-import path from 'path';
-import https from 'https';
-import { execSync } from 'child_process';
-import { createRequire } from 'module';
+(async () => {
+  let fs, path, https, execSync;
+  if (typeof require !== 'undefined') {
+    fs = require('fs');
+    path = require('path');
+    https = require('https');
+    execSync = require('child_process').execSync;
+  } else {
+    fs = (await import('fs')).default;
+    path = (await import('path')).default;
+    https = (await import('https')).default;
+    execSync = (await import('child_process')).execSync;
+  }
 
-const require = createRequire(import.meta.url);
+  let req = typeof require !== 'undefined' ? require : null;
+  if (!req) {
+    const { createRequire } = await import('module');
+    req = createRequire(path.resolve('package.json'));
+  }
 
-const COMMIT_SHA = 'main';
+  const COMMIT_SHA = 'main';
 
 const filesToSync = [
   'WHATSAPP_SETUP_GUIDE.md',
@@ -326,7 +338,7 @@ async function run() {
 
   // Auto-install html2pdf.js if not yet present in Bolt
   try {
-    require.resolve('html2pdf.js');
+    req.resolve('html2pdf.js');
     console.log('✅ html2pdf.js dependency is verified.');
   } catch (err) {
     console.log('📦 Installing html2pdf.js in Bolt...');
@@ -341,4 +353,5 @@ async function run() {
   console.log(`👉 Run 'npm run dev' to restart your preview.`);
 }
 
-run();
+  await run();
+})();
