@@ -142,50 +142,69 @@ function nationalPortalImportPlugin(): Plugin {
             // body: { records: RawPortalRecord[] }
             const rawRecords: any[] = Array.isArray(body.records) ? body.records : [];
 
-            const summaryPath = path.resolve(__dirname, 'public/national_portal_summary.json');
-            const catalogPath = path.resolve(__dirname, 'public/national_portal_catalog.json');
-            const distSummaryPath = path.resolve(__dirname, 'dist/national_portal_summary.json');
-            const distCatalogPath = path.resolve(__dirname, 'dist/national_portal_catalog.json');
-
-            // Load existing
-            let summaryList: any[] = [];
-            let catalog: Record<string, any> = {};
-            try { summaryList = JSON.parse(fs.readFileSync(summaryPath, 'utf-8')); } catch {}
-            try { catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf-8')); } catch {}
-
-            // Build a map of existing entries for fast O(1) lookup/update
-            const summaryMap = new Map<string, any>();
-            for (const s of summaryList) summaryMap.set(String(s.id), s);
+            const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://rlwcqmlspvddfscyngfw.supabase.co';
+            const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsd2NxbWxzcHZkZGZzY3luZ2Z3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDYyNTcyMSwiZXhwIjoyMDkwMjAxNzIxfQ.8xDUtgktqSVGRC97z6OqCJuGF6lKRA00ZwDrmP6TW5U';
+            const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
             let added = 0, updated = 0, skipped = 0;
-            for (const d of rawRecords) {
-              if (!d || d.error || !d.appId) { skipped++; continue; }
-              const appId = String(d.appId);
-              const summary = rawToSummary(d);
-              const isNew = !summaryMap.has(appId);
-              summaryMap.set(appId, summary);
-              catalog[appId] = d;
-              if (isNew) added++; else updated++;
+            const dbRows = rawRecords.map((d: any) => {
+              if (!d || d.error || !d.appId) { skipped++; return null; }
+              const pSerials = extractSerials(d.moduleList);
+              const iSerials = extractSerials(d.inverterList);
+              return {
+                id: String(d.appId),
+                app_num: d.applicationNumber || d.registrationNumber || null,
+                name: d.consumerName || d.applicantName || null,
+                phone: (d.mobile || '').replace(/\D/g, '').slice(-10) || null,
+                email: d.email || null,
+                sc: (d.consumerNo || d.consumerNumber || '').trim() || null,
+                state: d.stateName || null,
+                district: d.districtName || null,
+                circle: d.circleName || null,
+                division: d.divisionName || null,
+                subdiv: d.subDivisionName || null,
+                village: d.villagePanchayatName || d.villageName || null,
+                address: d.address || null,
+                pincode: d.pinCode ? String(d.pinCode) : null,
+                cap: Number(d.appliedCapacity) || Number(d.pvCapacity) || 0,
+                sanction_load: Number(d.sanctionLoad) || 0,
+                step_id: d.stepId ? String(d.stepId) : null,
+                step: d.stepName || null,
+                vendor: d.vendorName || null,
+                subsidy_amt: Number(d.subsidyAmount) || 0,
+                subsidy_status: d.subsidyStatus || null,
+                modules_count: (d.moduleList || []).length,
+                inverters_count: (d.inverterList || []).length,
+                docs_count: (d.documentList || []).length,
+                has_dcr: Boolean(d.dcrType || d.hasDcr),
+                panel_serials: pSerials,
+                inv_serials: iSerials,
+                module_mfr: d.brand || null,
+                inv_mfr: null,
+                loan_app_no: d.loanApplicationNumber || null,
+                loan_amt: Number(d.sanctionAmount) || 0,
+                loan_status: d.currentLoanStatus || null,
+                bank_name: d.bankName || null,
+                account_no: d.accountNumber || null,
+                ifsc: d.ifscCode || null,
+                account_holder: d.accountHolderName || null,
+                net_meter_date: d.netMeteringDate || null,
+                submission_date: d.appSubmissionDate || d.submittedDate || null,
+                raw_details: d,
+                updated_at: new Date().toISOString()
+              };
+            }).filter(Boolean);
+
+            if (dbRows.length > 0) {
+              const { error: upErr } = await supabase
+                .from('national_portal_applications')
+                .upsert(dbRows, { onConflict: 'id' });
+              if (!upErr) added = dbRows.length;
             }
-
-            // Re-sort and write
-            const finalList = Array.from(summaryMap.values())
-              .sort((a: any, b: any) => Number(b.id) - Number(a.id));
-
-            fs.writeFileSync(summaryPath, JSON.stringify(finalList), 'utf-8');
-            fs.writeFileSync(catalogPath, JSON.stringify(catalog), 'utf-8');
-            try {
-              if (fs.existsSync(path.resolve(__dirname, 'dist'))) {
-                fs.writeFileSync(distSummaryPath, JSON.stringify(finalList), 'utf-8');
-                fs.writeFileSync(distCatalogPath, JSON.stringify(catalog), 'utf-8');
-              }
-            } catch {}
 
             // Update Supabase lead_prospects and customers connection
             let prospectsUpdated = 0;
             let customersUpdated = 0;
-            const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://rlwcqmlspvddfscyngfw.supabase.co';
-            const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsd2NxbWxzcHZkZGZzY3luZ2Z3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDYyNTcyMSwiZXhwIjoyMDkwMjAxNzIxfQ.8xDUtgktqSVGRC97z6OqCJuGF6lKRA00ZwDrmP6TW5U';
 
             if (SUPABASE_URL && SERVICE_KEY && rawRecords.length > 0) {
               try {

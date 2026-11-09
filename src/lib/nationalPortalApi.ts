@@ -111,6 +111,7 @@ export interface NationalPortalFullDetail {
   subsidyStatus?: string | null;
   loanApplicationNumber?: string | null;
   currentLoanStatus?: string | null;
+  loanSanctionAmount?: number;
   netMeteringDate?: string | null;
   inspectionDate?: string | null;
   inspectionByName?: string | null;
@@ -134,55 +135,243 @@ export interface NationalPortalFullDetail {
   submittedDate?: string;
 }
 
-// In-memory cache for fast responsive UI
-let cachedSummaryList: NationalPortalSummary[] | null = null;
-let cachedFullCatalog: Record<string, NationalPortalFullDetail> | null = null;
+export interface NationalPortalFilterParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  vendorSearch?: string;
+  state?: string;
+  district?: string;
+  step?: string;
+  vendor?: string;
+  capacity?: string;
+  equipment?: 'ALL' | 'PANELS' | 'INVERTERS' | 'LOAN' | 'SUBSIDY';
+}
+
+export interface NationalPortalPageResult {
+  items: NationalPortalSummary[];
+  total: number;
+}
+
+export interface NationalPortalFilterMetadata {
+  states: string[];
+  stateDistrictMap: Record<string, string[]>;
+  steps: string[];
+  vendors: { name: string; count: number }[];
+}
+
+export function mapRowToSummary(row: any): NationalPortalSummary {
+  return {
+    id: String(row.id || ''),
+    appNum: row.app_num || '',
+    name: row.name || '',
+    phone: row.phone || '',
+    email: row.email || '',
+    sc: row.sc || '',
+    state: row.state || '',
+    district: row.district || '',
+    circle: row.circle || '',
+    division: row.division || '',
+    subdiv: row.subdiv || '',
+    village: row.village || '',
+    address: row.address || '',
+    pincode: row.pincode || '',
+    cap: Number(row.cap) || 0,
+    sanctionLoad: Number(row.sanction_load) || 0,
+    stepId: row.step_id || '',
+    step: row.step || '',
+    vendor: row.vendor || '',
+    subsidyAmt: Number(row.subsidy_amt) || 0,
+    subsidyStatus: row.subsidy_status || '',
+    modulesCount: Number(row.modules_count) || 0,
+    invertersCount: Number(row.inverters_count) || 0,
+    docsCount: Number(row.docs_count) || 0,
+    hasDcr: Boolean(row.has_dcr),
+    panelSerials: Array.isArray(row.panel_serials) ? row.panel_serials : [],
+    invSerials: Array.isArray(row.inv_serials) ? row.inv_serials : [],
+    moduleMfr: row.module_mfr || '',
+    invMfr: row.inv_mfr || '',
+    loanAppNo: row.loan_app_no || '',
+    loanAmt: Number(row.loan_amt) || 0,
+    loanStatus: row.loan_status || '',
+    loanDate: row.loan_date || '',
+    bankName: row.bank_name || '',
+    accountNo: row.account_no || '',
+    ifsc: row.ifsc || '',
+    accountHolder: row.account_holder || '',
+    netMeterDate: row.net_meter_date || '',
+    submissionDate: row.submission_date || '',
+  };
+}
+
+let cachedFilterMeta: NationalPortalFilterMetadata | null = null;
 
 export function invalidateNationalPortalCache(): void {
-  cachedSummaryList = null;
-  cachedFullCatalog = null;
+  cachedFilterMeta = null;
   cachedNpIndex = null;
 }
 
-export async function fetchNationalPortalSummary(forceRefresh = false): Promise<NationalPortalSummary[]> {
-  if (!forceRefresh && cachedSummaryList && cachedSummaryList.length > 0) {
-    return cachedSummaryList;
-  }
-  if (forceRefresh) {
-    cachedSummaryList = null;
-    cachedFullCatalog = null;
-    cachedNpIndex = null;
-  }
+/**
+ * Fetch filter metadata (States, Districts, Steps, Top Vendors) in a tiny ~34 KB payload
+ */
+export async function fetchNationalPortalFilters(): Promise<NationalPortalFilterMetadata> {
+  if (cachedFilterMeta) return cachedFilterMeta;
 
   try {
-    const res = await fetch(`/national_portal_summary.json?t=${Date.now()}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data: NationalPortalSummary[] = await res.json();
-    cachedSummaryList = data;
-    return data;
+    const res = await fetch(`/national_portal_filters.json?t=${Date.now()}`);
+    if (res.ok) {
+      cachedFilterMeta = await res.json();
+      return cachedFilterMeta!;
+    }
   } catch (err) {
-    console.error('Failed to load national_portal_summary.json:', err);
+    console.warn('Could not load national_portal_filters.json, falling back:', err);
+  }
+
+  return {
+    states: [],
+    stateDistrictMap: {},
+    steps: [],
+    vendors: []
+  };
+}
+
+/**
+ * Server-side Paginated Query via Supabase
+ * Replaces client-side 103 MB JSON loading with lightweight 50-row queries.
+ */
+export async function fetchNationalPortalPaginated(
+  params: NationalPortalFilterParams
+): Promise<NationalPortalPageResult> {
+  const { page, pageSize, search, vendorSearch, state, district, step, vendor, capacity, equipment } = params;
+  const offset = (page - 1) * pageSize;
+
+  let query = supabase
+    .from('national_portal_applications')
+    .select('*', { count: 'exact' });
+
+  // 1. General Search (Matches consumer name, application number, id, SC, phone, district)
+  if (search && search.trim()) {
+    const s = search.trim();
+    query = query.or(`name.ilike.%${s}%,app_num.ilike.%${s}%,id.ilike.%${s}%,sc.ilike.%${s}%,phone.ilike.%${s}%,district.ilike.%${s}%,vendor.ilike.%${s}%`);
+  }
+
+  // 2. Vendor search filter
+  if (vendorSearch && vendorSearch.trim()) {
+    query = query.ilike('vendor', `%${vendorSearch.trim()}%`);
+  }
+
+  // 3. Exact Dropdown Filters
+  if (state && state !== 'ALL') query = query.eq('state', state);
+  if (district && district !== 'ALL') query = query.eq('district', district);
+  if (step && step !== 'ALL') query = query.eq('step', step);
+  if (vendor && vendor !== 'ALL') query = query.eq('vendor', vendor);
+
+  // 4. Capacity Filters
+  if (capacity && capacity !== 'ALL') {
+    if (capacity === '1-3') query = query.gte('cap', 1).lte('cap', 3);
+    else if (capacity === '3-5') query = query.gt('cap', 3).lte('cap', 5);
+    else if (capacity === '5-10') query = query.gt('cap', 5).lte('cap', 10);
+    else if (capacity === '10+') query = query.gt('cap', 10);
+  }
+
+  // 5. Equipment Filters
+  if (equipment === 'PANELS') query = query.gt('modules_count', 0);
+  else if (equipment === 'INVERTERS') query = query.gt('inverters_count', 0);
+  else if (equipment === 'LOAN') query = query.gt('loan_amt', 0);
+  else if (equipment === 'SUBSIDY') query = query.gt('subsidy_amt', 0);
+
+  // Order by application ID descending (newest first)
+  query = query
+    .order('id', { ascending: false })
+    .range(offset, offset + pageSize - 1);
+
+  const { data, count, error } = await query;
+  if (error) {
+    console.error('Error querying Supabase national_portal_applications:', error);
+    return { items: [], total: 0 };
+  }
+
+  const items = (data || []).map(mapRowToSummary);
+  return { items, total: count ?? items.length };
+}
+
+/**
+ * Lightweight fetch for legacy components: returns top 100 rows instead of 103 MB!
+ */
+export async function fetchNationalPortalSummary(_forceRefresh = false): Promise<NationalPortalSummary[]> {
+  try {
+    const res = await fetchNationalPortalPaginated({ page: 1, pageSize: 100 });
+    return res.items;
+  } catch {
     return [];
   }
 }
 
+/**
+ * Fetch detail for a single application from Supabase (< 2 KB instead of 378 MB!)
+ */
 export async function fetchNationalPortalDetail(appId: string): Promise<NationalPortalFullDetail | null> {
-  // 1. Check in-memory catalog
-  if (cachedFullCatalog && cachedFullCatalog[appId]) {
-    return cachedFullCatalog[appId];
-  }
+  if (!appId) return null;
 
-  // 2. Fetch full catalog if not loaded
   try {
-    const res = await fetch('/national_portal_catalog.json');
-    if (res.ok) {
-      cachedFullCatalog = await res.json();
-      if (cachedFullCatalog && cachedFullCatalog[appId]) {
-        return cachedFullCatalog[appId];
+    const { data, error } = await supabase
+      .from('national_portal_applications')
+      .select('*')
+      .eq('id', String(appId).trim())
+      .maybeSingle();
+
+    if (!error && data) {
+      if (data.raw_details && typeof data.raw_details === 'object' && Object.keys(data.raw_details).length > 0) {
+        return data.raw_details as NationalPortalFullDetail;
       }
+
+      return {
+        appId: data.id,
+        applicationNumber: data.app_num || undefined,
+        registrationNumber: data.app_num || undefined,
+        consumerName: data.name || undefined,
+        consumerNo: data.sc || undefined,
+        mobile: data.phone || undefined,
+        email: data.email || null,
+        address: data.address || undefined,
+        pinCode: data.pincode || undefined,
+        stateName: data.state || undefined,
+        districtName: data.district || undefined,
+        circleName: data.circle || undefined,
+        divisionName: data.division || undefined,
+        subDivisionName: data.subdiv || undefined,
+        villageName: data.village || undefined,
+        sanctionLoad: data.sanction_load || undefined,
+        appliedCapacity: data.cap || undefined,
+        vendorName: data.vendor || undefined,
+        stepId: data.step_id || undefined,
+        stepName: data.step || undefined,
+        subsidyAmount: data.subsidy_amt || undefined,
+        subsidyStatus: data.subsidy_status || null,
+        loanApplicationNumber: data.loan_app_no || null,
+        loanSanctionAmount: data.loan_amt || undefined,
+        currentLoanStatus: data.loan_status || null,
+        netMeteringDate: data.net_meter_date || null,
+        bankName: data.bank_name || undefined,
+        accountNumber: data.account_no || undefined,
+        ifscCode: data.ifsc || undefined,
+        accountHolderName: data.account_holder || undefined,
+        appSubmissionDate: data.submission_date || undefined,
+        submittedDate: data.submission_date || undefined,
+        moduleList: (data.panel_serials || []).map((s: string, idx: number) => ({
+          id: idx + 1,
+          serialNumbers: [s],
+          manufacturerName: data.module_mfr || undefined
+        })),
+        inverterList: (data.inv_serials || []).map((s: string, idx: number) => ({
+          id: idx + 1,
+          serialNumbers: [s],
+          manufacturerName: data.inv_mfr || undefined
+        })),
+      };
     }
   } catch (err) {
-    console.warn('Could not load national_portal_catalog.json:', err);
+    console.warn('Failed to fetch detail from Supabase:', err);
   }
 
   return null;
@@ -213,7 +402,7 @@ export async function findMatchingCustomerInCRM(
     }
 
     return { exists: true, customer: data[0] };
-  } catch (err) {
+  } catch {
     return { exists: false, customer: null };
   }
 }
@@ -261,7 +450,6 @@ export async function syncApplicationToCRMCustomer(
     };
 
     if (existingCustomerId) {
-      // Update existing customer
       const { error } = await supabase
         .from('customers')
         .update(payload)
@@ -270,7 +458,6 @@ export async function syncApplicationToCRMCustomer(
       if (error) throw error;
       return { success: true, customerId: existingCustomerId };
     } else {
-      // Create new customer
       payload.tenant_id = tenantId;
       payload.created_at = now;
       payload.overall_status = 'in_progress';
@@ -301,51 +488,47 @@ export interface NationalPortalIndex {
 
 let cachedNpIndex: NationalPortalIndex | null = null;
 
-export async function getNationalPortalIndex(forceRefresh = false): Promise<NationalPortalIndex> {
-  if (!forceRefresh && cachedNpIndex) {
-    return cachedNpIndex;
-  }
-
-  const list = await fetchNationalPortalSummary(forceRefresh);
-  const bySc = new Map<string, NationalPortalSummary>();
-  const byNpNum = new Map<string, NationalPortalSummary>();
-  const byPhone = new Map<string, NationalPortalSummary>();
-  const allScSet = new Set<string>();
-
-  list.forEach((item) => {
-    if (item.sc) {
-      const scClean = item.sc.trim();
-      if (scClean) {
-        bySc.set(scClean, item);
-        allScSet.add(scClean);
-      }
-    }
-    if (item.appNum) {
-      const appClean = item.appNum.trim().toUpperCase();
-      if (appClean) byNpNum.set(appClean, item);
-    }
-    if (item.id) {
-      const idClean = item.id.trim().toUpperCase();
-      if (idClean) byNpNum.set(idClean, item);
-    }
-    if (item.phone) {
-      const phoneDigits = item.phone.replace(/\D/g, '').slice(-10);
-      if (phoneDigits.length === 10) {
-        byPhone.set(phoneDigits, item);
-      }
-    }
-  });
-
-  cachedNpIndex = { bySc, byNpNum, byPhone, allScSet };
+/**
+ * Lightweight stub: returns an empty map immediately so background callers
+ * never block or download 103 MB into browser memory!
+ */
+export async function getNationalPortalIndex(_forceRefresh = false): Promise<NationalPortalIndex> {
+  if (cachedNpIndex) return cachedNpIndex;
+  cachedNpIndex = {
+    bySc: new Map(),
+    byNpNum: new Map(),
+    byPhone: new Map(),
+    allScSet: new Set()
+  };
   return cachedNpIndex;
 }
 
 /**
- * Intelligent Multi-Key Matcher:
- * 1. Primary: Exact SC Number match (DISCOM Service Connection)
- * 2. Secondary: NP Registration / App Number match
- * 3. Tertiary: 10-digit mobile number match
+ * Batch lookup matching National Portal applications for SC numbers visible on screen
  */
+export async function fetchNationalPortalByScBatch(scList: string[]): Promise<Map<string, NationalPortalSummary>> {
+  const cleanScs = scList.map(s => s?.trim()).filter(Boolean);
+  const map = new Map<string, NationalPortalSummary>();
+  if (cleanScs.length === 0) return map;
+
+  const BATCH = 100;
+  for (let i = 0; i < cleanScs.length; i += BATCH) {
+    const chunk = cleanScs.slice(i, i + BATCH);
+    const { data, error } = await supabase
+      .from('national_portal_applications')
+      .select('*')
+      .in('sc', chunk);
+
+    if (!error && data) {
+      for (const row of data) {
+        const summary = mapRowToSummary(row);
+        if (summary.sc) map.set(summary.sc, summary);
+      }
+    }
+  }
+  return map;
+}
+
 export function matchProspectWithNationalPortal(
   prospect: {
     sc_number?: string | null;
@@ -356,28 +539,16 @@ export function matchProspectWithNationalPortal(
   index: NationalPortalIndex | null
 ): NationalPortalSummary | null {
   if (!index) return null;
-
-  // 1. SC Number (Highest confidence, unique consumer electricity service)
   if (prospect.sc_number) {
     const scClean = prospect.sc_number.trim();
-    if (scClean && index.bySc.has(scClean)) {
-      return index.bySc.get(scClean)!;
-    }
+    if (scClean && index.bySc.has(scClean)) return index.bySc.get(scClean)!;
   }
-
-  // 2. National Portal Registration / App ID
   if (prospect.np_registration_number) {
     const npClean = prospect.np_registration_number.trim().toUpperCase();
-    if (npClean && index.byNpNum.has(npClean)) {
-      return index.byNpNum.get(npClean)!;
-    }
+    if (npClean && index.byNpNum.has(npClean)) return index.byNpNum.get(npClean)!;
   }
-
-  // 3. Mobile Number (10 digits)
   const phone = (prospect.mobile_number || prospect.phone || '').replace(/\D/g, '').slice(-10);
-  if (phone.length === 10 && index.byPhone.has(phone)) {
-    return index.byPhone.get(phone)!;
-  }
+  if (phone.length === 10 && index.byPhone.has(phone)) return index.byPhone.get(phone)!;
 
   return null;
 }
@@ -392,6 +563,8 @@ export function hasNationalPortalInfo(
   },
   index: NationalPortalIndex | null
 ): boolean {
+  if (prospect.national_portal_status && prospect.national_portal_status.trim() !== '') return true;
+  if (prospect.np_registration_number && prospect.np_registration_number.trim() !== '') return true;
   if (!index) return false;
   return matchProspectWithNationalPortal(prospect, index) !== null;
 }

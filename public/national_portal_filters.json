@@ -1,0 +1,1898 @@
+{
+  "states": [
+    "ANDAMAN AND NICOBAR ISLANDS",
+    "ANDHRA PRADESH",
+    "ASSAM",
+    "BIHAR",
+    "CHANDIGARH",
+    "CHHATTISGARH",
+    "GOA",
+    "GUJARAT",
+    "HARYANA",
+    "HIMACHAL PRADESH",
+    "JAMMU AND KASHMIR",
+    "JHARKHAND",
+    "KARNATAKA",
+    "KERALA",
+    "LADAKH",
+    "LAKSHADWEEP",
+    "MADHYA PRADESH",
+    "MAHARASHTRA",
+    "MANIPUR",
+    "MEGHALAYA",
+    "NAGALAND",
+    "NCT OF DELHI",
+    "ODISHA",
+    "PUDUCHERRY",
+    "PUNJAB",
+    "RAJASTHAN",
+    "TAMIL NADU",
+    "TELANGANA",
+    "THE DADRA AND NAGAR HAVELI AND DAMAN AND DIU",
+    "TRIPURA",
+    "UTTAR PRADESH",
+    "UTTARAKHAND",
+    "WEST BENGAL"
+  ],
+  "stateDistrictMap": {
+    "MAHARASHTRA": [
+      "Ahilyanagar",
+      "Akola",
+      "Amravati",
+      "BEED",
+      "BULDHANA",
+      "Bhandara",
+      "Chandrapur",
+      "Chhatrapati Sambhajinagar",
+      "Dharashiv",
+      "Dhule",
+      "GONDIA",
+      "Gadchiroli",
+      "Hingoli",
+      "Jalgaon",
+      "Jalna",
+      "Kolhapur",
+      "Latur",
+      "Mumbai",
+      "Mumbai Suburban",
+      "Nagpur",
+      "Nanded",
+      "Nandurbar",
+      "Nashik",
+      "PALGHAR",
+      "Parbhani",
+      "Pune",
+      "RAIGAD",
+      "Ratnagiri",
+      "Sangli",
+      "Satara",
+      "Sindhudurg",
+      "Solapur",
+      "Thane",
+      "Wardha",
+      "Washim",
+      "Yavatmal"
+    ],
+    "ASSAM": [
+      "Baksa",
+      "Barpeta",
+      "Biswanath",
+      "Bongaigaon",
+      "CHARAIDEO",
+      "Cachar",
+      "Chirang",
+      "Darrang",
+      "Dhemaji",
+      "Dhubri",
+      "Dibrugarh",
+      "Dima Hasao",
+      "Goalpara",
+      "Golaghat",
+      "HOJAI",
+      "Hailakandi",
+      "Jorhat",
+      "Kamrup",
+      "Kamrup Metro",
+      "Karbi Anglong",
+      "Karimganj",
+      "Kokrajhar",
+      "Lakhimpur",
+      "MAJULI",
+      "Marigaon",
+      "Nagaon",
+      "Nalbari",
+      "SIVASAGAR",
+      "SOUTH SALMARA MANCACHAR",
+      "Sonitpur",
+      "Tinsukia",
+      "Udalguri",
+      "WEST KARBI ANGLONG"
+    ],
+    "RAJASTHAN": [
+      "Ajmer",
+      "Alwar",
+      "Anoopgarh",
+      "Balotra",
+      "Baran",
+      "Barmer",
+      "Beawar",
+      "Bharatpur",
+      "Bhilwara",
+      "Bikaner",
+      "Bundi",
+      "CHITTORGARH",
+      "Churu",
+      "DHOLPUR",
+      "Dausa",
+      "Deeg",
+      "Didwana Kuchaman",
+      "Dungarpur",
+      "Ganganagar",
+      "Gangapurcity",
+      "Hanumangarh",
+      "JALORE",
+      "JHUNJHUNU",
+      "Jaipur",
+      "Jaipur Gramin",
+      "Jhalawar",
+      "Jodhpur",
+      "Jodhpur Gramin",
+      "Karauli",
+      "Kekri",
+      "Khairthal-Tijara",
+      "Kota",
+      "Meluri",
+      "Nagaur",
+      "Pali",
+      "Phalodi",
+      "Pratapgarh",
+      "Rajsamand",
+      "Salumbar",
+      "Sawai Madhopur",
+      "Sikar",
+      "Sirohi",
+      "Tonk",
+      "Udaipur"
+    ],
+    "BIHAR": [
+      "ARWAL",
+      "Araria",
+      "Aurangabad",
+      "Banka",
+      "Begusarai",
+      "Bhagalpur",
+      "Bhojpur",
+      "Buxar",
+      "Darbhanga",
+      "Gaya",
+      "Gopalganj",
+      "Jamui",
+      "Jehanabad",
+      "Kaimur Bhabua",
+      "Katihar",
+      "Khagaria",
+      "Kishanganj",
+      "Lakhisarai",
+      "Madhepura",
+      "Madhubani",
+      "Munger",
+      "Muzaffarpur",
+      "Nalanda",
+      "Nawada",
+      "PURBI CHAMPARAN",
+      "Pashchim Champaran",
+      "Patna",
+      "Purnia",
+      "Rohtas",
+      "Saharsa",
+      "Samastipur",
+      "Saran",
+      "Sheikhpura",
+      "Sheohar",
+      "Sitamarhi",
+      "Siwan",
+      "Supaul",
+      "Vaishali"
+    ],
+    "TELANGANA": [
+      "Adilabad",
+      "BHADRADRI KOTHAGUDEM",
+      "HANUMAKONDA",
+      "Hyderabad",
+      "Jagitial",
+      "KUMURAM BHEEM ASIFABAD",
+      "Karimnagar",
+      "Khammam",
+      "MANCHERIAL",
+      "MEDCHAL MALKAJGIRI",
+      "Mulugu",
+      "NAGARKURNOOL",
+      "Nalgonda",
+      "Nizamabad",
+      "PEDDAPALLI",
+      "RAJANNA SIRCILLA",
+      "RANGA REDDY",
+      "SIDDIPET",
+      "SURYAPET",
+      "VIKARABAD",
+      "WARANGAL",
+      "YADADRI BHUVANAGIRI"
+    ],
+    "WEST BENGAL": [
+      "Alipurduar",
+      "Bankura",
+      "Birbhum",
+      "Cooch Behar",
+      "DARJEELING",
+      "Dakshin Dinajpur",
+      "HOOGHLY",
+      "Howrah",
+      "Jalpaiguri",
+      "Jhargram",
+      "KALIMPONG",
+      "Kolkata",
+      "Malda",
+      "Murshidabad",
+      "Nadia",
+      "North 24 Parganas",
+      "PASCHIM BARDHAMAN",
+      "PURBA BARDHAMAN",
+      "Paschim Medinipur",
+      "Purba Medinipur",
+      "Purulia",
+      "South 24 Parganas",
+      "Uttar Dinajpur"
+    ],
+    "ODISHA": [
+      "Anugul",
+      "Balangir",
+      "Baleshwar",
+      "Bargarh",
+      "Bhadrak",
+      "Boudh",
+      "Cuttack",
+      "Deogarh",
+      "Dhenkanal",
+      "Gajapati",
+      "Ganjam",
+      "Jagatsinghapur",
+      "Jajapur",
+      "Jharsuguda",
+      "Kalahandi",
+      "Kandhamal",
+      "Kendrapara",
+      "Kendujhar",
+      "Khordha",
+      "Koraput",
+      "Malkangiri",
+      "Mayurbhanj",
+      "NABARANGPUR",
+      "Nayagarh",
+      "Nuapada",
+      "Puri",
+      "Rayagada",
+      "Sambalpur",
+      "Sonepur",
+      "Sundargarh"
+    ],
+    "KERALA": [
+      "Alappuzha",
+      "Ernakulam",
+      "Idukki",
+      "Kannur",
+      "Kasaragod",
+      "Kollam",
+      "Kottayam",
+      "Kozhikode",
+      "Malappuram",
+      "Palakkad",
+      "Pathanamthitta",
+      "Thiruvananthapuram",
+      "Thrissur",
+      "Wayanad"
+    ],
+    "ANDHRA PRADESH": [
+      "Alluri Sitharama Raju",
+      "Anakapalli",
+      "Ananthapuramu",
+      "Annamayya",
+      "Bapatla",
+      "Chittoor",
+      "East Godavari",
+      "Eluru",
+      "Guntur",
+      "Kakinada",
+      "Konaseema",
+      "Krishna",
+      "Kurnool",
+      "NTR",
+      "Nandyal",
+      "Palnadu",
+      "Parvathipuram Manyam",
+      "Prakasam",
+      "Sri Potti Sriramulu Nellore",
+      "Sri Sathya Sai",
+      "Srikakulam",
+      "Tirupati",
+      "Visakhapatnam",
+      "Vizianagaram",
+      "West Godavari",
+      "Y.S.R."
+    ],
+    "UTTAR PRADESH": [
+      "AYODHYA",
+      "Agra",
+      "Aligarh",
+      "Ambedkar Nagar",
+      "Amethi",
+      "Amroha",
+      "Auraiya",
+      "Azamgarh",
+      "BASTI",
+      "BHADOHI",
+      "Baghpat",
+      "Bahraich",
+      "Ballia",
+      "Balrampur",
+      "Banda",
+      "Bara Banki",
+      "Bareilly",
+      "Bijnor",
+      "Budaun",
+      "Bulandshahr",
+      "CHANDAULI",
+      "Chitrakoot",
+      "Deoria",
+      "Etah",
+      "Etawah",
+      "Farrukhabad",
+      "Fatehpur",
+      "Firozabad",
+      "Gautam Buddha Nagar",
+      "Ghaziabad",
+      "Ghazipur",
+      "Gonda",
+      "Gorakhpur",
+      "HAPUR",
+      "Hamirpur",
+      "Hardoi",
+      "Hathras",
+      "Jalaun",
+      "Jaunpur",
+      "Jhansi",
+      "Kannauj",
+      "Kanpur Dehat",
+      "Kanpur Nagar",
+      "Kasganj",
+      "Kaushambi",
+      "Kheri",
+      "Kushinagar",
+      "Lalitpur",
+      "Lucknow",
+      "MAU",
+      "Mahoba",
+      "Mahrajganj",
+      "Mainpuri",
+      "Mathura",
+      "Meerut",
+      "Mirzapur",
+      "Moradabad",
+      "Muzaffarnagar",
+      "PRAYAGRAJ",
+      "Pilibhit",
+      "Pratapgarh",
+      "Rae Bareli",
+      "Rampur",
+      "SAMBHAL",
+      "SHAMLI",
+      "SONBHADRA",
+      "Saharanpur",
+      "Sant Kabir Nagar",
+      "Shahjahanpur",
+      "Shrawasti",
+      "Siddharthnagar",
+      "Sitapur",
+      "Sultanpur",
+      "Unnao",
+      "Varanasi"
+    ],
+    "GUJARAT": [
+      "Ahmedabad",
+      "Amreli",
+      "Anand",
+      "Arvalli",
+      "Banas Kantha",
+      "Bharuch",
+      "Bhavnagar",
+      "Botad",
+      "Chhotaudepur",
+      "Dahod",
+      "Dangs",
+      "Devbhoomi Dwarka",
+      "Gandhinagar",
+      "Gir Somnath",
+      "Jamnagar",
+      "Junagadh",
+      "Kachchh",
+      "Kheda",
+      "Mahesana",
+      "Mahisagar",
+      "Morbi",
+      "Narmada",
+      "Navsari",
+      "Panch Mahals",
+      "Patan",
+      "Porbandar",
+      "Rajkot",
+      "Sabar Kantha",
+      "Surat",
+      "Surendranagar",
+      "Tapi",
+      "Vadodara",
+      "Valsad"
+    ],
+    "HARYANA": [
+      "Ambala",
+      "Bhiwani",
+      "Charkhi Dadri",
+      "Faridabad",
+      "Fatehabad",
+      "GURUGRAM",
+      "Hisar",
+      "Jhajjar",
+      "Jind",
+      "Kaithal",
+      "Karnal",
+      "Kurukshetra",
+      "Mahendragarh",
+      "Palwal",
+      "Panchkula",
+      "Panipat",
+      "Rewari",
+      "Rohtak",
+      "Sirsa",
+      "Sonipat",
+      "Yamunanagar"
+    ],
+    "CHHATTISGARH": [
+      "BALOD",
+      "BEMETARA",
+      "Balodabazar-Bhatapara",
+      "Balrampur-Ramanujganj",
+      "Bastar",
+      "Bijapur",
+      "Bilaspur",
+      "Dakshin Bastar Dantewada",
+      "Dhamtari",
+      "Durg",
+      "GARIYABAND",
+      "Gaurella Pendra Marwahi",
+      "Janjgir Champa",
+      "Jashpur",
+      "KHAIRGARH CHHUIKHADAN GANDAI",
+      "KONDAGAON",
+      "Kabeerdham",
+      "Kanker",
+      "Korba",
+      "MANENDRAGARH CHIRIMIRI BHARATPUR",
+      "MUNGELI",
+      "Mahasamund",
+      "Raigarh",
+      "Raipur",
+      "Rajnandgaon",
+      "SAKTI",
+      "SARANGARH BILAIGARH",
+      "SURAJPUR",
+      "Surguja",
+      "Uttar Bastar Kanker"
+    ],
+    "JAMMU AND KASHMIR": [
+      "Anantnag",
+      "BANDIPORA",
+      "BARAMULLA",
+      "Budgam",
+      "Doda",
+      "Ganderbal",
+      "Jammu",
+      "Kathua",
+      "Kishtwar",
+      "Kulgam",
+      "Kupwara",
+      "Pulwama",
+      "RAJOURI",
+      "Ramban",
+      "Reasi",
+      "SHOPIAN",
+      "Samba",
+      "Srinagar",
+      "Udhampur"
+    ],
+    "TAMIL NADU": [
+      "CHENGALPATTU",
+      "Chennai",
+      "Coimbatore",
+      "Cuddalore",
+      "Dindigul",
+      "Erode",
+      "KALLAKURICHI",
+      "Kanchipuram",
+      "Kanniyakumari",
+      "Krishnagiri",
+      "Madurai",
+      "Namakkal",
+      "Pudukkottai",
+      "Ramanathapuram",
+      "Ranipet",
+      "Salem",
+      "Sivaganga",
+      "Thanjavur",
+      "The Nilgiris",
+      "Thiruvallur",
+      "Thiruvarur",
+      "Thoothukkudi",
+      "Tiruchirappalli",
+      "Tirunelveli",
+      "Tiruppur",
+      "Tiruvannamalai",
+      "Vellore",
+      "Virudhunagar"
+    ],
+    "MADHYA PRADESH": [
+      "Anuppur",
+      "Ashoknagar",
+      "Balaghat",
+      "Barwani",
+      "Betul",
+      "Bhopal",
+      "Burhanpur",
+      "Chhatarpur",
+      "Chhindwara",
+      "Damoh",
+      "Dewas",
+      "Dhar",
+      "Guna",
+      "Gwalior",
+      "Harda",
+      "Indore",
+      "Jabalpur",
+      "Jhabua",
+      "Katni",
+      "Khandwa (East Nimar)",
+      "Khargone (West Nimar)",
+      "Maihar",
+      "Mandsaur",
+      "Narmadapuram",
+      "Narsimhapur",
+      "Neemuch",
+      "Raisen",
+      "Rajgarh",
+      "Ratlam",
+      "Rewa",
+      "Sagar",
+      "Satna",
+      "Sehore",
+      "Seoni",
+      "Shahdol",
+      "Shajapur",
+      "Sheopur",
+      "Ujjain",
+      "Umaria",
+      "Vidisha"
+    ],
+    "NCT OF DELHI": [
+      "East",
+      "North",
+      "North East",
+      "North West",
+      "South",
+      "South East",
+      "South West",
+      "West"
+    ],
+    "NAGALAND": [
+      "Dimapur"
+    ],
+    "UTTARAKHAND": [
+      "Almora",
+      "Chamoli",
+      "Champawat",
+      "Dehradun",
+      "HARIDWAR",
+      "Nainital",
+      "Pauri Garhwal",
+      "Pithoragarh",
+      "Tehri Garhwal",
+      "Udham Singh Nagar",
+      "Uttarkashi"
+    ],
+    "THE DADRA AND NAGAR HAVELI AND DAMAN AND DIU": [
+      "Dadra and Nagar Haveli",
+      "Daman"
+    ],
+    "HIMACHAL PRADESH": [
+      "Bilaspur",
+      "Chamba",
+      "Hamirpur",
+      "Kangra",
+      "Kullu",
+      "Mandi",
+      "Sirmaur",
+      "Una"
+    ],
+    "MEGHALAYA": [
+      "East Garo Hills"
+    ],
+    "GOA": [
+      "NORTH GOA",
+      "SOUTH GOA"
+    ],
+    "PUNJAB": [
+      "Bathinda",
+      "FEROZEPUR",
+      "Ludhiana",
+      "Mansa",
+      "Pathankot",
+      "Patiala",
+      "S.A.S Nagar",
+      "SRI MUKTSAR SAHIB",
+      "Sangrur"
+    ],
+    "JHARKHAND": [
+      "Bokaro",
+      "Chatra",
+      "Dhanbad",
+      "EAST SINGHBUM",
+      "Giridih",
+      "Latehar",
+      "Ranchi"
+    ],
+    "KARNATAKA": [
+      "BALLARI",
+      "BELAGAVI",
+      "BENGALURU URBAN",
+      "Dakshina Kannada",
+      "Haveri",
+      "MYSURU",
+      "SHIVAMOGGA",
+      "Udupi",
+      "Uttara Kannada"
+    ],
+    "ANDAMAN AND NICOBAR ISLANDS": [
+      "South Andamans"
+    ],
+    "MANIPUR": [
+      "IMPHAL WEST",
+      "THOUBAL"
+    ],
+    "PUDUCHERRY": [
+      "Puducherry"
+    ],
+    "CHANDIGARH": [
+      "Chandigarh"
+    ],
+    "LADAKH": [
+      "Kargil"
+    ],
+    "TRIPURA": [
+      "Sepahijala"
+    ],
+    "LAKSHADWEEP": [
+      "Lakshadweep District"
+    ]
+  },
+  "steps": [
+    "Application",
+    "Cancel",
+    "Feasibility",
+    "Inspection",
+    "Installation",
+    "Registration",
+    "Subsidy Disbursal",
+    "Subsidy Request",
+    "Unknown Step",
+    "Upload Agreement",
+    "Vendor Selection"
+  ],
+  "vendors": [
+    {
+      "name": "Freyr Energy Services Pvt Ltd",
+      "count": 2409
+    },
+    {
+      "name": "venkata siri solar power",
+      "count": 1492
+    },
+    {
+      "name": "SREE ARKA GREENTECH PRAVITE LIMITED",
+      "count": 1458
+    },
+    {
+      "name": "Sri Satya Sai Enterprises",
+      "count": 1349
+    },
+    {
+      "name": "ELLVIN ENERGY PRIVATE LIMITED",
+      "count": 1142
+    },
+    {
+      "name": "ELLVININDUSTRIES",
+      "count": 1084
+    },
+    {
+      "name": "Suhana Natural Power Systems",
+      "count": 1001
+    },
+    {
+      "name": "Surya Kiran Solar Systems",
+      "count": 910
+    },
+    {
+      "name": "SURYA POWER TREE",
+      "count": 818
+    },
+    {
+      "name": "Premium Solar Power",
+      "count": 813
+    },
+    {
+      "name": "Virat Mody Solar Sity",
+      "count": 800
+    },
+    {
+      "name": "M/S SRI SURYA KIRAN SOLAR SYSTEMS",
+      "count": 740
+    },
+    {
+      "name": "ANAPARTHI ENTERPRISES",
+      "count": 730
+    },
+    {
+      "name": "KVL Engineering Works and Services",
+      "count": 722
+    },
+    {
+      "name": "Green Solar Power Systems",
+      "count": 702
+    },
+    {
+      "name": "Solar Systems",
+      "count": 692
+    },
+    {
+      "name": "RK Solar Tech Solutions",
+      "count": 691
+    },
+    {
+      "name": "Nabhas Construction Pvt Ltd",
+      "count": 686
+    },
+    {
+      "name": "Renuka Enterprises",
+      "count": 680
+    },
+    {
+      "name": "MAJJIGOWRI ENTERPRISES",
+      "count": 663
+    },
+    {
+      "name": "Solar Tech",
+      "count": 661
+    },
+    {
+      "name": "SRI SATYA SAI ENTERPRISE",
+      "count": 661
+    },
+    {
+      "name": "N Glow Energy Pvt Ltd",
+      "count": 615
+    },
+    {
+      "name": "MVS Electrical Infra",
+      "count": 600
+    },
+    {
+      "name": "Auxray Energy Solutions Pvt Ltd",
+      "count": 580
+    },
+    {
+      "name": "Vijay Lubricants",
+      "count": 578
+    },
+    {
+      "name": "RKA SOLAR (HYD) PRIVATE LIMITED",
+      "count": 575
+    },
+    {
+      "name": "Mierae Solar Energy Pvt Ltd",
+      "count": 574
+    },
+    {
+      "name": "PRAMOAD NAIDU (OPC) PRIVATE LIMITED",
+      "count": 565
+    },
+    {
+      "name": "PADMVATHI TRADERS",
+      "count": 559
+    },
+    {
+      "name": "Satya Enterprises",
+      "count": 555
+    },
+    {
+      "name": "SS Rockline Engineering & Infra",
+      "count": 514
+    },
+    {
+      "name": "R POWER SOLUTIONS",
+      "count": 503
+    },
+    {
+      "name": "N Solutions",
+      "count": 497
+    },
+    {
+      "name": "Sri Bhavana Battery Agencies",
+      "count": 494
+    },
+    {
+      "name": "HINDUSTHAN SOLAR ENERGY ENTERPRISE",
+      "count": 488
+    },
+    {
+      "name": "Jayanth Power Systems",
+      "count": 477
+    },
+    {
+      "name": "SUNRAYS GREEN POWER SOLUTIONS",
+      "count": 459
+    },
+    {
+      "name": "Sarvan Infra",
+      "count": 451
+    },
+    {
+      "name": "SHRESHTA ASSOCIATES",
+      "count": 449
+    },
+    {
+      "name": "Green Energy Solutions",
+      "count": 442
+    },
+    {
+      "name": "QBARONS NATURAL ENERGY SYSTEMS",
+      "count": 438
+    },
+    {
+      "name": "Sri Kunjal Solar",
+      "count": 433
+    },
+    {
+      "name": "Ashrith Enterprises",
+      "count": 426
+    },
+    {
+      "name": "SREERAM SOLAR SYSTEMS",
+      "count": 424
+    },
+    {
+      "name": "Sri Sai Power Systems",
+      "count": 417
+    },
+    {
+      "name": "RAY POWER SOLUTIONS",
+      "count": 413
+    },
+    {
+      "name": "Suntech Solutions",
+      "count": 413
+    },
+    {
+      "name": "INDIAN GREEN ENERGY SOLUTIONS",
+      "count": 405
+    },
+    {
+      "name": "Greenleaf Electric",
+      "count": 398
+    },
+    {
+      "name": "Ravi Solar Engineers",
+      "count": 390
+    },
+    {
+      "name": "NKS SOLAR",
+      "count": 390
+    },
+    {
+      "name": "SURYA BGR SOLAR ENTERPRISES",
+      "count": 387
+    },
+    {
+      "name": "Solar 6",
+      "count": 379
+    },
+    {
+      "name": "RAY ON SOLAR SYSTEMS",
+      "count": 377
+    },
+    {
+      "name": "SOLAR BEE",
+      "count": 375
+    },
+    {
+      "name": "Team Marketing Services",
+      "count": 375
+    },
+    {
+      "name": "Mitra Enterprises",
+      "count": 373
+    },
+    {
+      "name": "Pranavi Solutions",
+      "count": 373
+    },
+    {
+      "name": "RK Technologies",
+      "count": 370
+    },
+    {
+      "name": "SURYA AGENCIES GREEN ENERGY SOLUTIONS",
+      "count": 369
+    },
+    {
+      "name": "SUNTEK ENERGY SYSTEMS PRIVATE LIMITED",
+      "count": 368
+    },
+    {
+      "name": "ANUSHA ENTERPRISES",
+      "count": 366
+    },
+    {
+      "name": "RE Enterprise",
+      "count": 354
+    },
+    {
+      "name": "Sree Jai Solar Solutions",
+      "count": 352
+    },
+    {
+      "name": "TEJO BHARAT GLOBAL ENERGY LLP",
+      "count": 348
+    },
+    {
+      "name": "Grace Home Needs",
+      "count": 341
+    },
+    {
+      "name": "Sree Surya Solar",
+      "count": 341
+    },
+    {
+      "name": "Ayati Tech Solutions",
+      "count": 338
+    },
+    {
+      "name": "Surya Electrical Contractor",
+      "count": 336
+    },
+    {
+      "name": "RCAL RENEWBLES",
+      "count": 335
+    },
+    {
+      "name": "VEDANTH SKANDHA SOLAR",
+      "count": 329
+    },
+    {
+      "name": "HASINI SOLAR INDIA PRIVATE LIMITED",
+      "count": 325
+    },
+    {
+      "name": "JRT SOLAR ENERGIES",
+      "count": 324
+    },
+    {
+      "name": "SREE BINDU POWER SYSTEMS",
+      "count": 323
+    },
+    {
+      "name": "SRI SRINIVASA SOLAR ELECTRONICS",
+      "count": 322
+    },
+    {
+      "name": "SOUTHERN GLOBAL ENERGY",
+      "count": 320
+    },
+    {
+      "name": "ASA AGENCY",
+      "count": 317
+    },
+    {
+      "name": "LMN Technologies",
+      "count": 316
+    },
+    {
+      "name": "Ceyone Energies",
+      "count": 316
+    },
+    {
+      "name": "Mokshith Enterprises",
+      "count": 314
+    },
+    {
+      "name": "RC SOLAR SOLUTIONS",
+      "count": 313
+    },
+    {
+      "name": "GENTECH ENGINEERING",
+      "count": 311
+    },
+    {
+      "name": "SUSMITHA SOLAR POWER",
+      "count": 309
+    },
+    {
+      "name": "Sri Karthikeya Enterprises",
+      "count": 306
+    },
+    {
+      "name": "Saanvika Solar Systems",
+      "count": 305
+    },
+    {
+      "name": "SPSR Enterprises PVT LTD",
+      "count": 298
+    },
+    {
+      "name": "OSMIUM ENERGY PRIVATE LIMITED",
+      "count": 298
+    },
+    {
+      "name": "V L Solutions",
+      "count": 295
+    },
+    {
+      "name": "SS Vijaya Lakshmi Infra & Property Developers Pvt Ltd",
+      "count": 291
+    },
+    {
+      "name": "Sri Balaji Air Conditioners Refrigerators",
+      "count": 290
+    },
+    {
+      "name": "Aura Solar Energies",
+      "count": 289
+    },
+    {
+      "name": "Bhaskara New Electronics",
+      "count": 280
+    },
+    {
+      "name": "Sri Krishna Solar Solutions",
+      "count": 277
+    },
+    {
+      "name": "Sai Surya Solar",
+      "count": 276
+    },
+    {
+      "name": "SRI VARAHI SOLAR SOLUTIONS",
+      "count": 275
+    },
+    {
+      "name": "VVSENTERPRISES",
+      "count": 274
+    },
+    {
+      "name": "SS BATTERIES",
+      "count": 273
+    },
+    {
+      "name": "Kunjalshah Electrical Infra",
+      "count": 273
+    },
+    {
+      "name": "SMLT INFRA",
+      "count": 268
+    },
+    {
+      "name": "SOLARFUSION RENEWABLES PRIVATE LIMITED",
+      "count": 265
+    },
+    {
+      "name": "NN Solar Solutions",
+      "count": 264
+    },
+    {
+      "name": "RIRVANA ENTERPRISES PVT LTD",
+      "count": 263
+    },
+    {
+      "name": "HELIOS RENERGY",
+      "count": 262
+    },
+    {
+      "name": "SRI DAANVIKA AGENCY",
+      "count": 258
+    },
+    {
+      "name": "ECO WATTS SOLAR SOLUTIONS",
+      "count": 257
+    },
+    {
+      "name": "Heliocity Solar Solutions",
+      "count": 250
+    },
+    {
+      "name": "ARUNA CONSTRUCTIONS",
+      "count": 249
+    },
+    {
+      "name": "B G R ELECTRICAL INFRA",
+      "count": 248
+    },
+    {
+      "name": "Ravi Solar Solutions",
+      "count": 243
+    },
+    {
+      "name": "ADITYA GREEN WAYS PVT LTD",
+      "count": 238
+    },
+    {
+      "name": "VNB TECHNOLOGIES PRIVATE LIMITED",
+      "count": 237
+    },
+    {
+      "name": "Finch Power Pvt Ltd",
+      "count": 236
+    },
+    {
+      "name": "SUNZO ENERGIES",
+      "count": 235
+    },
+    {
+      "name": "SSR ENTERPRISES",
+      "count": 230
+    },
+    {
+      "name": "Jarugulla Viswanadham",
+      "count": 225
+    },
+    {
+      "name": "DEEPA NATURAL POWER SYSTEMS",
+      "count": 224
+    },
+    {
+      "name": "Sun Icon Technologies",
+      "count": 222
+    },
+    {
+      "name": "SURYA TEJ SOLAR",
+      "count": 222
+    },
+    {
+      "name": "Vijaya Enterprises",
+      "count": 222
+    },
+    {
+      "name": "Vijaya Varahi Enterprises",
+      "count": 221
+    },
+    {
+      "name": "MSL Renewable Energy Power Pvt Ltd",
+      "count": 221
+    },
+    {
+      "name": "Sandeep Electricals",
+      "count": 221
+    },
+    {
+      "name": "Amar Enterprises",
+      "count": 217
+    },
+    {
+      "name": "Sri Lakshmi Karthikeya Infra Private Limited",
+      "count": 217
+    },
+    {
+      "name": "Prism Solar Power",
+      "count": 217
+    },
+    {
+      "name": "VISWA VYAPTHA SOLAR",
+      "count": 216
+    },
+    {
+      "name": "Sree Gayatri Solars",
+      "count": 216
+    },
+    {
+      "name": "SRI HESHRITHA POWER TECH",
+      "count": 215
+    },
+    {
+      "name": "Srisparks Infra Pvt Ltd",
+      "count": 215
+    },
+    {
+      "name": "ABHINAYA ENTERPRISES",
+      "count": 213
+    },
+    {
+      "name": "DHEEKSHITHA TECHNOLOGIES",
+      "count": 211
+    },
+    {
+      "name": "ARUHI ENTERPRISES",
+      "count": 211
+    },
+    {
+      "name": "APSARA INVERTERS AND SOLAR SYSTEMS",
+      "count": 210
+    },
+    {
+      "name": "SRIYAVEDA SOLAR ENERGIES",
+      "count": 210
+    },
+    {
+      "name": "RAYGENICS ENERGY PRIVATE LIMITED",
+      "count": 210
+    },
+    {
+      "name": "Solis Solar Energy",
+      "count": 208
+    },
+    {
+      "name": "SMART SOLARS",
+      "count": 206
+    },
+    {
+      "name": "Adi Solar Technology and Services",
+      "count": 204
+    },
+    {
+      "name": "NRGX",
+      "count": 203
+    },
+    {
+      "name": "ARKA SOLAR ENERGIES",
+      "count": 198
+    },
+    {
+      "name": "Raising Sun Electrical and Solar Solutions",
+      "count": 198
+    },
+    {
+      "name": "SJS ENERGY SYSTEM",
+      "count": 197
+    },
+    {
+      "name": "READY EVER ENERGY SOLUTIONS",
+      "count": 196
+    },
+    {
+      "name": "SAGAR BATTERY AGENCIES",
+      "count": 193
+    },
+    {
+      "name": "BHANU PV SOLAR PVT LTD",
+      "count": 192
+    },
+    {
+      "name": "IRAISHO RENEWABLE ENERGY LLP",
+      "count": 191
+    },
+    {
+      "name": "SIGNTECH POWER SYSTEMS",
+      "count": 190
+    },
+    {
+      "name": "VARNA GREEN TECHNOLOGIES",
+      "count": 187
+    },
+    {
+      "name": "SRI VENKATA GAYATRI CONSTRUCTIONS",
+      "count": 186
+    },
+    {
+      "name": "LAKSHMI GOWTHAM AGENCIES SOLAR POWER",
+      "count": 185
+    },
+    {
+      "name": "Kiran Solar",
+      "count": 185
+    },
+    {
+      "name": "LG INFRASTRUCTURES",
+      "count": 184
+    },
+    {
+      "name": "Sri Raja Solar Energy Systems",
+      "count": 181
+    },
+    {
+      "name": "SS Energies",
+      "count": 181
+    },
+    {
+      "name": "TEJAS ENERGY INFRA",
+      "count": 181
+    },
+    {
+      "name": "HELIOS ELECTRICAL AND ENERGY SOLUTIONS",
+      "count": 180
+    },
+    {
+      "name": "Siri Solar Power",
+      "count": 180
+    },
+    {
+      "name": "TEJA SUNTECH",
+      "count": 179
+    },
+    {
+      "name": "ECO Power Solutions",
+      "count": 179
+    },
+    {
+      "name": "Best network and services",
+      "count": 178
+    },
+    {
+      "name": "SOLARA GREEN BHARAT",
+      "count": 178
+    },
+    {
+      "name": "Kapil Power and Infra P Ltd",
+      "count": 177
+    },
+    {
+      "name": "SRI VENKATA BALAJI SOLAR SYSTEM",
+      "count": 177
+    },
+    {
+      "name": "Sri Laxmi Ganapathi Solar Solutions",
+      "count": 177
+    },
+    {
+      "name": "ANT4CE CONSTRUCTIONS",
+      "count": 174
+    },
+    {
+      "name": "NEW LIFE DIGITAL AGENCIES",
+      "count": 173
+    },
+    {
+      "name": "Sri Sai Venkateswara Enterprises",
+      "count": 172
+    },
+    {
+      "name": "pavan solar energy",
+      "count": 171
+    },
+    {
+      "name": "SAAMEERI POWER SOLUTIONS PRIVATE LIMITED",
+      "count": 170
+    },
+    {
+      "name": "GODAVARI SOLAR",
+      "count": 168
+    },
+    {
+      "name": "Watt Sun Energies",
+      "count": 167
+    },
+    {
+      "name": "SRINIVASA AUTOMOBILIES",
+      "count": 165
+    },
+    {
+      "name": "UNIVERSAL POWER AND RENEWABLE SYSTEMS",
+      "count": 165
+    },
+    {
+      "name": "S P S ENTERPRISES",
+      "count": 165
+    },
+    {
+      "name": "R.R.ENTERPRISES",
+      "count": 164
+    },
+    {
+      "name": "Venus Infra Services",
+      "count": 164
+    },
+    {
+      "name": "Raywatt Solar",
+      "count": 164
+    },
+    {
+      "name": "ADITYA VARMA RENEWABLES",
+      "count": 162
+    },
+    {
+      "name": "Diyanshi Electrical and Civil Works",
+      "count": 162
+    },
+    {
+      "name": "VISIONERA TECHNOLOGY PRIVATE LIMITED",
+      "count": 160
+    },
+    {
+      "name": "Surya Solar Energy",
+      "count": 160
+    },
+    {
+      "name": "GEETA SOLARS",
+      "count": 159
+    },
+    {
+      "name": "Soura Solar Solutions",
+      "count": 157
+    },
+    {
+      "name": "OSWAL PUMPS LIMITED",
+      "count": 157
+    },
+    {
+      "name": "PRAVALLIKA ENTERPRISES",
+      "count": 153
+    },
+    {
+      "name": "GREEN POWER",
+      "count": 153
+    },
+    {
+      "name": "Jesus Group of Company",
+      "count": 153
+    },
+    {
+      "name": "Aditya Solar Solutions",
+      "count": 152
+    },
+    {
+      "name": "Powerup Solar & Engineering",
+      "count": 151
+    },
+    {
+      "name": "Silicon Power Systems",
+      "count": 150
+    },
+    {
+      "name": "EASTERNBAY SOLAR",
+      "count": 149
+    },
+    {
+      "name": "Sree Surya Power Systems",
+      "count": 148
+    },
+    {
+      "name": "Sun Energy",
+      "count": 147
+    },
+    {
+      "name": "LOTUS SOLAR SOLUTIONS",
+      "count": 146
+    },
+    {
+      "name": "Hanvika Energy Solutions",
+      "count": 145
+    },
+    {
+      "name": "SUN LIGHT ASSURED",
+      "count": 145
+    },
+    {
+      "name": "DSR SOLAR ENTERPRISES",
+      "count": 145
+    },
+    {
+      "name": "Harshitha Energy Systems",
+      "count": 144
+    },
+    {
+      "name": "ANDHRA ENTERPRISES",
+      "count": 144
+    },
+    {
+      "name": "RENGY PRIVATE LIMITED",
+      "count": 143
+    },
+    {
+      "name": "RUDRA ENTERPRISES",
+      "count": 141
+    },
+    {
+      "name": "Jayarams",
+      "count": 141
+    },
+    {
+      "name": "ARKAZEN RENEWABLE ENERGY PRIVATE LIMITED",
+      "count": 140
+    },
+    {
+      "name": "Sri Sai Surya Agencies",
+      "count": 140
+    },
+    {
+      "name": "GIGA POWER",
+      "count": 139
+    },
+    {
+      "name": "Vinayaka Electricals",
+      "count": 139
+    },
+    {
+      "name": "DD SOLAR SERVICES",
+      "count": 138
+    },
+    {
+      "name": "Lakshmi Kumara Enterprises",
+      "count": 138
+    },
+    {
+      "name": "PAVAN BATTERIES AND INVERTRERS",
+      "count": 137
+    },
+    {
+      "name": "M S ENTERPRISES",
+      "count": 137
+    },
+    {
+      "name": "ANANTHALAKSHMI ENTERPRISES",
+      "count": 136
+    },
+    {
+      "name": "ANUKI TECHNOLOGIES PRIVATE LIMITED",
+      "count": 135
+    },
+    {
+      "name": "INDUS Solar",
+      "count": 132
+    },
+    {
+      "name": "BULLAS GROUP",
+      "count": 131
+    },
+    {
+      "name": "MITHRA BATTERYS AND FIRE SAFTY SOLUTIONS",
+      "count": 131
+    },
+    {
+      "name": "SURESH ENTERPRISES",
+      "count": 131
+    },
+    {
+      "name": "Next Generation Solar Company",
+      "count": 130
+    },
+    {
+      "name": "Dheep Technologies",
+      "count": 129
+    },
+    {
+      "name": "sri kanka durga solar enterprises",
+      "count": 129
+    },
+    {
+      "name": "Surya Enterprises",
+      "count": 129
+    },
+    {
+      "name": "SUN ENERGY SYSTEMS",
+      "count": 129
+    },
+    {
+      "name": "INTEGRITY SOLAR SYSTEMS",
+      "count": 129
+    },
+    {
+      "name": "Grid Edgewrks Pvt Ltd",
+      "count": 128
+    },
+    {
+      "name": "PRANAVIKA GREEN ENERGY",
+      "count": 126
+    },
+    {
+      "name": "TEL Towers Solar",
+      "count": 125
+    },
+    {
+      "name": "SRI SURYA TEJA SOLAR SYSTEMS",
+      "count": 124
+    },
+    {
+      "name": "SUNX SOLUTIONS",
+      "count": 124
+    },
+    {
+      "name": "Sri Surya Solar Energy",
+      "count": 124
+    },
+    {
+      "name": "AMAR SOLAR POWERS",
+      "count": 124
+    },
+    {
+      "name": "Sri Sairam Solar & Automachine",
+      "count": 123
+    },
+    {
+      "name": "NGR SOLAR SOLUTIONS",
+      "count": 123
+    },
+    {
+      "name": "SRI GAYATRI ELECTRONICS",
+      "count": 123
+    },
+    {
+      "name": "PVR Solar Energy",
+      "count": 122
+    },
+    {
+      "name": "Sunrise Energy",
+      "count": 122
+    },
+    {
+      "name": "SRI GOWRI PARAMESHWARA INFRA PROJECTS",
+      "count": 122
+    },
+    {
+      "name": "LEELA ADITYA SOLAR ENTERPRISES",
+      "count": 121
+    },
+    {
+      "name": "Sunpower Solar Solutions",
+      "count": 121
+    },
+    {
+      "name": "IL SOLAR",
+      "count": 119
+    },
+    {
+      "name": "VIJAYA DURGA SOLAR ENERGY",
+      "count": 118
+    },
+    {
+      "name": "SUN X SLOARS",
+      "count": 118
+    },
+    {
+      "name": "M/s. Master Tech Solar Solutions",
+      "count": 118
+    },
+    {
+      "name": "VIJETHA SOLAR AND MARKETING SERVICES",
+      "count": 118
+    },
+    {
+      "name": "SSSK Green Energy Hub",
+      "count": 117
+    },
+    {
+      "name": "MALLIKARJUNARAO SOLAR",
+      "count": 117
+    },
+    {
+      "name": "SRI KARTHIKEYA SOLAR",
+      "count": 116
+    },
+    {
+      "name": "Veera Vijaya Solar Systems",
+      "count": 116
+    },
+    {
+      "name": "SIGMA SOLAR SYSTEMS",
+      "count": 116
+    },
+    {
+      "name": "sri sai ganesh solar system",
+      "count": 115
+    },
+    {
+      "name": "Rayan Power",
+      "count": 113
+    },
+    {
+      "name": "RK SOLAR ENERGIES",
+      "count": 112
+    },
+    {
+      "name": "SRI ARKA SOLAR ENTERPRISES",
+      "count": 112
+    },
+    {
+      "name": "Varun Enterprises",
+      "count": 112
+    },
+    {
+      "name": "Nipuna Engineering & Constructions",
+      "count": 109
+    },
+    {
+      "name": "VOLTECO DYNAMICS PRIVATE LIMITED",
+      "count": 109
+    },
+    {
+      "name": "Rishi Solar LLP",
+      "count": 108
+    },
+    {
+      "name": "VEDHAM ENTERPRISES",
+      "count": 108
+    },
+    {
+      "name": "Sri Sai Power Solutions and Projects",
+      "count": 106
+    },
+    {
+      "name": "Sri Ram Infra",
+      "count": 105
+    },
+    {
+      "name": "UNIVERSAL POWER",
+      "count": 105
+    },
+    {
+      "name": "SUNPRO ENERGIES",
+      "count": 105
+    },
+    {
+      "name": "TEJA SOLAR SOLUTIONS",
+      "count": 104
+    },
+    {
+      "name": "DOTCOM ENTERPRISES",
+      "count": 103
+    },
+    {
+      "name": "SUREKHA SOLAR SYSTEMS",
+      "count": 102
+    },
+    {
+      "name": "FUTURE EMERGING TECH SOLUTIONS PRIVATE LIMITED",
+      "count": 101
+    },
+    {
+      "name": "Dhansun Renewables",
+      "count": 99
+    },
+    {
+      "name": "KHAATHWIK ENGINEERING PRODUCTS",
+      "count": 98
+    },
+    {
+      "name": "VMAX ENERGY LLP",
+      "count": 97
+    },
+    {
+      "name": "RR INFRA",
+      "count": 97
+    },
+    {
+      "name": "Sri lakshmi royal solars",
+      "count": 97
+    },
+    {
+      "name": "Septillion Energie Pvt Ltd",
+      "count": 97
+    },
+    {
+      "name": "SREE VARAHI SOLAR SOLUTIONS",
+      "count": 96
+    },
+    {
+      "name": "Ashwin Solar And Infra Projects Private Limited",
+      "count": 96
+    },
+    {
+      "name": "ARK Enterprises",
+      "count": 96
+    },
+    {
+      "name": "SRI SAI LALITHA AGENCIES",
+      "count": 95
+    },
+    {
+      "name": "SAMMSUN INFRASTRUCTURE PRIVATE LIMITED",
+      "count": 95
+    },
+    {
+      "name": "RK ENTERPRISES",
+      "count": 95
+    },
+    {
+      "name": "SVK TECHWAVE LLP",
+      "count": 94
+    },
+    {
+      "name": "Sri Lakshmi Batteries and Solar Systems",
+      "count": 94
+    },
+    {
+      "name": "ABHIRAM ENTERPRISES",
+      "count": 94
+    },
+    {
+      "name": "SRI SWASTIK SOLUTIONS",
+      "count": 94
+    },
+    {
+      "name": "Mahavir Engineering Corporation",
+      "count": 93
+    },
+    {
+      "name": "ASR GLOBAL INDUSTRIES",
+      "count": 93
+    },
+    {
+      "name": "Solars vision",
+      "count": 92
+    },
+    {
+      "name": "ADITI SOLAR",
+      "count": 92
+    },
+    {
+      "name": "Sureddy Janaki",
+      "count": 91
+    },
+    {
+      "name": "Diya Solar",
+      "count": 91
+    },
+    {
+      "name": "SAI ENTERPRISES",
+      "count": 91
+    },
+    {
+      "name": "SURYA SOLAR POWER",
+      "count": 90
+    },
+    {
+      "name": "H & S ENERGY SYSTEMS",
+      "count": 90
+    },
+    {
+      "name": "VARAHI SOLAR & TECHNOLOGIES",
+      "count": 89
+    },
+    {
+      "name": "SRI SRINIVASA BATTERIES SALES AND SERVICES",
+      "count": 88
+    },
+    {
+      "name": "M/s. Sun Innovators",
+      "count": 88
+    },
+    {
+      "name": "SRESHTA SOLAR SERVICES",
+      "count": 87
+    },
+    {
+      "name": "SRI VIJAYA SAI ENTERPRISES",
+      "count": 87
+    },
+    {
+      "name": "S R S ENTERPRISES",
+      "count": 87
+    },
+    {
+      "name": "SHYAM SOLAR SOLUTION",
+      "count": 87
+    },
+    {
+      "name": "Mahadeva Power Solutions",
+      "count": 87
+    },
+    {
+      "name": "ARDHA TECHNOLOGIES",
+      "count": 86
+    },
+    {
+      "name": "sri infra projects",
+      "count": 86
+    }
+  ]
+}

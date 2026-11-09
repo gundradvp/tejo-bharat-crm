@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X,
   Phone,
@@ -14,7 +14,6 @@ import {
   Calendar,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
   ShieldCheck,
   RefreshCw,
   UserCheck,
@@ -477,7 +476,7 @@ export default function NationalPortalDetailModal({ summary, onClose }: Props) {
                                 <div className="mt-3">
                                   <span className="text-xs text-gray-500 font-medium block mb-1.5">Registered Serial Numbers:</span>
                                   <div className="flex flex-wrap gap-1.5">
-                                    {mod.serialNumbers.map((rawSno, sIdx) => {
+                                    {mod.serialNumbers.map((rawSno: any, sIdx: number) => {
                                       const snoStr = typeof rawSno === 'string' ? rawSno : (rawSno?.serialNumber || String(rawSno));
                                       return (
                                         <span
@@ -584,7 +583,7 @@ export default function NationalPortalDetailModal({ summary, onClose }: Props) {
                                 <div className="mt-2">
                                   <span className="text-xs text-gray-500 font-medium block mb-1">Inverter Serial Numbers:</span>
                                   <div className="flex flex-wrap gap-1.5">
-                                    {inv.serialNumbers.map((rawSno, sIdx) => {
+                                    {inv.serialNumbers.map((rawSno: any, sIdx: number) => {
                                       const snoStr = typeof rawSno === 'string' ? rawSno : (rawSno?.serialNumber || String(rawSno));
                                       return (
                                         <span

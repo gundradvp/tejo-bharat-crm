@@ -31,6 +31,7 @@ const filesToSync = [
   'public/dcr_supply_chain_master.json',
   'public/logo.png',
   'public/manifest.json',
+  'public/national_portal_filters.json',
   'public/national_portal_summary.json',
   'public/s_numbers_ground_reports.json',
   'public/service-worker.js',

@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 
 import {
-  NationalPortalSummary,
   invalidateNationalPortalCache,
   fetchNationalPortalSummary,
 } from '../../lib/nationalPortalApi';

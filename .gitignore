@@ -22,3 +22,4 @@ dist-ssr
 *.sw?
 .env
 public/national_portal_catalog.json
+data/np_backup/
