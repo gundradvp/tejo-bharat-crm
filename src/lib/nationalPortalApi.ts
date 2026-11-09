@@ -138,6 +138,12 @@ export interface NationalPortalFullDetail {
 let cachedSummaryList: NationalPortalSummary[] | null = null;
 let cachedFullCatalog: Record<string, NationalPortalFullDetail> | null = null;
 
+export function invalidateNationalPortalCache(): void {
+  cachedSummaryList = null;
+  cachedFullCatalog = null;
+  cachedNpIndex = null;
+}
+
 export async function fetchNationalPortalSummary(forceRefresh = false): Promise<NationalPortalSummary[]> {
   if (!forceRefresh && cachedSummaryList && cachedSummaryList.length > 0) {
     return cachedSummaryList;

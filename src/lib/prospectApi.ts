@@ -668,8 +668,9 @@ export async function fetchProspects(
     }
 
     const pageSlice = collected.slice(offset, offset + pageSize);
-    const estimatedTotal = dbCount > 0
-      ? Math.round(dbCount * (npFilter === 'AVAILABLE' ? 0.35 : 0.65))
+    // Use the actual count of matches when complete, or extrapolate proportionally from scanned rows
+    const estimatedTotal = dbCount > 0 && currentOffset > 0
+      ? Math.round((collected.length / currentOffset) * dbCount)
       : collected.length;
 
     return { prospects: pageSlice, total: Math.max(collected.length, estimatedTotal) };

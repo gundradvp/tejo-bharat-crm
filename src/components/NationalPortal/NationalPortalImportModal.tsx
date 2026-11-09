@@ -13,6 +13,12 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
+import {
+  NationalPortalSummary,
+  invalidateNationalPortalCache,
+  fetchNationalPortalSummary,
+} from '../../lib/nationalPortalApi';
+
 interface ParsedRecord {
   fileName: string;
   appId: string;
@@ -240,6 +246,8 @@ export default function NationalPortalImportModal({ existingIds, onClose, onImpo
       }
 
       setResult(data as ImportResult);
+      invalidateNationalPortalCache();
+      await fetchNationalPortalSummary(true);
       onImportComplete();
     } catch (e: any) {
       setImportError(e.message || 'Import failed');
