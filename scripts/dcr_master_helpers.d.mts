@@ -5,3 +5,7 @@ export function rebuildVendorIntelligenceAndRanking(master: any): {
   entitiesTracked: number;
   manufacturersCount: number;
 };
+
+export function compactDcrMasterForStorage(master: any): number;
+
+export function writeJsonAtomic(targetPath: string, data: any): void;

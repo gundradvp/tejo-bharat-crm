@@ -3,8 +3,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import {
+  compactDcrMasterForStorage,
   rebuildVendorIntelligenceAndRanking,
   resolveSupabaseServiceKey,
+  writeJsonAtomic,
 } from './dcr_master_helpers.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -60,12 +62,9 @@ async function main() {
   console.log(
     `Rebuilt DCR Supply Chain Tracker intelligence: ${intelStats.chainsProcessed.toLocaleString()} chains -> ${intelStats.entitiesTracked.toLocaleString()} entities across ${intelStats.manufacturersCount} manufacturers.`
   );
-  fs.writeFileSync(masterPath, JSON.stringify(master), 'utf-8');
-  const distMasterPath = path.join(ROOT_DIR, 'dist/dcr_supply_chain_master.json');
-  if (fs.existsSync(distMasterPath)) {
-    fs.writeFileSync(distMasterPath, JSON.stringify(master), 'utf-8');
-  }
-
+  compactDcrMasterForStorage(master);
+  writeJsonAtomic(masterPath, master);
+  const chainCatalog = master.chain_catalog || {};
   const serialMeta = master.serial_metadata || {};
 
   const serialUpperMap = new Map();
@@ -251,12 +250,20 @@ async function main() {
       let firstMfr = '';
       for (const [serial, meta] of candidates.entries()) {
         if (!firstMfr && meta.mfr) firstMfr = meta.mfr;
+        const hops = Array.isArray(meta.hops)
+          ? meta.hops
+          : meta.cid != null && Array.isArray(chainCatalog[meta.cid])
+          ? chainCatalog[meta.cid]
+          : [];
+        const rawChain =
+          meta.raw_chain ||
+          hops.map((h) => (h.invoice ? `${h.name} (${h.invoice})` : h.name)).join(' -> ');
         nextChains[serial] = {
           serial,
           app_id: meta.app || row.app_num || '',
-          raw_chain: meta.raw_chain || '',
-          hops: Array.isArray(meta.hops) ? meta.hops : [],
-          mfr: meta.mfr || '',
+          raw_chain: rawChain,
+          hops,
+          mfr: meta.mfr || hops[0]?.name || '',
           status: meta.status || '',
           imported_at: nowIso,
         };

@@ -10,6 +10,7 @@ import {
   getTelLink, getWhatsAppLink 
 } from '../../lib/vendorContactsService';
 import { ContactsMasterData } from '../../types/vendorCRM';
+import { loadDcrMasterData, lookupPanelDcrHierarchy } from '../../lib/dcrHierarchyUtils';
 
 interface Props {
   report: APEGroundReport | null;
@@ -36,8 +37,7 @@ export default function SNumberDetailModal({ report, onClose }: Props) {
       setDcrChain(null);
       return;
     }
-    fetch('/dcr_supply_chain_master.json')
-      .then((res) => (res.ok ? res.json() : null))
+    loadDcrMasterData()
       .then((data) => {
         if (!data) {
           setDcrChain(null);
@@ -47,15 +47,14 @@ export default function SNumberDetailModal({ report, onClose }: Props) {
           setDcrChain(data.snumber_dcr_map[report.complain_no]);
           return;
         }
-        // Fallback: check individual panel serials in serial_metadata
         for (const sno of report.solar_panel_serials || []) {
-          const meta = data.serial_metadata?.[String(sno).trim()];
-          if (meta && Array.isArray(meta.hops) && meta.hops.length > 0) {
+          const hierarchy = lookupPanelDcrHierarchy(String(sno).trim(), data, report.complain_no);
+          if (hierarchy && hierarchy.hops.length > 0) {
             setDcrChain({
-              app_id: meta.app || report.consumer_scno_id || '',
-              hops: meta.hops,
-              raw_chain: meta.raw_chain || '',
-              matched_serial: sno,
+              app_id: hierarchy.app_id || report.consumer_scno_id || '',
+              hops: hierarchy.hops,
+              raw_chain: hierarchy.raw_chain || '',
+              matched_serial: hierarchy.serial,
             });
             return;
           }

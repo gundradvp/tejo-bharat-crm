@@ -332,7 +332,7 @@ export async function fetchNationalPortalPanelSerialsForExport(
   const {
     limit,
     excludeSerials,
-    excludeSupabaseLinked = Boolean(excludeSerials),
+    excludeSupabaseLinked = !excludeSerials || excludeSerials.size === 0,
     includeMetadata = false,
     onProgress,
   } = options;
@@ -341,7 +341,7 @@ export async function fetchNationalPortalPanelSerialsForExport(
 
   let excludeUpper: Set<string> | null = null;
   if (excludeSerials && excludeSerials.size > 0) {
-    // Fast-path: getDcrSerialsSet() is already trimmed & uppercased; avoid cloning 260k+ entries unnecessarily
+    // Fast-path: getDcrSerialsSet() is already trimmed & uppercased; avoid cloning 480k+ entries
     let isPreNormalized = true;
     let checked = 0;
     for (const s of excludeSerials) {
@@ -357,7 +357,6 @@ export async function fetchNationalPortalPanelSerialsForExport(
   }
 
   const BATCH_SIZE = 1000;
-  const CONCURRENCY = 6;
   const selectCols = includeMetadata
     ? excludeSupabaseLinked
       ? 'id, app_num, name, vendor, sc, step, cap, panel_serials, dcr_chains:raw_details->dcrChains'
@@ -366,72 +365,61 @@ export async function fetchNationalPortalPanelSerialsForExport(
     ? 'id, panel_serials, dcr_chains:raw_details->dcrChains'
     : 'id, panel_serials';
 
-  let offset = 0;
-  let exhausted = false;
+  // Use primary-key keyset pagination (ascending) so Postgres uses the PK index (O(log N))
+  // instead of slow OFFSET scans, and hits unlinked records immediately instead of wading through 70k+ linked rows.
+  let lastId = '';
 
-  while (!exhausted && (limit == null || results.length < limit)) {
-    const wavePages = Array.from({ length: CONCURRENCY }, (_, idx) => offset + idx * BATCH_SIZE);
+  while (limit == null || results.length < limit) {
+    let query = supabase
+      .from('national_portal_applications')
+      .select(selectCols)
+      .gt('modules_count', 0);
 
-    const waveResponses = await Promise.all(
-      wavePages.map(async (pageOffset) => {
-        let query = supabase
-          .from('national_portal_applications')
-          .select(selectCols)
-          .gt('modules_count', 0);
+    query = applyNationalPortalQueryFilters(query, params)
+      .order('id', { ascending: true })
+      .limit(BATCH_SIZE);
 
-        query = applyNationalPortalQueryFilters(query, params)
-          .order('id', { ascending: false })
-          .range(pageOffset, pageOffset + BATCH_SIZE - 1);
+    if (lastId) {
+      query = query.gt('id', lastId);
+    }
 
-        return query;
-      })
-    );
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) break;
 
-    for (const { data, error } of waveResponses) {
-      if (error || !data || data.length === 0) {
-        exhausted = true;
-        break;
-      }
+    lastId = String((data[data.length - 1] as any).id || '');
 
-      for (const row of data as any[]) {
-        const dbLinkedUpper =
-          excludeSupabaseLinked && row.dcr_chains && typeof row.dcr_chains === 'object'
-            ? new Set(Object.keys(row.dcr_chains).map((k) => String(k || '').trim().toUpperCase()).filter(Boolean))
-            : null;
+    for (const row of data as any[]) {
+      const dbLinkedUpper =
+        excludeSupabaseLinked && row.dcr_chains && typeof row.dcr_chains === 'object'
+          ? new Set(Object.keys(row.dcr_chains).map((k) => String(k || '').trim().toUpperCase()).filter(Boolean))
+          : null;
 
-        const serials = Array.isArray(row.panel_serials) ? row.panel_serials : [];
-        for (const rawS of serials) {
-          const serial = String(rawS || '').trim();
-          if (!serial) continue;
-          const upper = serial.toUpperCase();
-          if (seen.has(upper)) continue;
-          if (excludeUpper && excludeUpper.has(upper)) continue;
-          if (dbLinkedUpper && dbLinkedUpper.has(upper)) continue;
-          seen.add(upper);
-          results.push({
-            serial,
-            appId: String(row.id || ''),
-            appNum: includeMetadata ? row.app_num || '' : '',
-            consumerName: includeMetadata ? row.name || '' : '',
-            vendor: includeMetadata ? row.vendor || '' : '',
-            sc: includeMetadata ? row.sc || '' : '',
-            step: includeMetadata ? row.step || '' : '',
-            cap: includeMetadata ? Number(row.cap) || 0 : 0,
-          });
-          if (limit != null && results.length >= limit) break;
-        }
+      const serials = Array.isArray(row.panel_serials) ? row.panel_serials : [];
+      for (const rawS of serials) {
+        const serial = String(rawS || '').trim();
+        if (!serial) continue;
+        const upper = serial.toUpperCase();
+        if (seen.has(upper)) continue;
+        if (excludeUpper && excludeUpper.has(upper)) continue;
+        if (dbLinkedUpper && dbLinkedUpper.has(upper)) continue;
+        seen.add(upper);
+        results.push({
+          serial,
+          appId: String(row.id || ''),
+          appNum: includeMetadata ? row.app_num || '' : '',
+          consumerName: includeMetadata ? row.name || '' : '',
+          vendor: includeMetadata ? row.vendor || '' : '',
+          sc: includeMetadata ? row.sc || '' : '',
+          step: includeMetadata ? row.step || '' : '',
+          cap: includeMetadata ? Number(row.cap) || 0 : 0,
+        });
         if (limit != null && results.length >= limit) break;
-      }
-
-      if (data.length < BATCH_SIZE) {
-        exhausted = true;
-        break;
       }
       if (limit != null && results.length >= limit) break;
     }
 
     onProgress?.(results.length);
-    offset += CONCURRENCY * BATCH_SIZE;
+    if (data.length < BATCH_SIZE) break;
   }
 
   return limit != null ? results.slice(0, limit) : results;

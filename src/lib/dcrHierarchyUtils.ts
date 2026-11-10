@@ -21,6 +21,7 @@ export interface DcrMasterData {
   vendor_intelligence?: Record<string, any>;
   snumber_dcr_map?: Record<string, any>;
   serial_metadata?: Record<string, any>;
+  chain_catalog?: Record<string, DcrHop[]>;
   manufacturers_ranking?: any[];
   dcr_serials_list?: string[];
 }
@@ -245,14 +246,23 @@ export function lookupPanelDcrHierarchy(
   }
   const snumKey = complainNo?.trim() || meta?.sno;
   const snumEntry = snumKey ? master.snumber_dcr_map?.[snumKey] : null;
+  const metaHops: DcrHop[] | null =
+    meta && Array.isArray(meta.hops) && meta.hops.length > 0
+      ? meta.hops
+      : meta && meta.cid != null && master.chain_catalog && Array.isArray(master.chain_catalog[meta.cid])
+      ? master.chain_catalog[meta.cid]
+      : null;
 
-  if (meta && Array.isArray(meta.hops) && meta.hops.length > 0) {
+  const hopsToRaw = (hops: DcrHop[]) =>
+    hops.map((h) => (h.invoice ? `${h.name} (${h.invoice})` : h.name)).join(' -> ');
+
+  if (meta && metaHops && metaHops.length > 0) {
     return {
       serial: cleanSno,
       app_id: meta.app || '',
-      raw_chain: meta.raw_chain || '',
-      hops: meta.hops,
-      mfr: meta.mfr || meta.hops[0]?.name || '',
+      raw_chain: meta.raw_chain || hopsToRaw(metaHops),
+      hops: metaHops,
+      mfr: meta.mfr || metaHops[0]?.name || '',
       status: meta.status,
       sno: meta.sno,
       consumer: meta.consumer,
@@ -264,7 +274,7 @@ export function lookupPanelDcrHierarchy(
     return {
       serial: cleanSno,
       app_id: snumEntry.app_id || meta?.app || '',
-      raw_chain: snumEntry.raw_chain || '',
+      raw_chain: snumEntry.raw_chain || hopsToRaw(snumEntry.hops),
       hops: snumEntry.hops,
       mfr: snumEntry.manufacturer || meta?.mfr || snumEntry.hops[0]?.name || '',
       sno: snumEntry.snumber || meta?.sno,
@@ -298,6 +308,7 @@ export async function importDcrHierarchiesToServer(
   totalSerials: number;
   supabaseUpdatedApps?: number;
   supabaseLinkedPanels?: number;
+  supabaseQueuedApps?: number;
   supabaseError?: string;
   error?: string;
 }> {

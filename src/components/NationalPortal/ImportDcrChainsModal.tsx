@@ -83,6 +83,7 @@ export default function ImportDcrChainsModal({ onClose, onImportComplete }: Prop
     totalSerials: number;
     supabaseUpdatedApps?: number;
     supabaseLinkedPanels?: number;
+    supabaseQueuedApps?: number;
     supabaseError?: string;
   } | null>(null);
 
@@ -334,8 +335,12 @@ export default function ImportDcrChainsModal({ onClose, onImportComplete }: Prop
                   <div className="text-xs text-gray-500">Total DCR Serials</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-teal-700">{(result.supabaseUpdatedApps ?? 0).toLocaleString()}</div>
-                  <div className="text-xs text-teal-600">Supabase Apps Saved</div>
+                  <div className="text-2xl font-bold text-teal-700">
+                    {(result.supabaseQueuedApps || result.supabaseUpdatedApps || 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-teal-600">
+                    {result.supabaseQueuedApps ? 'Supabase Sync Queued' : 'Supabase Apps Saved'}
+                  </div>
                 </div>
               </div>
               {result.supabaseError && (

@@ -225,7 +225,7 @@ export default function NationalPortalApps() {
         {
           limit: serialExportLimit === 'all' ? undefined : serialExportLimit,
           excludeSerials: serialExportScope === 'pending_dcr' ? (latestDcrSet ?? dcrSerialsSet) : undefined,
-          excludeSupabaseLinked: serialExportScope === 'pending_dcr',
+          excludeSupabaseLinked: serialExportScope === 'pending_dcr' && (!latestDcrSet || latestDcrSet.size === 0),
           includeMetadata: mode === 'csv',
           onProgress: (c) => setExportSerialProgress(c),
         }
