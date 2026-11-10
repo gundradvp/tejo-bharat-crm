@@ -7,6 +7,7 @@ import {
   compactDcrMasterForStorage,
   rebuildVendorIntelligenceAndRanking,
   resolveSupabaseServiceKey,
+  uploadDcrMasterToSupabaseStorage,
   writeJsonAtomic,
 } from './scripts/dcr_master_helpers.mjs';
 
@@ -220,6 +221,10 @@ function groundReportsPersistencePlugin(): Plugin {
             } else {
               try {
                 const supabase = createClient(sbUrl, serviceRoleKey);
+                // Keep Supabase Storage gzipped master updated in background so Bolt & Published App stay in sync
+                void uploadDcrMasterToSupabaseStorage(supabase, master).catch((err) =>
+                  console.warn('Background DCR Storage upload error:', err)
+                );
                 const slimMatchedById = new Map<string, any>();
 
                 const runParallel = async <T,>(

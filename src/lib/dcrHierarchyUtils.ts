@@ -173,15 +173,69 @@ function buildUpperSerialSetAndMap(data: DcrMasterData | null): {
   return { serialSet, metaMap };
 }
 
+async function fetchJsonSafe(url: string): Promise<DcrMasterData | null> {
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data: DcrMasterData = await res.json();
+    if (!data || !data.serial_metadata || Object.keys(data.serial_metadata).length === 0) {
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchGzipJsonSafe(url: string): Promise<DcrMasterData | null> {
+  try {
+    if (typeof DecompressionStream === 'undefined') return null;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok || !res.body) return null;
+    const stream = res.body.pipeThrough(new DecompressionStream('gzip'));
+    const data: DcrMasterData = await new Response(stream).json();
+    if (!data || !data.serial_metadata || Object.keys(data.serial_metadata).length === 0) {
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadDcrMasterData(forceRefresh = false): Promise<DcrMasterData | null> {
   if (!forceRefresh && cachedMaster) return cachedMaster;
   if (!forceRefresh && loadPromise) return loadPromise;
 
   loadPromise = (async () => {
     try {
-      const res = await fetch(`/dcr_supply_chain_master.json?t=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) return null;
-      const data: DcrMasterData = await res.json();
+      const ts = Date.now();
+      const sbUrl =
+        ((import.meta as any).env?.VITE_SUPABASE_URL as string | undefined) ||
+        'https://rlwcqmlspvddfscyngfw.supabase.co';
+      const cloudGzUrl = `${sbUrl}/storage/v1/object/public/dcr-assets/dcr_supply_chain_master.json.gz?t=${ts}`;
+      const localJsonUrl = `/dcr_supply_chain_master.json?t=${ts}`;
+      const localGzUrl = `/dcr_supply_chain_master.json.gz?t=${ts}`;
+      const isLocalhost =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+      let data: DcrMasterData | null = null;
+      if (isLocalhost) {
+        data =
+          (await fetchJsonSafe(localJsonUrl)) ||
+          (await fetchGzipJsonSafe(cloudGzUrl)) ||
+          (await fetchGzipJsonSafe(localGzUrl));
+      } else {
+        // Bolt / published builds: pull latest gzipped DCR master from Supabase Storage first,
+        // so DCR Supply Chain Tracker & S-Numbers Hub stay updated without redeploying 150+ MB JSON.
+        data =
+          (await fetchGzipJsonSafe(cloudGzUrl)) ||
+          (await fetchGzipJsonSafe(localGzUrl)) ||
+          (await fetchJsonSafe(localJsonUrl));
+      }
+
+      if (!data) return null;
       cachedMaster = data;
       const built = buildUpperSerialSetAndMap(data);
       cachedSerialSet = built.serialSet;

@@ -12,6 +12,7 @@ import {
   getTelLink, getWhatsAppLink, detectVendorDistrict 
 } from '../../lib/vendorContactsService';
 import { ContactsMasterData, VendorContact } from '../../types/vendorCRM';
+import { loadDcrMasterData } from '../../lib/dcrHierarchyUtils';
 
 export interface EdgePanelItem {
   serial: string;
@@ -133,14 +134,15 @@ export default function VendorSupplyChainModal({ isOpen, onClose, initialVendor 
     loadVendorContactsMaster().then(cm => setContactsMaster(cm));
   }, [isOpen]);
 
-  // Load supply chain master JSON from public folder (cache-busted so newly imported DCR chains appear immediately)
+  // Load supply chain master via unified loader (local JSON in dev, live Supabase Storage gzip in Bolt/prod)
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true);
-    fetch(`/dcr_supply_chain_master.json?t=${Date.now()}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((json: MasterData) => {
-        setData(json);
+    loadDcrMasterData(false)
+      .then((json) => {
+        if (json) {
+          setData(json as MasterData);
+        }
         setLoading(false);
       })
       .catch((err) => {

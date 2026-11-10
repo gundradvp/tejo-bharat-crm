@@ -9,3 +9,8 @@ export function rebuildVendorIntelligenceAndRanking(master: any): {
 export function compactDcrMasterForStorage(master: any): number;
 
 export function writeJsonAtomic(targetPath: string, data: any): void;
+
+export function uploadDcrMasterToSupabaseStorage(
+  supabase: any,
+  data: any
+): Promise<{ rawBytes: number; gzipBytes: number }>;

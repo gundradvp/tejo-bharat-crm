@@ -1,4 +1,5 @@
 import { VendorContact, ContactsMasterData, PipelineStage, CallOutcome } from '../types/vendorCRM';
+import { loadDcrMasterData } from './dcrHierarchyUtils';
 
 let cachedMaster: ContactsMasterData | null = null;
 let dcrMasterCache: Record<string, any> | null = null;
@@ -16,14 +17,13 @@ export function normalizeVendorName(name: string): string {
 export async function getDCRSupplyChainMaster(): Promise<Record<string, any> | null> {
   if (dcrMasterCache) return dcrMasterCache;
   try {
-    const res = await fetch('/dcr_supply_chain_master.json');
-    if (res.ok) {
-      const data = await res.json();
+    const data = await loadDcrMasterData(false);
+    if (data) {
       dcrMasterCache = data.vendor_intelligence || {};
       return dcrMasterCache;
     }
   } catch (err) {
-    console.error('Failed to load dcr_supply_chain_master.json:', err);
+    console.error('Failed to load DCR supply chain master:', err);
   }
   return null;
 }

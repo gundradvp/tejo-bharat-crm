@@ -6,6 +6,7 @@ import {
   compactDcrMasterForStorage,
   rebuildVendorIntelligenceAndRanking,
   resolveSupabaseServiceKey,
+  uploadDcrMasterToSupabaseStorage,
   writeJsonAtomic,
 } from './dcr_master_helpers.mjs';
 
@@ -90,6 +91,12 @@ async function main() {
   );
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+  console.log('Uploading gzipped DCR master to Supabase Storage (dcr-assets) for Bolt & Published App...');
+  const storageRes = await uploadDcrMasterToSupabaseStorage(supabase, master);
+  console.log(
+    `  Uploaded dcr_supply_chain_master.json.gz (${(storageRes.gzipBytes / 1024 / 1024).toFixed(1)} MB gzipped from ${(storageRes.rawBytes / 1024 / 1024).toFixed(1)} MB)`
+  );
 
   // Step 1: Keyset scan all rows with modules_count > 0 to match in memory
   console.log('Scanning national_portal_applications with modules_count > 0...');

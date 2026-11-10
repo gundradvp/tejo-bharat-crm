@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import zlib from 'zlib';
 
 const CORP_TOKENS = new Set([
   'ltd', 'limited', 'pvt', 'private', 'llp', 'enterprises', 'enterprise',
@@ -427,4 +428,29 @@ export function writeJsonAtomic(targetPath, data) {
     } catch { /* ignore cleanup */ }
     throw err;
   }
+}
+
+/**
+ * Compresses master JSON with gzip (~16 MB) and uploads to public Supabase Storage bucket `dcr-assets`
+ * so Bolt and published deployments immediately receive the latest DCR Supply Chain & Vendor Tracker data.
+ */
+export async function uploadDcrMasterToSupabaseStorage(supabase, data) {
+  const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
+  const gzBuffer = zlib.gzipSync(Buffer.from(jsonStr, 'utf-8'), { level: 6 });
+
+  const { data: buckets } = await supabase.storage.listBuckets();
+  const exists = Array.isArray(buckets) && buckets.some((b) => b.name === 'dcr-assets');
+  if (!exists) {
+    await supabase.storage.createBucket('dcr-assets', { public: true, fileSizeLimit: 52428800 });
+  }
+
+  const { error } = await supabase.storage
+    .from('dcr-assets')
+    .upload('dcr_supply_chain_master.json.gz', gzBuffer, {
+      contentType: 'application/gzip',
+      cacheControl: '60',
+      upsert: true,
+    });
+  if (error) throw error;
+  return { rawBytes: jsonStr.length, gzipBytes: gzBuffer.length };
 }
