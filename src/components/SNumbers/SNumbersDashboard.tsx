@@ -25,6 +25,7 @@ import {
 import { SEED_GROUND_REPORTS } from './seedSNumbers';
 import SNumberDetailModal from './SNumberDetailModal';
 import VendorSupplyChainModal from './VendorSupplyChainModal';
+import { loadDcrMasterData, getDcrSerialsSet } from '../../lib/dcrHierarchyUtils';
 
 const STORAGE_KEY = 'tb_s_number_reports_v3';
 
@@ -175,25 +176,28 @@ export default function SNumbersDashboard() {
   }, []);
 
   // Step 3: Load DCR Master index for instantaneous hierarchy status checks
+  const refreshSNumbersDcrIndex = async (forceRefresh = false) => {
+    try {
+      const data = await loadDcrMasterData(forceRefresh);
+      if (!data) return;
+      setDcrSerialsSet(getDcrSerialsSet(data));
+      if (data.snumber_dcr_map) {
+        setDcrSNumbersSet(new Set(Object.keys(data.snumber_dcr_map)));
+      }
+      setDcrIndexLoaded(true);
+    } catch (err) {
+      console.warn('DCR index load deferred:', err);
+    }
+  };
+
   useEffect(() => {
-    fetch('/dcr_supply_chain_master.json')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data) return;
-        if (Array.isArray(data.dcr_serials_list)) {
-          setDcrSerialsSet(new Set(data.dcr_serials_list));
-        }
-        if (data.snumber_dcr_map) {
-          setDcrSNumbersSet(new Set(Object.keys(data.snumber_dcr_map)));
-        }
-        setDcrIndexLoaded(true);
-      })
-      .catch((err) => console.warn('DCR index load deferred:', err));
+    refreshSNumbersDcrIndex(false);
   }, []);
 
-  // Focus count input when Copy Serials modal opens
+  // Focus count input and refresh latest DCR index whenever Copy Serials modal opens
   useEffect(() => {
     if (showCopySerialsModal) {
+      refreshSNumbersDcrIndex(true);
       setTimeout(() => {
         copyCountInputRef.current?.focus();
         copyCountInputRef.current?.select();
@@ -686,14 +690,19 @@ export default function SNumbersDashboard() {
         if (!match) continue;
       }
 
-      if (dcrSNumbersSet.has(r.complain_no)) {
+      const isLinked =
+        dcrSNumbersSet.has(r.complain_no) ||
+        (Array.isArray(r.solar_panel_serials) &&
+          r.solar_panel_serials.some((s) => dcrSerialsSet.has(String(s || '').trim().toUpperCase())));
+
+      if (isLinked) {
         linked++;
       } else {
         unlinked++;
       }
     }
     return { unlinked, linked, total: unlinked + linked };
-  }, [reports, districtFilter, vendorFilter, vendorSearch, sectionFilter, searchQuery, dcrSNumbersSet]);
+  }, [reports, districtFilter, vendorFilter, vendorSearch, sectionFilter, searchQuery, dcrSNumbersSet, dcrSerialsSet]);
 
   const filteredReports = useMemo(() => {
     const list = reports.filter((r) => {
@@ -707,9 +716,13 @@ export default function SNumbersDashboard() {
       }
       if (sectionFilter !== 'ALL' && r.section_name !== sectionFilter) return false;
 
-      // DCR Hierarchy link status filter
-      if (hierarchyFilter === 'UNLINKED' && dcrSNumbersSet.has(r.complain_no)) return false;
-      if (hierarchyFilter === 'LINKED' && !dcrSNumbersSet.has(r.complain_no)) return false;
+      // DCR Hierarchy link status filter (checks both S-Number map & individual panel serials)
+      const isLinked =
+        dcrSNumbersSet.has(r.complain_no) ||
+        (Array.isArray(r.solar_panel_serials) &&
+          r.solar_panel_serials.some((s) => dcrSerialsSet.has(String(s || '').trim().toUpperCase())));
+      if (hierarchyFilter === 'UNLINKED' && isLinked) return false;
+      if (hierarchyFilter === 'LINKED' && !isLinked) return false;
 
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
@@ -737,7 +750,7 @@ export default function SNumbersDashboard() {
     }
 
     return list;
-  }, [reports, districtFilter, vendorFilter, vendorSearch, sectionFilter, searchQuery, dateSortOrder, hierarchyFilter, dcrSNumbersSet]);
+  }, [reports, districtFilter, vendorFilter, vendorSearch, sectionFilter, searchQuery, dateSortOrder, hierarchyFilter, dcrSNumbersSet, dcrSerialsSet]);
 
   const activeFilters = useMemo(() => {
     const filters: string[] = [];
@@ -812,7 +825,7 @@ export default function SNumbersDashboard() {
       }
 
       serials.forEach((serial, idx) => {
-        const isLinked = dcrSerialsSet.has(serial);
+        const isLinked = dcrSerialsSet.has(serial.toUpperCase());
         list.push({
           complain_no: r.complain_no,
           consumer_name: r.consumer_name,
@@ -867,7 +880,7 @@ export default function SNumbersDashboard() {
 
       if (firstSerial) {
         seenSNumbers.add(r.complain_no);
-        const isLinked = dcrSerialsSet.has(firstSerial);
+        const isLinked = dcrSerialsSet.has(firstSerial.toUpperCase());
         list.push({
           complain_no: r.complain_no,
           consumer_name: r.consumer_name,
@@ -891,22 +904,27 @@ export default function SNumbersDashboard() {
   }, [allSerialsInList]);
 
   // S-Numbers counts in current filtered reports
+  const isReportDcrLinked = (r: APEGroundReport) =>
+    dcrSNumbersSet.has(r.complain_no) ||
+    (Array.isArray(r.solar_panel_serials) &&
+      r.solar_panel_serials.some((s) => dcrSerialsSet.has(String(s || '').trim().toUpperCase())));
+
   const unlinkedSNumbersCount = useMemo(() => {
-    return filteredReports.filter((r) => !dcrSNumbersSet.has(r.complain_no)).length;
-  }, [filteredReports, dcrSNumbersSet]);
+    return filteredReports.filter((r) => !isReportDcrLinked(r)).length;
+  }, [filteredReports, dcrSNumbersSet, dcrSerialsSet]);
 
   const linkedSNumbersCount = useMemo(() => {
-    return filteredReports.filter((r) => dcrSNumbersSet.has(r.complain_no)).length;
-  }, [filteredReports, dcrSNumbersSet]);
+    return filteredReports.filter((r) => isReportDcrLinked(r)).length;
+  }, [filteredReports, dcrSNumbersSet, dcrSerialsSet]);
 
   // S-Numbers available for copy based on copyHierarchyFilter
   const availableSNumbersForCopy = useMemo(() => {
     if (copyHierarchyFilter === 'all') return filteredReports;
     if (copyHierarchyFilter === 'unlinked_only') {
-      return filteredReports.filter((r) => !dcrSNumbersSet.has(r.complain_no));
+      return filteredReports.filter((r) => !isReportDcrLinked(r));
     }
-    return filteredReports.filter((r) => dcrSNumbersSet.has(r.complain_no));
-  }, [filteredReports, copyHierarchyFilter, dcrSNumbersSet]);
+    return filteredReports.filter((r) => isReportDcrLinked(r));
+  }, [filteredReports, copyHierarchyFilter, dcrSNumbersSet, dcrSerialsSet]);
 
   // S-Numbers items to copy based on copyAllScope & counts
   const snumbersToCopy = useMemo(() => {
@@ -1788,7 +1806,10 @@ export default function SNumbersDashboard() {
                               {report.solar_panel_serials.length} Panels
                             </span>
                             {dcrIndexLoaded && (
-                              dcrSNumbersSet.has(report.complain_no) ? (
+                              (dcrSNumbersSet.has(report.complain_no) ||
+                                report.solar_panel_serials.some((s) =>
+                                  dcrSerialsSet.has(String(s || '').trim().toUpperCase())
+                                )) ? (
                                 <span className="text-[9px] bg-emerald-50 text-emerald-700 font-medium px-1.5 py-0.2 rounded border border-emerald-200" title="DCR supply chain trail verified">
                                   DCR Linked
                                 </span>
@@ -2445,10 +2466,30 @@ export default function SNumbersDashboard() {
                             setCopyAllScope('limit_serials');
                             setCopySerialsCount(Math.max(1, parseInt(e.target.value, 10) || 1));
                           }}
-                          className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="w-24 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         />
                         <span>serials</span>
                       </label>
+
+                      {copyAllScope === 'limit_serials' && (
+                        <div className="flex items-center gap-1.5 flex-wrap pl-6 pt-0.5">
+                          <span className="text-[10px] text-gray-400 font-medium">Presets:</span>
+                          {[500, 1000, 5000, 10000, 20000].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setCopySerialsCount(preset)}
+                              className={`px-2 py-0.5 text-[11px] font-semibold rounded border transition-all ${
+                                copySerialsCount === preset
+                                  ? 'bg-amber-600 text-white border-amber-600'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+                              }`}
+                            >
+                              {preset.toLocaleString('en-IN')}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -2478,7 +2519,7 @@ export default function SNumbersDashboard() {
                     {/* Quick Presets */}
                     <div className="flex items-center gap-1.5 flex-wrap pt-1">
                       <span className="text-[11px] text-gray-400 font-medium mr-1">Presets:</span>
-                      {[5, 10, 20, 50, 100].map((preset) => (
+                      {[5, 10, 20, 50, 100, 1000, 10000, 20000].map((preset) => (
                         <button
                           key={preset}
                           type="button"

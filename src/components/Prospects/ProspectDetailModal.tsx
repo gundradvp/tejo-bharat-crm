@@ -8,9 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { LeadProspect, LeadProspectCall, CALL_STATUSES, CALL_STATUS_LABELS, CALL_STATUS_COLORS, ProspectBillRecord, fetchProspectBillHistory, extractAreaCode } from '../../lib/prospectApi';
 import { findVillagesForCode } from '../../lib/areaCodeCatalog';
 import {
-  getNationalPortalIndex,
-  matchProspectWithNationalPortal,
-  type NationalPortalIndex,
+  fetchNationalPortalBySc,
   type NationalPortalSummary,
 } from '../../lib/nationalPortalApi';
 import NationalPortalDetailModal from '../NationalPortal/NationalPortalDetailModal';
@@ -42,17 +40,19 @@ export default function ProspectDetailModal({ prospect, onClose, onUpdate }: Pro
   const [address, setAddress] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [npIndex, setNpIndex] = useState<NationalPortalIndex | null>(null);
+  const [npApp, setNpApp] = useState<NationalPortalSummary | null>(null);
   const [selectedNpApp, setSelectedNpApp] = useState<NationalPortalSummary | null>(null);
 
   useEffect(() => {
-    getNationalPortalIndex().then(setNpIndex).catch(console.error);
-  }, []);
-
-  const npApp = useMemo(() => {
-    if (!prospect || !npIndex) return null;
-    return matchProspectWithNationalPortal(prospect, npIndex);
-  }, [prospect, npIndex]);
+    let active = true;
+    setNpApp(null);
+    if (prospect?.sc_number || prospect?.np_registration_number) {
+      fetchNationalPortalBySc(prospect.sc_number || '', prospect.np_registration_number)
+        .then((app) => { if (active) setNpApp(app); })
+        .catch(console.error);
+    }
+    return () => { active = false; };
+  }, [prospect?.sc_number, prospect?.np_registration_number]);
 
   useEffect(() => {
     if (prospect) {
@@ -616,6 +616,48 @@ export default function ProspectDetailModal({ prospect, onClose, onUpdate }: Pro
                   )}
                 </div>
               )}
+            </div>
+          ) : prospect.np_registration_number ? (
+            <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-teal-600 text-white">
+                    <Globe className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-teal-950 flex items-center gap-1.5">
+                      PM Surya Ghar National Portal
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-300">
+                        ✓ Registered on National Portal
+                      </span>
+                    </h3>
+                    <p className="text-xs text-teal-700 font-mono">Reg #{prospect.np_registration_number}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                <div className="bg-white p-2.5 rounded-lg border border-teal-100">
+                  <span className="text-gray-500 text-[11px] block">National Portal Status</span>
+                  <span className="font-bold text-teal-900 bg-teal-50 px-2 py-0.5 rounded inline-block mt-0.5">
+                    {prospect.national_portal_status || 'Registered'}
+                  </span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-teal-100">
+                  <span className="text-gray-500 text-[11px] block">Applied Solar Load</span>
+                  <span className="font-bold text-teal-900 mt-0.5 block">{prospect.applied_solar_load_kw ? `${prospect.applied_solar_load_kw} kW` : '-'}</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-teal-100">
+                  <span className="text-gray-500 text-[11px] block">EPDCL Status</span>
+                  <span className="font-bold text-gray-900 mt-0.5 block truncate">
+                    {prospect.epdcl_portal_status || 'Pending'}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-teal-700/80">
+                Application is registered on PM Surya Ghar National Portal with Registration #{prospect.np_registration_number}. Detailed vendor ground inspection & equipment serials will populate once equipment is synced.
+              </p>
             </div>
           ) : (
             <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3.5 flex items-start gap-3">

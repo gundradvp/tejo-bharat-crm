@@ -5,7 +5,7 @@ import {
   MapPin, Zap, Clock, Loader2, TrendingUp, Calendar,
   Database, RefreshCw, RotateCcw,
   Receipt, IndianRupee, Gauge, Link2, Layers, Download, X, Flame, ArrowUpDown, Sun, MessageSquare,
-  Globe, AlertCircle, Eye,
+  Globe, Eye,
 } from 'lucide-react';
 import * as XLSX from 'xlsx/xlsx.mjs';
 import Pagination from '../Common/Pagination';
@@ -35,9 +35,8 @@ import {
   extractAreaCode,
 } from '../../lib/prospectApi';
 import {
-  getNationalPortalIndex,
+  fetchNationalPortalForProspects,
   matchProspectWithNationalPortal,
-  hasNationalPortalInfo,
   type NationalPortalIndex,
   type NationalPortalSummary,
 } from '../../lib/nationalPortalApi';
@@ -119,12 +118,12 @@ export default function ProspectList() {
   const [hideSuryaGhar, setHideSuryaGhar] = useState<boolean>(saved.hideSuryaGhar || false);
   const [hideSolarInstalled, setHideSolarInstalled] = useState<boolean>(saved.hideSolarInstalled || false);
 
-  // National Portal Integration state
-  const [npIndex, setNpIndex] = useState<NationalPortalIndex | null>(null);
-  const [npFilter, setNpFilter] = useState<'ALL' | 'NOT_AVAILABLE' | 'AVAILABLE' | string>(saved.nationalPortalFilter || 'ALL');
+  // National Portal Integration state (mapped live by SC number & NP Reg #)
+  const [npFilter, setNpFilter] = useState<'ALL' | 'AVAILABLE' | 'NOT_AVAILABLE'>(
+    (saved.nationalPortalFilter as 'ALL' | 'AVAILABLE' | 'NOT_AVAILABLE') || 'ALL'
+  );
+  const [npPageIndex, setNpPageIndex] = useState<NationalPortalIndex | null>(null);
   const [selectedNpApp, setSelectedNpApp] = useState<NationalPortalSummary | null>(null);
-  const [syncingNp, setSyncingNp] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Bill filter input state
   const [billAmountOp, setBillAmountOp] = useState<FilterOperator>(saved.billAmountOp || 'gte');
@@ -218,17 +217,6 @@ export default function ProspectList() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
   }, [appliedSearch, circleSelections, divisionSelections, subdivSelections, eroSelections, sectionSelections, statusSelections, callStatusSelections, categorySelections, mandalSelections, subStationSelections, areaCodeSelections, hideSuryaGhar, hideSolarInstalled, npFilter, billAmountOp, billAmountVal, billAmountMaxVal, billUnitsOp, billUnitsVal, billUnitsMaxVal, appliedBillFilterMetric, importBatchId, dateFrom, dateTo, sortBy, pageSize]);
 
-  // Load National Portal index on mount for instant SC mapping
-  useEffect(() => {
-    getNationalPortalIndex()
-      .then((idx) => {
-        setNpIndex(idx);
-      })
-      .catch((err) => {
-        console.warn('Could not load national portal index:', err);
-      });
-  }, []);
-
   const loadFilterValues = useCallback(async () => {
     try {
       const values = await fetchProspectFilterValues();
@@ -311,10 +299,15 @@ export default function ProspectList() {
 
       if (result.prospects.length > 0) {
         const scNumbers = result.prospects.map((p) => p.sc_number).filter(Boolean) as string[];
-        const summaries = await fetchProspectBillSummaries(scNumbers);
+        const [summaries, npIdx] = await Promise.all([
+          fetchProspectBillSummaries(scNumbers),
+          fetchNationalPortalForProspects(result.prospects),
+        ]);
         setBillSummaries(summaries);
+        setNpPageIndex(npIdx);
       } else {
         setBillSummaries(new Map());
+        setNpPageIndex(null);
       }
     } catch (err) { console.error('Error loading prospects:', err); }
     finally { setLoading(false); }
@@ -360,17 +353,6 @@ export default function ProspectList() {
             return false;
           }
         }
-      }
-
-      // National Portal Mapping Filter
-      if (npFilter === 'NOT_AVAILABLE') {
-        if (p.national_portal_status && p.national_portal_status.trim() !== '') return false;
-      } else if (npFilter === 'AVAILABLE') {
-        if (!p.national_portal_status || p.national_portal_status.trim() === '') return false;
-      } else if (npFilter.startsWith('STEP_')) {
-        const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
-        const currentStep = (p.national_portal_status || '').toLowerCase();
-        if (!currentStep.includes(stepTarget)) return false;
       }
 
       return true;
@@ -427,7 +409,7 @@ export default function ProspectList() {
     }
 
     return result;
-  }, [prospects, highUsageOnly, hideSuryaGhar, hideSolarInstalled, billSummaries, appliedBillAmount, appliedBillUnits, appliedBillFilterMetric, sortBy, npFilter, npIndex]);
+  }, [prospects, highUsageOnly, hideSuryaGhar, hideSolarInstalled, billSummaries, appliedBillAmount, appliedBillUnits, appliedBillFilterMetric, sortBy]);
 
   const totalPages = Math.ceil(total / pageSize);
   const highUsageCount = Array.from(billSummaries.values()).filter((bs) => bs.high_usage).length;
@@ -493,22 +475,6 @@ export default function ProspectList() {
   };
 
   const handleModalUpdate = () => { loadProspects(); loadStats(); };
-
-  const handleSyncNationalPortal = async () => {
-    setSyncingNp(true);
-    setSyncMessage(null);
-    try {
-      const { syncNationalPortalToProspects } = await import('../../lib/prospectApi');
-      const res = await syncNationalPortalToProspects(prospects);
-      setSyncMessage(`✓ Successfully mapped & synced ${res.updatedCount.toLocaleString('en-IN')} prospects with live National Portal applications!`);
-      setTimeout(() => setSyncMessage(null), 6000);
-      loadProspects();
-    } catch (err: any) {
-      setSyncMessage(`Sync error: ${err.message || 'Failed to update prospects'}`);
-    } finally {
-      setSyncingNp(false);
-    }
-  };
 
   const handleExport = async () => {
     setShowExportModal(false);
@@ -606,9 +572,13 @@ export default function ProspectList() {
         return;
       }
 
+      const exportNpIndex = npFilter === 'NOT_AVAILABLE' || exportData.length === 0
+        ? null
+        : await fetchNationalPortalForProspects(exportData);
+
       const wb = XLSX.utils.book_new();
       const rows = exportData.map((r) => {
-        const npApp = npIndex ? matchProspectWithNationalPortal(r, npIndex) : null;
+        const npApp = exportNpIndex ? matchProspectWithNationalPortal(r, exportNpIndex) : null;
         return {
           'SC Number': r.sc_number || '',
           'Customer Name': r.customer_name || '',
@@ -833,14 +803,14 @@ export default function ProspectList() {
               <span>Search</span>
             </button>
           </form>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5">
             <label className="text-xs font-semibold text-gray-500 whitespace-nowrap hidden md:flex items-center gap-1">
               <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" /> Sort:
             </label>
             <select
               value={sortBy}
               onChange={(e) => { setSortBy(e.target.value as ProspectSortOption); setPage(1); }}
-              className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+              className="px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg border border-gray-300 text-xs sm:text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm max-w-full"
               title="Sort prospect records"
             >
               <option value="created_at_desc">🕒 Newest First</option>
@@ -854,8 +824,25 @@ export default function ProspectList() {
               <option value="name_asc">🔤 Customer Name (A → Z)</option>
               <option value="name_desc">🔤 Customer Name (Z → A)</option>
             </select>
+            <select
+              value={npFilter}
+              onChange={(e) => { setNpFilter(e.target.value as 'ALL' | 'AVAILABLE' | 'NOT_AVAILABLE'); setPage(1); }}
+              className={`px-2.5 py-2 sm:py-2.5 rounded-lg border text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer shadow-sm ${
+                npFilter === 'AVAILABLE'
+                  ? 'bg-teal-50 border-teal-400 text-teal-800'
+                  : npFilter === 'NOT_AVAILABLE'
+                    ? 'bg-rose-50 border-rose-300 text-rose-800'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+              title="Filter by National Portal Apps list (mapped by Service Number)"
+              aria-label="National Portal filter"
+            >
+              <option value="ALL">NP: All</option>
+              <option value="AVAILABLE">On NP</option>
+              <option value="NOT_AVAILABLE">Not on NP</option>
+            </select>
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={() => {
@@ -890,57 +877,6 @@ export default function ProspectList() {
               <span>{hideSolarInstalled ? '✓ Solar Installed Hidden' : 'Hide Solar Installed'}</span>
             </button>
           </div>
-
-          {/* National Portal Mapping Filter Pills */}
-          <div className="flex items-center rounded-lg border border-gray-300 bg-gray-50/80 p-0.5 text-xs font-semibold flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                setNpFilter('ALL');
-                setPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-md transition-all ${
-                npFilter === 'ALL'
-                  ? 'bg-white text-gray-900 shadow-2xs font-bold'
-                  : 'text-gray-500 hover:text-gray-900'
-              }`}
-              title="Show all prospects (Both Mapped and Unmapped)"
-            >
-              All Prospects
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setNpFilter(npFilter === 'NOT_AVAILABLE' ? 'ALL' : 'NOT_AVAILABLE');
-                setPage(1);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
-                npFilter === 'NOT_AVAILABLE'
-                  ? 'bg-rose-600 text-white shadow-2xs font-bold'
-                  : 'text-rose-700 hover:bg-rose-100/60'
-              }`}
-              title="Filter prospects whose National Portal information is NOT available (Pending registration)"
-            >
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>NP Not Available</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setNpFilter(npFilter === 'AVAILABLE' ? 'ALL' : 'AVAILABLE');
-                setPage(1);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
-                npFilter === 'AVAILABLE'
-                  ? 'bg-teal-700 text-white shadow-2xs font-bold'
-                  : 'text-teal-700 hover:bg-teal-100/60'
-              }`}
-              title="Filter prospects who have active National Portal applications"
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span>On National Portal</span>
-            </button>
-          </div>
           {hasActiveFilters && (
             <button onClick={clearFilters}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors bg-red-50 border-red-300 text-red-700 hover:bg-red-100 flex-shrink-0">
@@ -957,39 +893,9 @@ export default function ProspectList() {
         </div>
 
         {/* Active Filter Chips */}
-        {(areaCodeSelections.length > 0 || hideSuryaGhar || hideSolarInstalled || npFilter !== 'ALL') && (
+        {(areaCodeSelections.length > 0 || hideSuryaGhar || hideSolarInstalled) && (
           <div className="flex items-center gap-1.5 flex-wrap pt-1 px-0.5">
             <span className="text-xs font-semibold text-gray-700">Active Exclusions & Filters:</span>
-            {npFilter !== 'ALL' && (
-              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full border shadow-2xs ${
-                npFilter === 'NOT_AVAILABLE'
-                  ? 'bg-rose-100 text-rose-900 border-rose-300'
-                  : 'bg-teal-100 text-teal-900 border-teal-300'
-              }`}>
-                {npFilter === 'NOT_AVAILABLE' ? (
-                  <>
-                    <AlertCircle className="w-3 h-3 text-rose-600" />
-                    NP Not Available (Pending)
-                  </>
-                ) : (
-                  <>
-                    <Globe className="w-3 h-3 text-teal-600" />
-                    Active on National Portal
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNpFilter('ALL');
-                    setPage(1);
-                  }}
-                  className="hover:opacity-75 ml-1 p-0.5"
-                  title="Clear National Portal filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
             {hideSuryaGhar && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold bg-green-100 text-green-800 rounded-full border border-green-300 shadow-sm">
                 <Link2 className="w-3 h-3" />
@@ -1060,67 +966,6 @@ export default function ProspectList() {
 
         {showFilters && (
           <div className="space-y-4 pt-3 border-t border-gray-100">
-            {/* National Portal Integration & SC Mapping Card */}
-            <div className="bg-teal-50/60 p-3.5 rounded-xl border border-teal-200">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-                <p className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
-                  <Globe className="w-4 h-4 text-teal-600" />
-                  National Portal Application Intelligence & SC Mapping
-                  <span className="text-[10px] font-medium text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
-                    {npIndex ? `${npIndex.bySc.size.toLocaleString()} Applications Indexed` : 'Indexing...'}
-                  </span>
-                </p>
-                <button
-                  type="button"
-                  disabled={syncingNp || !npIndex}
-                  onClick={handleSyncNationalPortal}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1.5 shadow-2xs disabled:opacity-50 transition-colors cursor-pointer"
-                  title="Update matching National Portal application stages into database"
-                >
-                  {syncingNp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                  <span>Sync NP Status to Database</span>
-                </button>
-              </div>
-
-              {syncMessage && (
-                <div className="mb-2.5 px-3 py-1.5 rounded-lg bg-teal-100 text-teal-900 text-xs font-medium border border-teal-300">
-                  {syncMessage}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
-                    Filter by National Portal Availability & Stage
-                  </label>
-                  <select
-                    value={npFilter}
-                    onChange={(e) => {
-                      setNpFilter(e.target.value);
-                      setPage(1);
-                    }}
-                    className="w-full text-xs py-2 px-3 rounded-lg border border-teal-300 bg-white font-medium text-gray-900 focus:ring-2 focus:ring-teal-600 focus:outline-none"
-                  >
-                    <option value="ALL">All Prospects (Show Both Mapped & Unmapped)</option>
-                    <option value="NOT_AVAILABLE">⚠️ National Portal Information Not Available / Pending Registration</option>
-                    <option value="AVAILABLE">✅ Active on National Portal</option>
-                    <option value="STEP_Feasibility">⚙️ Stage: Feasibility Approved</option>
-                    <option value="STEP_Agreement">⚙️ Stage: Vendor Selection / Upload Agreement</option>
-                    <option value="STEP_Installation">⚡ Stage: Installation / Work in Progress</option>
-                    <option value="STEP_Inspection">🔍 Stage: Inspection Pending / Completed</option>
-                    <option value="STEP_Disbursed">💰 Stage: CFA Subsidy Disbursed</option>
-                  </select>
-                </div>
-
-                <div className="text-xs text-teal-950 bg-white/80 p-2.5 rounded-lg border border-teal-200 flex flex-col justify-center">
-                  <span className="font-semibold text-[11px] uppercase tracking-wide text-teal-800">Automatic Linking</span>
-                  <span className="text-[11px] text-gray-600 mt-0.5">
-                    Prospects are automatically mapped with National Portal apps by <strong>SC Number</strong>, <strong>NP Reg #</strong>, and <strong>Mobile Phone</strong>.
-                  </span>
-                </div>
-              </div>
-            </div>
-
             {/* Lead Exclusions Filter Card */}
             <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200">
               <p className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
@@ -1401,21 +1246,6 @@ export default function ProspectList() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-sm text-gray-600 flex items-center flex-wrap gap-1.5">
           <span>Showing <strong>{((page - 1) * pageSize + 1).toLocaleString('en-IN')}–{Math.min(page * pageSize, total).toLocaleString('en-IN')}</strong> of <strong>{total.toLocaleString('en-IN')}</strong> prospects</span>
-          {npFilter === 'NOT_AVAILABLE' && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-200">
-              NP Not Available (Pending Registration)
-            </span>
-          )}
-          {npFilter === 'AVAILABLE' && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-800 border border-teal-200">
-              On National Portal
-            </span>
-          )}
-          {npFilter.startsWith('STEP_') && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-              Stage: {npFilter.replace('STEP_', '')}
-            </span>
-          )}
           {totalPages > 1 && <span className="text-xs text-gray-400 ml-1 font-medium">(Page {page} of {totalPages})</span>}
         </p>
         <div className="flex items-center gap-4">
@@ -1513,31 +1343,24 @@ export default function ProspectList() {
                           <Link2 className="w-3 h-3" /> Surya Ghar
                         </span>
                       )}
-                      {prospect.national_portal_status ? (
-                        <span
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (prospect.sc_number) {
-                              const { fetchNationalPortalBySc } = await import('../../lib/nationalPortalApi');
-                              const app = await fetchNationalPortalBySc(prospect.sc_number);
-                              if (app) setSelectedNpApp(app);
-                            }
-                          }}
-                          className="px-2 py-0.5 text-xs font-semibold rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1 hover:bg-teal-200 transition-colors shadow-2xs"
-                          title={`National Portal Application: ${prospect.np_registration_number || ''}. Click to view details.`}
-                        >
-                          <Globe className="w-3 h-3 text-teal-600" />
-                          NP: {prospect.national_portal_status} {prospect.applied_solar_load_kw ? `(${prospect.applied_solar_load_kw} kW)` : ''}
-                        </span>
-                      ) : (
-                        <span
-                          className="px-2 py-0.5 text-xs font-medium rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1"
-                          title="No National Portal application found for this SC number"
-                        >
-                          <AlertCircle className="w-3 h-3 text-rose-500" />
-                          NP: Not Available
-                        </span>
-                      )}
+                      {(() => {
+                        const npApp = npPageIndex ? matchProspectWithNationalPortal(prospect, npPageIndex) : null;
+                        if (!npApp) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedNpApp(npApp);
+                            }}
+                            className="px-2 py-0.5 text-xs font-semibold rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1 hover:bg-teal-200 transition-colors cursor-pointer"
+                            title={`On National Portal Apps: ${npApp.appNum || npApp.id} (${npApp.step}). Click to view full details.`}
+                          >
+                            <Globe className="w-3 h-3 text-teal-600" />
+                            <span>On NP: {npApp.step}</span>
+                          </button>
+                        );
+                      })()}
                       {prospect.follow_up_date && (
                         <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />{new Date(prospect.follow_up_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
@@ -1627,7 +1450,7 @@ export default function ProspectList() {
 
                     {/* Live National Portal Intelligence row if mapped */}
                     {(() => {
-                      const npApp = npIndex ? matchProspectWithNationalPortal(prospect, npIndex) : null;
+                      const npApp = npPageIndex ? matchProspectWithNationalPortal(prospect, npPageIndex) : null;
                       if (!npApp) return null;
                       return (
                         <div

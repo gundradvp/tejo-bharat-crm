@@ -215,7 +215,7 @@ export async function runWebPMSuryaSync(
   await asyncPool(6, chunks, async (chunk) => {
     const { data } = await supabase
       .from('lead_prospects')
-      .select('id, sc_number, created_at, national_portal_status, epdcl_portal_status, ep_registration_number, applied_solar_load_kw')
+      .select('id, sc_number, created_at, national_portal_status, epdcl_portal_status, ep_registration_number, np_registration_number, applied_solar_load_kw')
       .in('sc_number', chunk);
 
     if (data) {
@@ -236,6 +236,12 @@ export async function runWebPMSuryaSync(
   const newRecords: Record<string, any>[] = [];
   const updatedRecords: Record<string, any>[] = [];
 
+  const NP_APP_STEPS = new Set([
+    'Application', 'Cancel', 'Feasibility', 'Inspection', 'Installation',
+    'Registration', 'Subsidy Disbursal', 'Subsidy Request', 'Unknown Step',
+    'Upload Agreement', 'Vendor Selection',
+  ]);
+
   for (const r of records) {
     const existing = existingMap.get(r.sc_number);
     if (!existing) {
@@ -247,18 +253,22 @@ export async function runWebPMSuryaSync(
         import_batch_label: batchLabel,
       });
     } else {
+      const hasMappedNpStep = existing.national_portal_status && NP_APP_STEPS.has(existing.national_portal_status);
+      const nextNpStatus = hasMappedNpStep ? existing.national_portal_status : (r.national_portal_status || existing.national_portal_status);
       const changed =
-        existing.national_portal_status !== r.national_portal_status ||
+        (!hasMappedNpStep && existing.national_portal_status !== r.national_portal_status) ||
         existing.epdcl_portal_status !== r.epdcl_portal_status ||
         existing.ep_registration_number !== r.ep_registration_number ||
-        existing.applied_solar_load_kw !== r.applied_solar_load_kw;
+        existing.applied_solar_load_kw !== r.applied_solar_load_kw ||
+        (r.np_registration_number && existing.np_registration_number !== r.np_registration_number);
 
       if (changed) {
         updatedRecords.push({
           id: existing.id,
-          national_portal_status: r.national_portal_status,
-          epdcl_portal_status: r.epdcl_portal_status,
-          ep_registration_number: r.ep_registration_number,
+          national_portal_status: nextNpStatus,
+          epdcl_portal_status: r.epdcl_portal_status || existing.epdcl_portal_status,
+          ep_registration_number: r.ep_registration_number || existing.ep_registration_number,
+          np_registration_number: r.np_registration_number || existing.np_registration_number,
           applied_solar_load_kw: r.applied_solar_load_kw,
           call_status: r.ep_registration_number ? 'solar_already_installed' : undefined,
           updated_at: nowIso,
@@ -350,17 +360,19 @@ export async function runWebPMSuryaSync(
     });
 
     const updateChunks: any[][] = [];
-    for (let i = 0; i < updatedRecords.length; i += 50) {
-      updateChunks.push(updatedRecords.slice(i, i + 50));
+    for (let i = 0; i < updatedRecords.length; i += 25) {
+      updateChunks.push(updatedRecords.slice(i, i + 25));
     }
 
     let batchCount = 0;
-    await asyncPool(8, updateChunks, async (batch) => {
-      for (const row of batch) {
-        const { id, ...updateFields } = row;
-        const { error } = await supabase.from('lead_prospects').update(updateFields).eq('id', id);
-        if (!error) updatedCount++;
-      }
+    await asyncPool(4, updateChunks, async (batch) => {
+      await Promise.all(
+        batch.map(async (row) => {
+          const { id, ...updateFields } = row;
+          const { error } = await supabase.from('lead_prospects').update(updateFields).eq('id', id);
+          if (!error) updatedCount++;
+        })
+      );
       batchCount += batch.length;
       const updatePct = 90 + Math.round((batchCount / updatedRecords.length) * 9);
       onProgress?.({

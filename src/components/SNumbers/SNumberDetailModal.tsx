@@ -32,21 +32,38 @@ export default function SNumberDetailModal({ report, onClose }: Props) {
   }, [report?.vendor_name, contactsMaster]);
 
   useEffect(() => {
-    if (!report?.complain_no) {
+    if (!report?.complain_no && (!report?.solar_panel_serials || report.solar_panel_serials.length === 0)) {
       setDcrChain(null);
       return;
     }
     fetch('/dcr_supply_chain_master.json')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.snumber_dcr_map?.[report.complain_no]) {
-          setDcrChain(data.snumber_dcr_map[report.complain_no]);
-        } else {
+        if (!data) {
           setDcrChain(null);
+          return;
         }
+        if (report.complain_no && data.snumber_dcr_map?.[report.complain_no]) {
+          setDcrChain(data.snumber_dcr_map[report.complain_no]);
+          return;
+        }
+        // Fallback: check individual panel serials in serial_metadata
+        for (const sno of report.solar_panel_serials || []) {
+          const meta = data.serial_metadata?.[String(sno).trim()];
+          if (meta && Array.isArray(meta.hops) && meta.hops.length > 0) {
+            setDcrChain({
+              app_id: meta.app || report.consumer_scno_id || '',
+              hops: meta.hops,
+              raw_chain: meta.raw_chain || '',
+              matched_serial: sno,
+            });
+            return;
+          }
+        }
+        setDcrChain(null);
       })
       .catch(() => setDcrChain(null));
-  }, [report?.complain_no]);
+  }, [report?.complain_no, report?.solar_panel_serials, report?.consumer_scno_id]);
 
   if (!report) return null;
 

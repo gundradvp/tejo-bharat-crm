@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Phone,
@@ -30,6 +30,12 @@ import {
   findMatchingCustomerInCRM,
   syncApplicationToCRMCustomer
 } from '../../lib/nationalPortalApi';
+import {
+  loadDcrMasterData,
+  lookupPanelDcrHierarchy,
+  type DcrMasterData,
+  type DcrSerialHierarchy,
+} from '../../lib/dcrHierarchyUtils';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Props {
@@ -43,6 +49,56 @@ export default function NationalPortalDetailModal({ summary, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'equipment' | 'subsidy' | 'inspection' | 'documents' | 'crm'>('overview');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [dcrMaster, setDcrMaster] = useState<DcrMasterData | null>(null);
+
+  useEffect(() => {
+    loadDcrMasterData().then(setDcrMaster).catch(() => null);
+  }, []);
+
+  const allPanelSerials = useMemo(() => {
+    const list: string[] = [];
+    if (detail?.moduleList?.length) {
+      for (const m of detail.moduleList) {
+        if (Array.isArray(m.serialNumbers)) {
+          for (const s of m.serialNumbers) {
+            const sno = typeof s === 'string' ? s : (s as any)?.serialNumber || String(s);
+            if (sno?.trim()) list.push(sno.trim());
+          }
+        }
+      }
+    }
+    if (list.length === 0 && summary.panelSerials?.length) {
+      for (const s of summary.panelSerials) {
+        if (s?.trim()) list.push(s.trim());
+      }
+    }
+    return Array.from(new Set(list));
+  }, [detail, summary.panelSerials]);
+
+  const panelDcrMap = useMemo(() => {
+    const map = new Map<string, DcrSerialHierarchy>();
+    const inlineChains = (detail as any)?.dcrChains;
+    if (!dcrMaster && !inlineChains) return map;
+    for (const sno of allPanelSerials) {
+      const h = lookupPanelDcrHierarchy(sno, dcrMaster, null, inlineChains);
+      if (h) map.set(sno, h);
+    }
+    return map;
+  }, [allPanelSerials, dcrMaster, detail]);
+
+  const groupedDcrChains = useMemo(() => {
+    const groups = new Map<string, { hierarchy: DcrSerialHierarchy; serials: string[] }>();
+    for (const [sno, h] of panelDcrMap.entries()) {
+      const key = h.raw_chain || h.hops.map((x) => `${x.name}(${x.invoice || ''})`).join('->') || h.mfr;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.serials.push(sno);
+      } else {
+        groups.set(key, { hierarchy: h, serials: [sno] });
+      }
+    }
+    return Array.from(groups.values());
+  }, [panelDcrMap]);
 
   // CRM Match state
   const [crmMatch, setCrmMatch] = useState<any | null>(null);
@@ -478,13 +534,19 @@ export default function NationalPortalDetailModal({ summary, onClose }: Props) {
                                   <div className="flex flex-wrap gap-1.5">
                                     {mod.serialNumbers.map((rawSno: any, sIdx: number) => {
                                       const snoStr = typeof rawSno === 'string' ? rawSno : (rawSno?.serialNumber || String(rawSno));
+                                      const hasDcr = panelDcrMap.has(snoStr.trim());
                                       return (
                                         <span
                                           key={sIdx}
                                           onClick={() => handleCopy(snoStr, `sno-${sIdx}`)}
-                                          className="inline-flex items-center gap-1 font-mono text-xs px-2 py-1 rounded bg-white border border-gray-300 text-gray-800 hover:border-teal-500 hover:bg-teal-50 cursor-pointer transition-colors shadow-2xs"
-                                          title="Click to copy serial number"
+                                          className={`inline-flex items-center gap-1 font-mono text-xs px-2 py-1 rounded border cursor-pointer transition-colors shadow-2xs ${
+                                            hasDcr
+                                              ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 hover:bg-emerald-100'
+                                              : 'bg-white border-gray-300 text-gray-800 hover:border-teal-500 hover:bg-teal-50'
+                                          }`}
+                                          title={hasDcr ? 'DCR Supply Chain Linked — click to copy serial' : 'Click to copy serial number'}
                                         >
+                                          {hasDcr && <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />}
                                           {snoStr}
                                           {copiedKey === `sno-${sIdx}` ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-gray-400 opacity-60" />}
                                         </span>
@@ -521,28 +583,92 @@ export default function NationalPortalDetailModal({ summary, onClose }: Props) {
                           <div className="mt-2">
                             <span className="text-xs text-gray-600 font-semibold block mb-2">Registered DCR Module Serial Numbers:</span>
                             <div className="flex flex-wrap gap-2">
-                              {summary.panelSerials!.map((sno, sIdx) => (
-                                <span
-                                  key={sIdx}
-                                  onClick={() => handleCopy(sno, `summary-sno-${sIdx}`)}
-                                  className="inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1.5 rounded-lg bg-white border border-gray-300 text-gray-900 hover:border-teal-600 hover:bg-teal-50 hover:text-teal-900 cursor-pointer transition-all shadow-2xs font-semibold"
-                                  title="Click to copy serial number"
-                                >
-                                  <span className="text-gray-400 text-[10px] font-normal">#{sIdx + 1}</span>
-                                  {sno}
-                                  {copiedKey === `summary-sno-${sIdx}` ? (
-                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                  ) : (
-                                    <Copy className="w-3.5 h-3.5 text-gray-400 opacity-60" />
-                                  )}
-                                </span>
-                              ))}
+                              {summary.panelSerials!.map((sno, sIdx) => {
+                                const hasDcr = panelDcrMap.has(sno.trim());
+                                return (
+                                  <span
+                                    key={sIdx}
+                                    onClick={() => handleCopy(sno, `summary-sno-${sIdx}`)}
+                                    className={`inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all shadow-2xs font-semibold ${
+                                      hasDcr
+                                        ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 hover:bg-emerald-100'
+                                        : 'bg-white border-gray-300 text-gray-900 hover:border-teal-600 hover:bg-teal-50 hover:text-teal-900'
+                                    }`}
+                                    title={hasDcr ? 'DCR Supply Chain Linked — click to copy serial' : 'Click to copy serial number'}
+                                  >
+                                    <span className="text-gray-400 text-[10px] font-normal">#{sIdx + 1}</span>
+                                    {hasDcr && <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                                    {sno}
+                                    {copiedKey === `summary-sno-${sIdx}` ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5 text-gray-400 opacity-60" />
+                                    )}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
                       ) : (
                         <div className="p-6 text-center text-gray-500 bg-gray-50 border border-gray-200 rounded-xl text-sm">
                           No module list recorded in this portal entry.
+                        </div>
+                      )}
+
+                      {/* Verified DCR Supply Chain Hierarchy Cards (linked per panel) */}
+                      {groupedDcrChains.length > 0 && (
+                        <div className="mt-4 space-y-3">
+                          {groupedDcrChains.map((group, gIdx) => (
+                            <div
+                              key={gIdx}
+                              className="p-3.5 bg-gradient-to-r from-indigo-50/80 via-white to-amber-50/80 border border-indigo-200/80 rounded-xl space-y-2 text-xs"
+                            >
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+                                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                                  Verified DCR Supply Chain ({group.serials.length} {group.serials.length === 1 ? 'Panel' : 'Panels'})
+                                </span>
+                                {group.hierarchy.app_id && (
+                                  <span className="text-[11px] font-mono text-indigo-700 font-semibold">
+                                    Claimed: {group.hierarchy.app_id}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap gap-1">
+                                {group.serials.map((s) => (
+                                  <span key={s} className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/90 border border-indigo-200 text-indigo-900">
+                                    {s}
+                                  </span>
+                                ))}
+                              </div>
+
+                              {group.hierarchy.hops.length > 0 ? (
+                                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                                  {group.hierarchy.hops.map((hop, hIdx) => (
+                                    <React.Fragment key={hIdx}>
+                                      <span className="px-2 py-0.5 bg-white border border-indigo-200 rounded-md font-semibold text-gray-800 shadow-2xs">
+                                        {hop.name}
+                                        {hop.invoice && (
+                                          <span className="text-[10px] font-mono text-indigo-600 ml-1 font-normal">
+                                            ({hop.invoice})
+                                          </span>
+                                        )}
+                                      </span>
+                                      {hIdx < group.hierarchy.hops.length - 1 && (
+                                        <span className="text-gray-400 font-bold">→</span>
+                                      )}
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                              ) : (
+                                group.hierarchy.raw_chain && (
+                                  <p className="text-[11px] text-gray-700 font-mono">{group.hierarchy.raw_chain}</p>
+                                )
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

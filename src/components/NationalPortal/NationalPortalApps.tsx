@@ -15,17 +15,22 @@ import {
   X,
   Layers,
   CreditCard,
-  Upload
+  Upload,
+  ShieldCheck,
+  Download
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
   NationalPortalSummary,
   fetchNationalPortalPaginated,
   fetchNationalPortalFilters,
+  fetchNationalPortalPanelSerialsForExport,
   NationalPortalFilterMetadata
 } from '../../lib/nationalPortalApi';
+import { loadDcrMasterData, getDcrSerialsSet } from '../../lib/dcrHierarchyUtils';
 import NationalPortalDetailModal from './NationalPortalDetailModal';
 import NationalPortalImportModal from './NationalPortalImportModal';
+import ImportDcrChainsModal from './ImportDcrChainsModal';
 
 const PAGE_SIZE_OPTIONS = [50, 100, 200];
 
@@ -36,6 +41,17 @@ export default function NationalPortalApps() {
   const [selectedApp, setSelectedApp] = useState<NationalPortalSummary | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showDcrImportModal, setShowDcrImportModal] = useState(false);
+
+  // DCR Hierarchy Master index
+  const [dcrSerialsSet, setDcrSerialsSet] = useState<Set<string>>(new Set());
+
+  // Export Panel Serials modal state
+  const [showExportSerialsModal, setShowExportSerialsModal] = useState(false);
+  const [serialExportScope, setSerialExportScope] = useState<'pending_dcr' | 'all'>('pending_dcr');
+  const [serialExportLimit, setSerialExportLimit] = useState<'all' | number>(1000);
+  const [exportingSerials, setExportingSerials] = useState(false);
+  const [exportSerialProgress, setExportSerialProgress] = useState(0);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -60,9 +76,18 @@ export default function NationalPortalApps() {
     vendors: []
   });
 
-  // Load filter options once on mount
+  const refreshDcrMaster = (force = false) => {
+    loadDcrMasterData(force)
+      .then((master) => {
+        setDcrSerialsSet(getDcrSerialsSet(master));
+      })
+      .catch(console.error);
+  };
+
+  // Load filter options & DCR Master index once on mount
   useEffect(() => {
     fetchNationalPortalFilters().then(setFilterOptions).catch(console.error);
+    refreshDcrMaster(false);
   }, []);
 
   // Server-side paginated loader (only requests 50 rows via Supabase)
@@ -175,6 +200,83 @@ export default function NationalPortalApps() {
     XLSX.writeFile(wb, `PM_Surya_Ghar_Applications_Enriched_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const handleExportPanelSerials = async (mode: 'copy' | 'txt' | 'csv') => {
+    setExportingSerials(true);
+    setExportSerialProgress(0);
+    try {
+      let latestDcrSet: Set<string> | undefined;
+      if (serialExportScope === 'pending_dcr') {
+        const freshMaster = await loadDcrMasterData(dcrSerialsSet.size === 0);
+        latestDcrSet = getDcrSerialsSet(freshMaster);
+        setDcrSerialsSet(latestDcrSet);
+      }
+
+      const items = await fetchNationalPortalPanelSerialsForExport(
+        {
+          search,
+          vendorSearch,
+          state: stateFilter,
+          district: districtFilter,
+          step: stepFilter,
+          vendor: vendorFilter,
+          capacity: capacityFilter,
+          equipment: equipmentFilter,
+        },
+        {
+          limit: serialExportLimit === 'all' ? undefined : serialExportLimit,
+          excludeSerials: serialExportScope === 'pending_dcr' ? (latestDcrSet ?? dcrSerialsSet) : undefined,
+          excludeSupabaseLinked: serialExportScope === 'pending_dcr',
+          includeMetadata: mode === 'csv',
+          onProgress: (c) => setExportSerialProgress(c),
+        }
+      );
+
+      if (items.length === 0) {
+        alert('No matching panel serial numbers found for the selected scope & filters.');
+        return;
+      }
+
+      if (mode === 'copy') {
+        await navigator.clipboard.writeText(items.map((i) => i.serial).join('\n'));
+        alert(`Copied ${items.length.toLocaleString()} panel serial numbers to clipboard! Paste them into the Batch DCR Checker.`);
+        setShowExportSerialsModal(false);
+        return;
+      }
+
+      if (mode === 'txt') {
+        const blob = new Blob([items.map((i) => i.serial).join('\n')], { type: 'text/plain;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `np_panel_serials_${new Date().toISOString().slice(0, 10)}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setShowExportSerialsModal(false);
+        return;
+      }
+
+      const csvRows = items.map((i) => ({
+        'Panel Serial': i.serial,
+        'NP App ID': i.appId,
+        'NP Registration No': i.appNum,
+        'Consumer Name': i.consumerName,
+        'SC Number': i.sc,
+        'Vendor': i.vendor,
+        'Capacity (kW)': i.cap,
+        'Portal Step': i.step,
+      }));
+      const ws = XLSX.utils.json_to_sheet(csvRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Panel Serials');
+      XLSX.writeFile(wb, `NP_Panel_Serials_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      setShowExportSerialsModal(false);
+    } catch (err: any) {
+      alert('Export failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setExportingSerials(false);
+    }
+  };
+
   const handleResetFilters = () => {
     setSearch('');
     setVendorSearch('');
@@ -227,11 +329,29 @@ export default function NationalPortalApps() {
           </button>
 
           <button
+            onClick={() => setShowExportSerialsModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-2xs transition-colors"
+            title="Copy or export panel serial numbers from filtered National Portal apps"
+          >
+            <Download className="w-4 h-4" />
+            Export Serials
+          </button>
+
+          <button
+            onClick={() => setShowDcrImportModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-2xs transition-colors"
+            title="Import Batch DCR Checker JSON/CSV and link hierarchy per panel"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Import DCR JSON
+          </button>
+
+          <button
             onClick={() => setShowImportModal(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-2xs transition-colors"
           >
             <Upload className="w-4 h-4" />
-            Import JSON
+            Import Apps JSON
           </button>
         </div>
       </div>
@@ -647,27 +767,58 @@ export default function NationalPortalApps() {
                       <td className="py-3 px-3.5">
                         <div className="space-y-1 max-w-[200px]">
                           {/* Panel Serials preview */}
-                          {item.panelSerials && item.panelSerials.length > 0 ? (
-                            <div className="flex items-center gap-1">
-                              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px] shrink-0">
-                                ⚡ {item.panelSerials.length} Panels
-                              </span>
-                              <span
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopy(item.panelSerials![0], `ps-${item.id}`);
-                                }}
-                                className="font-mono text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded truncate text-gray-700 hover:border-amber-400 cursor-pointer shadow-2xs"
-                                title="Click to copy first panel serial"
-                              >
-                                {item.panelSerials[0]}
-                                {copiedKey === `ps-${item.id}` && <Check className="w-2.5 h-2.5 text-emerald-600 inline ml-1" />}
-                              </span>
-                              {item.panelSerials.length > 1 && (
-                                <span className="text-[10px] text-gray-400">+{item.panelSerials.length - 1}</span>
-                              )}
-                            </div>
-                          ) : item.modulesCount > 0 ? (
+                          {item.panelSerials && item.panelSerials.length > 0 ? (() => {
+                            const dbLinkedSet = new Set(
+                              (item.dcrLinkedSerials || []).map((s) => String(s).trim().toUpperCase())
+                            );
+                            const linkedCount = item.panelSerials.filter((s) => {
+                              const up = String(s).trim().toUpperCase();
+                              return dcrSerialsSet.has(up) || dbLinkedSet.has(up);
+                            }).length;
+                            const isDcrLinked = linkedCount > 0;
+                            return (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px] shrink-0">
+                                    ⚡ {item.panelSerials.length} Panels
+                                  </span>
+                                  {(dcrSerialsSet.size > 0 || dbLinkedSet.size > 0) && (
+                                    isDcrLinked ? (
+                                      <span
+                                        className="text-[9px] bg-emerald-50 text-emerald-700 font-semibold px-1.5 py-0.5 rounded border border-emerald-200"
+                                        title={`${linkedCount} of ${item.panelSerials.length} panels have DCR supply chain linked`}
+                                      >
+                                        ✓ DCR Linked{linkedCount < item.panelSerials.length ? ` (${linkedCount}/${item.panelSerials.length})` : ''}
+                                      </span>
+                                    ) : (
+                                      <span
+                                        className="text-[9px] bg-amber-50 text-amber-800 font-semibold px-1.5 py-0.5 rounded border border-amber-300"
+                                        title="DCR hierarchy not imported yet"
+                                      >
+                                        Pending DCR
+                                      </span>
+                                    )
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCopy(item.panelSerials![0], `ps-${item.id}`);
+                                    }}
+                                    className="font-mono text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded truncate text-gray-700 hover:border-amber-400 cursor-pointer shadow-2xs"
+                                    title="Click to copy first panel serial"
+                                  >
+                                    {item.panelSerials[0]}
+                                    {copiedKey === `ps-${item.id}` && <Check className="w-2.5 h-2.5 text-emerald-600 inline ml-1" />}
+                                  </span>
+                                  {item.panelSerials.length > 1 && (
+                                    <span className="text-[10px] text-gray-400">+{item.panelSerials.length - 1}</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })() : item.modulesCount > 0 ? (
                             <span className="text-[10px] text-gray-400">{item.modulesCount} Modules registered</span>
                           ) : (
                             <span className="text-[10px] text-gray-400 italic">No panel serials</span>
@@ -838,6 +989,157 @@ export default function NationalPortalApps() {
             loadData(1);
           }}
         />
+      )}
+
+      {/* Import DCR Hierarchy JSON/CSV Modal */}
+      {showDcrImportModal && (
+        <ImportDcrChainsModal
+          onClose={() => setShowDcrImportModal(false)}
+          onImportComplete={() => {
+            refreshDcrMaster(true);
+            loadData(currentPage);
+          }}
+        />
+      )}
+
+      {/* Export Panel Serials Modal */}
+      {showExportSerialsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-amber-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-100 rounded-xl text-amber-700">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Export Panel Serial Numbers</h3>
+                  <p className="text-xs text-gray-500">Uses your currently active filters ({total.toLocaleString()} apps)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowExportSerialsModal(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1.5">Which serials to export?</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      checked={serialExportScope === 'pending_dcr'}
+                      onChange={() => setSerialExportScope('pending_dcr')}
+                      className="text-amber-600 focus:ring-amber-500"
+                    />
+                    <div>
+                      <span className="font-semibold text-gray-900 block">Pending DCR Only (Unlinked)</span>
+                      <span className="text-[11px] text-gray-500">Skips serials that already have DCR hierarchy linked</span>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      checked={serialExportScope === 'all'}
+                      onChange={() => setSerialExportScope('all')}
+                      className="text-amber-600 focus:ring-amber-500"
+                    />
+                    <div>
+                      <span className="font-semibold text-gray-900 block">All Panel Serials</span>
+                      <span className="text-[11px] text-gray-500">Exports every panel serial matching active filters</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1.5">Maximum serials:</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {[500, 1000, 5000, 10000, 20000, 50000].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setSerialExportLimit(n)}
+                      className={`px-3 py-1.5 rounded-lg border font-semibold ${
+                        serialExportLimit === n
+                          ? 'bg-amber-600 text-white border-amber-700'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {n.toLocaleString()}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setSerialExportLimit('all')}
+                    className={`px-3 py-1.5 rounded-lg border font-semibold ${
+                      serialExportLimit === 'all'
+                        ? 'bg-amber-600 text-white border-amber-700'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    All Matching
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-[11px] text-gray-500">Custom count:</span>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="e.g. 15000"
+                    value={serialExportLimit === 'all' ? '' : serialExportLimit}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!Number.isNaN(val) && val > 0) {
+                        setSerialExportLimit(val);
+                      } else if (e.target.value === '') {
+                        setSerialExportLimit('all');
+                      }
+                    }}
+                    className="w-28 px-2.5 py-1 border border-gray-300 rounded-lg text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {exportingSerials && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-medium">
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+                  <span>Collecting serials… {exportSerialProgress.toLocaleString()} found</span>
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={exportingSerials}
+                onClick={() => handleExportPanelSerials('copy')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold disabled:opacity-50"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copy Serials
+              </button>
+              <button
+                type="button"
+                disabled={exportingSerials}
+                onClick={() => handleExportPanelSerials('txt')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold disabled:opacity-50"
+              >
+                .TXT
+              </button>
+              <button
+                type="button"
+                disabled={exportingSerials}
+                onClick={() => handleExportPanelSerials('csv')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold disabled:opacity-50"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" /> Excel (.xlsx)
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

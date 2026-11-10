@@ -256,7 +256,7 @@ async function syncToDatabase(records) {
   await asyncPool(6, chunks, async (chunk) => {
     const { data, error } = await supabase
       .from('lead_prospects')
-      .select('id, sc_number, created_at, customer_name, national_portal_status, epdcl_portal_status, ep_registration_number, applied_solar_load_kw')
+      .select('id, sc_number, created_at, customer_name, national_portal_status, epdcl_portal_status, ep_registration_number, np_registration_number, applied_solar_load_kw')
       .in('sc_number', chunk);
 
     if (error) throw error;
@@ -290,14 +290,16 @@ async function syncToDatabase(records) {
         existing.national_portal_status !== r.national_portal_status ||
         existing.epdcl_portal_status !== r.epdcl_portal_status ||
         existing.ep_registration_number !== r.ep_registration_number ||
-        existing.applied_solar_load_kw !== r.applied_solar_load_kw;
+        existing.applied_solar_load_kw !== r.applied_solar_load_kw ||
+        (r.np_registration_number && existing.np_registration_number !== r.np_registration_number);
 
       if (changed) {
         updatedRecords.push({
           id: existing.id,
-          national_portal_status: r.national_portal_status,
-          epdcl_portal_status: r.epdcl_portal_status,
-          ep_registration_number: r.ep_registration_number,
+          national_portal_status: r.national_portal_status || existing.national_portal_status,
+          epdcl_portal_status: r.epdcl_portal_status || existing.epdcl_portal_status,
+          ep_registration_number: r.ep_registration_number || existing.ep_registration_number,
+          np_registration_number: r.np_registration_number || existing.np_registration_number,
           applied_solar_load_kw: r.applied_solar_load_kw,
           call_status: r.ep_registration_number ? 'solar_already_installed' : undefined,
           updated_at: nowIso,
@@ -373,16 +375,18 @@ async function syncToDatabase(records) {
   if (updatedRecords.length > 0) {
     console.log(`\n🔄 Updating ${updatedRecords.length} existing prospects with status changes...`);
     const updateChunks = [];
-    for (let i = 0; i < updatedRecords.length; i += 50) {
-      updateChunks.push(updatedRecords.slice(i, i + 50));
+    for (let i = 0; i < updatedRecords.length; i += 25) {
+      updateChunks.push(updatedRecords.slice(i, i + 25));
     }
 
-    await asyncPool(10, updateChunks, async (batch) => {
-      for (const row of batch) {
-        const { id, ...updateFields } = row;
-        const { error } = await supabase.from('lead_prospects').update(updateFields).eq('id', id);
-        if (!error) updatedCount++;
-      }
+    await asyncPool(4, updateChunks, async (batch) => {
+      await Promise.all(
+        batch.map(async (row) => {
+          const { id, ...updateFields } = row;
+          const { error } = await supabase.from('lead_prospects').update(updateFields).eq('id', id);
+          if (!error) updatedCount++;
+        })
+      );
       process.stdout.write(`\r   Updated: ${updatedCount} / ${updatedRecords.length}`);
     });
     console.log('\n✅ Status updates complete.');

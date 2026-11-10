@@ -36,6 +36,10 @@ const filesToSync = [
   'public/s_numbers_ground_reports.json',
   'public/service-worker.js',
   'public/vendor_contacts_master.json',
+  'scripts/dcr_master_helpers.d.mts',
+  'scripts/dcr_master_helpers.mjs',
+  'scripts/dcrportal_network_inspector.user.js',
+  'scripts/sync_dcr_master_to_supabase.mjs',
   'src/App.tsx',
   'src/components/Activity/ActivityTimeline.tsx',
   'src/components/Activity/UserActivityModal.tsx',
@@ -113,6 +117,7 @@ const filesToSync = [
   'src/components/Layout/Navbar.tsx',
   'src/components/Layout/Sidebar.tsx',
   'src/components/LeadGenerators/LeadGeneratorManagement.tsx',
+  'src/components/NationalPortal/ImportDcrChainsModal.tsx',
   'src/components/NationalPortal/NationalPortalApps.tsx',
   'src/components/NationalPortal/NationalPortalDetailModal.tsx',
   'src/components/NationalPortal/NationalPortalImportModal.tsx',
@@ -189,6 +194,7 @@ const filesToSync = [
   'src/lib/apepdclGroundReport.ts',
   'src/lib/areaCodeCatalog.ts',
   'src/lib/csvParser.ts',
+  'src/lib/dcrHierarchyUtils.ts',
   'src/lib/documentExtractor.ts',
   'src/lib/documentMatchingService.ts',
   'src/lib/ebApi.ts',
@@ -301,7 +307,9 @@ async function syncFile(file, index, total) {
   const cdnUrl = `https://cdn.jsdelivr.net/gh/gundradvp/tejo-bharat-crm@${COMMIT_SHA}/${file}`;
 
   // Allow up to 3 minutes for large json files like national_portal_summary.json (72MB)
-  const isLarge = file.endsWith('.json') && file.includes('national_portal');
+  const isLarge =
+    file.endsWith('.json') &&
+    (file.includes('national_portal') || file.includes('dcr_supply_chain') || file.includes('s_numbers'));
   const timeoutMs = isLarge ? 180000 : 30000;
 
   let content = null;

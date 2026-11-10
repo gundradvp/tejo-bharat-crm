@@ -434,10 +434,16 @@ export function applyProspectDbFilters(query: any, filters: ProspectFilterOption
     query = query.neq('call_status', 'not_called');
   }
   if (filters.nationalPortalFilter && filters.nationalPortalFilter !== 'ALL') {
+    const npAppSteps = [
+      'Application', 'Cancel', 'Feasibility', 'Inspection', 'Installation',
+      'Registration', 'Subsidy Disbursal', 'Subsidy Request', 'Unknown Step',
+      'Upload Agreement', 'Vendor Selection',
+    ];
     if (filters.nationalPortalFilter === 'NOT_AVAILABLE') {
-      query = query.or('national_portal_status.is.null,national_portal_status.eq.');
+      const quoted = npAppSteps.map((s) => `"${s}"`).join(',');
+      query = query.or(`national_portal_status.is.null,national_portal_status.not.in.(${quoted})`);
     } else if (filters.nationalPortalFilter === 'AVAILABLE') {
-      query = query.not('national_portal_status', 'is', null).neq('national_portal_status', '');
+      query = query.in('national_portal_status', npAppSteps);
     } else if (filters.nationalPortalFilter.startsWith('STEP_')) {
       const stepTarget = filters.nationalPortalFilter.replace('STEP_', '');
       query = query.ilike('national_portal_status', `%${stepTarget}%`);
@@ -1046,18 +1052,6 @@ export async function fetchProspectsForExport(
   onProgress?: (count: number) => void
 ): Promise<ProspectExportRow[]> {
   const allProspects: LeadProspect[] = [];
-  const npFilter = filters.nationalPortalFilter || 'ALL';
-  const hasNpFilter = npFilter !== 'ALL';
-
-  let npIndex: any = null;
-  let hasNationalPortalInfoFn: any = null;
-  let matchProspectWithNationalPortalFn: any = null;
-  if (hasNpFilter) {
-    const npApi = await import('./nationalPortalApi');
-    npIndex = await npApi.getNationalPortalIndex().catch(() => null);
-    hasNationalPortalInfoFn = npApi.hasNationalPortalInfo;
-    matchProspectWithNationalPortalFn = npApi.matchProspectWithNationalPortal;
-  }
 
   const BATCH_SIZE = 1000;
   let offset = 0;
@@ -1083,18 +1077,6 @@ export async function fetchProspectsForExport(
     }
 
     for (const p of data) {
-      if (hasNpFilter && npIndex && hasNationalPortalInfoFn) {
-        let matches = true;
-        if (npFilter === 'NOT_AVAILABLE') matches = !hasNationalPortalInfoFn(p, npIndex);
-        else if (npFilter === 'AVAILABLE') matches = hasNationalPortalInfoFn(p, npIndex);
-        else if (npFilter.startsWith('STEP_')) {
-          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
-          const matched = matchProspectWithNationalPortalFn(p, npIndex);
-          matches = Boolean(matched?.step?.toLowerCase().includes(stepTarget));
-        }
-        if (!matches) continue;
-      }
-
       allProspects.push(p);
       if (limit != null && allProspects.length >= limit) break;
     }
@@ -1208,18 +1190,6 @@ export async function fetchProspectSCOnlyForExport(
 ): Promise<string[]> {
   const allScNumbers: string[] = [];
   const seen = new Set<string>();
-  const npFilter = filters.nationalPortalFilter || 'ALL';
-  const hasNpFilter = npFilter !== 'ALL';
-
-  let npIndex: any = null;
-  let hasNationalPortalInfoFn: any = null;
-  let matchProspectWithNationalPortalFn: any = null;
-  if (hasNpFilter) {
-    const npApi = await import('./nationalPortalApi');
-    npIndex = await npApi.getNationalPortalIndex().catch(() => null);
-    hasNationalPortalInfoFn = npApi.hasNationalPortalInfo;
-    matchProspectWithNationalPortalFn = npApi.matchProspectWithNationalPortal;
-  }
 
   const BATCH_SIZE = 1000;
   let offset = 0;
@@ -1228,7 +1198,7 @@ export async function fetchProspectSCOnlyForExport(
   while (limit == null || allScNumbers.length < limit) {
     let q = supabase
       .from('lead_prospects')
-      .select('id, sc_number, ep_registration_number, np_registration_number, mobile_number, customer_name', { count: totalInDb === null ? 'exact' : undefined });
+      .select('id, sc_number', { count: totalInDb === null ? 'exact' : undefined });
 
     q = applyProspectDbFilters(q, filters);
     q = applyProspectDbSorting(q, filters.sortBy);
@@ -1245,18 +1215,6 @@ export async function fetchProspectSCOnlyForExport(
     }
 
     for (const p of data) {
-      if (hasNpFilter && npIndex && hasNationalPortalInfoFn) {
-        let matches = true;
-        if (npFilter === 'NOT_AVAILABLE') matches = !hasNationalPortalInfoFn(p, npIndex);
-        else if (npFilter === 'AVAILABLE') matches = hasNationalPortalInfoFn(p, npIndex);
-        else if (npFilter.startsWith('STEP_')) {
-          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
-          const matched = matchProspectWithNationalPortalFn(p, npIndex);
-          matches = Boolean(matched?.step?.toLowerCase().includes(stepTarget));
-        }
-        if (!matches) continue;
-      }
-
       if (p.sc_number && p.sc_number.trim()) {
         const sc = p.sc_number.trim();
         if (!seen.has(sc)) {
@@ -1297,18 +1255,6 @@ export async function fetchProspectSNumberOnlyForExport(
 ): Promise<string[]> {
   const allSNumbers: string[] = [];
   const seen = new Set<string>();
-  const npFilter = filters.nationalPortalFilter || 'ALL';
-  const hasNpFilter = npFilter !== 'ALL';
-
-  let npIndex: any = null;
-  let hasNationalPortalInfoFn: any = null;
-  let matchProspectWithNationalPortalFn: any = null;
-  if (hasNpFilter) {
-    const npApi = await import('./nationalPortalApi');
-    npIndex = await npApi.getNationalPortalIndex().catch(() => null);
-    hasNationalPortalInfoFn = npApi.hasNationalPortalInfo;
-    matchProspectWithNationalPortalFn = npApi.matchProspectWithNationalPortal;
-  }
 
   const BATCH_SIZE = 1000;
   let offset = 0;
@@ -1317,7 +1263,7 @@ export async function fetchProspectSNumberOnlyForExport(
   while (limit == null || allSNumbers.length < limit) {
     let q = supabase
       .from('lead_prospects')
-      .select('id, sc_number, ep_registration_number, np_registration_number, mobile_number, customer_name', { count: totalInDb === null ? 'exact' : undefined });
+      .select('id, ep_registration_number', { count: totalInDb === null ? 'exact' : undefined });
 
     q = applyProspectDbFilters(q, filters);
     q = applyProspectDbSorting(q, filters.sortBy);
@@ -1334,18 +1280,6 @@ export async function fetchProspectSNumberOnlyForExport(
     }
 
     for (const p of data) {
-      if (hasNpFilter && npIndex && hasNationalPortalInfoFn) {
-        let matches = true;
-        if (npFilter === 'NOT_AVAILABLE') matches = !hasNationalPortalInfoFn(p, npIndex);
-        else if (npFilter === 'AVAILABLE') matches = hasNationalPortalInfoFn(p, npIndex);
-        else if (npFilter.startsWith('STEP_')) {
-          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
-          const matched = matchProspectWithNationalPortalFn(p, npIndex);
-          matches = Boolean(matched?.step?.toLowerCase().includes(stepTarget));
-        }
-        if (!matches) continue;
-      }
-
       if (isValidSNumber(p.ep_registration_number)) {
         const raw = p.ep_registration_number!.trim();
         const parts = raw.split(/[,;\n]+/).map((s: string) => s.trim()).filter(isValidSNumber);
@@ -1418,11 +1352,6 @@ export async function fetchProspectNPIdOnlyForExport(
 ): Promise<string[]> {
   const allNPIds: string[] = [];
   const seen = new Set<string>();
-  const npFilter = filters.nationalPortalFilter || 'ALL';
-  const hasNpFilter = npFilter !== 'ALL';
-
-  const { getNationalPortalIndex, hasNationalPortalInfo, matchProspectWithNationalPortal } = await import('./nationalPortalApi');
-  const npIndex = await getNationalPortalIndex().catch(() => null);
 
   const BATCH_SIZE = 1000;
   let offset = 0;
@@ -1431,7 +1360,7 @@ export async function fetchProspectNPIdOnlyForExport(
   while (limit == null || allNPIds.length < limit) {
     let q = supabase
       .from('lead_prospects')
-      .select('id, sc_number, ep_registration_number, np_registration_number, mobile_number, customer_name', { count: totalInDb === null ? 'exact' : undefined });
+      .select('id, sc_number, np_registration_number', { count: totalInDb === null ? 'exact' : undefined });
 
     q = applyProspectDbFilters(q, filters);
     q = applyProspectDbSorting(q, filters.sortBy);
@@ -1448,26 +1377,7 @@ export async function fetchProspectNPIdOnlyForExport(
     }
 
     for (const p of data) {
-      if (hasNpFilter && npIndex) {
-        let matches = true;
-        if (npFilter === 'NOT_AVAILABLE') matches = !hasNationalPortalInfo(p, npIndex);
-        else if (npFilter === 'AVAILABLE') matches = hasNationalPortalInfo(p, npIndex);
-        else if (npFilter.startsWith('STEP_')) {
-          const stepTarget = npFilter.replace('STEP_', '').toLowerCase();
-          const matched = matchProspectWithNationalPortal(p, npIndex);
-          matches = Boolean(matched?.step?.toLowerCase().includes(stepTarget));
-        }
-        if (!matches) continue;
-      }
-
-      let id = extractNPId(p.np_registration_number);
-
-      if (!id && npIndex) {
-        const matched = matchProspectWithNationalPortal(p, npIndex);
-        if (matched) {
-          id = matched.id ? extractNPId(matched.id) : extractNPId(matched.appNum);
-        }
-      }
+      const id = extractNPId(p.np_registration_number);
 
       if (id && !seen.has(id)) {
         seen.add(id);

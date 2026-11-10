@@ -1,8 +1,18 @@
-import { defineConfig, Plugin } from 'vite';
+import { defineConfig, loadEnv, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import { rebuildVendorIntelligenceAndRanking, resolveSupabaseServiceKey } from './scripts/dcr_master_helpers.mjs';
+
+const viteEnv = loadEnv('development', __dirname, '');
+const SUPABASE_URL = viteEnv.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY =
+  viteEnv.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  viteEnv.VITE_SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  '';
 
 function groundReportsPersistencePlugin(): Plugin {
   return {
@@ -35,6 +45,351 @@ function groundReportsPersistencePlugin(): Plugin {
           res.statusCode = 405;
           res.end();
         }
+      });
+
+      server.middlewares.use('/api/import-dcr-chains', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end();
+          return;
+        }
+        let body = '';
+        req.on('data', (chunk) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            const payload = JSON.parse(body);
+            const items = Array.isArray(payload?.items) ? payload.items : [];
+            if (items.length === 0) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: 'No DCR hierarchy items provided' }));
+              return;
+            }
+
+            const masterPath = path.resolve(__dirname, 'public/dcr_supply_chain_master.json');
+            const distMasterPath = path.resolve(__dirname, 'dist/dcr_supply_chain_master.json');
+            const master: any = fs.existsSync(masterPath)
+              ? JSON.parse(fs.readFileSync(masterPath, 'utf-8'))
+              : { summary: {}, vendor_intelligence: {}, snumber_dcr_map: {}, serial_metadata: {}, manufacturers_ranking: [], dcr_serials_list: [] };
+
+            if (!master.serial_metadata) master.serial_metadata = {};
+            if (!master.snumber_dcr_map) master.snumber_dcr_map = {};
+            if (!Array.isArray(master.dcr_serials_list)) master.dcr_serials_list = [];
+            if (!master.summary) master.summary = {};
+
+            const serialSet = new Set<string>(master.dcr_serials_list);
+            const serialUpperSet = new Set<string>(master.dcr_serials_list.map((s: string) => String(s).trim().toUpperCase()));
+            const importedMap = new Map<string, any>();
+            const importedUpperMap = new Map<string, { serial: string; meta: any; item: any }>();
+            let addedSerials = 0;
+            let updatedSerials = 0;
+
+            for (const item of items) {
+              const serial = String(item?.serial || '').trim();
+              if (!serial) continue;
+              const upper = serial.toUpperCase();
+
+              const isNew = !master.serial_metadata[serial] && !serialUpperSet.has(upper);
+              if (!serialSet.has(serial)) {
+                serialSet.add(serial);
+              }
+              serialUpperSet.add(upper);
+
+              const prev = master.serial_metadata[serial] || {};
+              master.serial_metadata[serial] = {
+                ...prev,
+                app: item.app_id || prev.app || '',
+                mfr: item.mfr || prev.mfr || '',
+                raw_chain: item.raw_chain || prev.raw_chain || '',
+                hops: Array.isArray(item.hops) && item.hops.length > 0 ? item.hops : (prev.hops || []),
+                status: item.status || prev.status || '',
+              };
+
+              importedMap.set(serial, master.serial_metadata[serial]);
+              importedUpperMap.set(upper, { serial, meta: master.serial_metadata[serial], item });
+              if (isNew) addedSerials++;
+              else updatedSerials++;
+            }
+
+            master.dcr_serials_list = Array.from(serialSet);
+
+            // Cross-link against S-Numbers Ground Reports (supports both formatted & raw uppercase APEPDCL JSON)
+            let mappedSNumbers = 0;
+            const groundPath = path.resolve(__dirname, 'public/s_numbers_ground_reports.json');
+            if (fs.existsSync(groundPath)) {
+              try {
+                const reports = JSON.parse(fs.readFileSync(groundPath, 'utf-8'));
+                if (Array.isArray(reports)) {
+                  for (const r of reports) {
+                    const compNo = String(r.complain_no || r.snumber || r.COMP_NO || r.COMPLAINT_NO || '').trim();
+                    if (!compNo) continue;
+
+                    let panelSerials: string[] = Array.isArray(r.solar_panel_serials) ? r.solar_panel_serials : [];
+                    if (panelSerials.length === 0) {
+                      const rawTxt = r.SOLAR_PANEL_PRODUCT_SERIAL_NUMBER || r.SERIELNUMBER || r.panel_serials_text || '';
+                      if (typeof rawTxt === 'string' && rawTxt.trim()) {
+                        panelSerials = rawTxt
+                          .split(/[,;\n\r\s]+/)
+                          .map((s) => s.trim())
+                          .filter((s) => s && s !== '-' && s.toUpperCase() !== 'NULL');
+                      }
+                    }
+                    if (panelSerials.length === 0) continue;
+
+                    const matchedSno = panelSerials.find((s: string) =>
+                      importedUpperMap.has(String(s).trim().toUpperCase())
+                    );
+                    if (!matchedSno) continue;
+
+                    const matchedEntry = importedUpperMap.get(String(matchedSno).trim().toUpperCase())!;
+                    const meta = matchedEntry.meta;
+                    const consumerName = r.consumer_name || r.COMP_NAME || r.NAME || '';
+                    master.serial_metadata[matchedEntry.serial].sno = compNo;
+                    if (consumerName && !master.serial_metadata[matchedEntry.serial].consumer) {
+                      master.serial_metadata[matchedEntry.serial].consumer = consumerName;
+                    }
+
+                    master.snumber_dcr_map[compNo] = {
+                      ...(master.snumber_dcr_map[compNo] || {}),
+                      snumber: compNo,
+                      complain_no: compNo,
+                      app_id: meta.app || master.snumber_dcr_map[compNo]?.app_id || r.consumer_scno_id || r.CONSUMER_SCNO_ID || '',
+                      matched_serial: matchedEntry.serial,
+                      raw_chain: meta.raw_chain,
+                      hops: meta.hops,
+                      consumer_name: consumerName,
+                      vendor_name: r.vendor_name || r.VENDOR_NAME || '',
+                      district: r.district || r.DISTRICT_INSTALLATION || '',
+                      section: r.section_name || r.SEC_NAME || r.SECNAME || '',
+                      manufacturer: meta.mfr || r.solar_panel_manufacturer || r.SOLAR_PANEL_PRODUCT_MANUFACTURER || '',
+                    };
+                    mappedSNumbers++;
+                  }
+                }
+              } catch { /* ignore ground report cross-link error */ }
+            }
+
+            // Rebuild vendor_intelligence & manufacturers_ranking so DCR Supply Chain Tracker updates immediately
+            rebuildVendorIntelligenceAndRanking(master);
+
+            const outJson = JSON.stringify(master);
+            fs.writeFileSync(masterPath, outJson, 'utf-8');
+            if (fs.existsSync(distMasterPath)) {
+              fs.writeFileSync(distMasterPath, outJson, 'utf-8');
+            }
+
+            // Persist per-panel DCR hierarchies into Supabase national_portal_applications.raw_details.dcrChains
+            let supabaseUpdatedApps = 0;
+            let supabaseLinkedPanels = 0;
+            let supabaseError: string | undefined;
+
+            const freshEnv = loadEnv('development', __dirname, '');
+            const sbUrl = freshEnv.VITE_SUPABASE_URL || SUPABASE_URL;
+            const serviceRoleKey = resolveSupabaseServiceKey(__dirname, freshEnv);
+
+            if (!sbUrl || !serviceRoleKey) {
+              supabaseError =
+                'Saved locally to master JSON. Add SUPABASE_SERVICE_ROLE_KEY to .env to also sync into Supabase.';
+            } else {
+              try {
+                const supabase = createClient(sbUrl, serviceRoleKey);
+                const matchedRowsById = new Map<string, any>();
+
+                const runParallel = async <T,>(
+                  tasks: Array<() => Promise<T>>,
+                  concurrency: number
+                ): Promise<T[]> => {
+                  const results: T[] = [];
+                  for (let i = 0; i < tasks.length; i += concurrency) {
+                    const batch = await Promise.all(tasks.slice(i, i + concurrency).map((fn) => fn()));
+                    results.push(...batch);
+                  }
+                  return results;
+                };
+
+                // 1) Parallel query by claimed NP application numbers (fast indexed lookup)
+                const uniqueAppIds = Array.from(
+                  new Set(
+                    items
+                      .map((it: any) => String(it?.app_id || '').trim())
+                      .filter((a: string) => a.length > 0)
+                  )
+                );
+
+                const appTasks: Array<() => Promise<void>> = [];
+                for (let i = 0; i < uniqueAppIds.length; i += 200) {
+                  const chunk = uniqueAppIds.slice(i, i + 200);
+                  appTasks.push(async () => {
+                    const { data: rows, error } = await supabase
+                      .from('national_portal_applications')
+                      .select('*')
+                      .in('app_num', chunk);
+                    if (error) throw error;
+                    for (const r of rows || []) {
+                      matchedRowsById.set(String(r.id), r);
+                    }
+                  });
+                }
+                await runParallel(appTasks, 6);
+
+                // Track serials already covered by app_num matches to skip redundant array-overlap scans
+                const coveredSerialsUpper = new Set<string>();
+                for (const r of matchedRowsById.values()) {
+                  if (Array.isArray(r.panel_serials)) {
+                    for (const s of r.panel_serials) {
+                      const up = String(s || '').trim().toUpperCase();
+                      if (up) coveredSerialsUpper.add(up);
+                    }
+                  }
+                }
+                const matchedAppNumsUpper = new Set<string>(
+                  Array.from(matchedRowsById.values())
+                    .map((r) => String(r.app_num || '').trim().toUpperCase())
+                    .filter(Boolean)
+                );
+
+                // 2) Only run overlaps() for serials NOT already covered by step 1
+                const unmatchedSerials: string[] = [];
+                for (const entry of importedUpperMap.values()) {
+                  const appUp = String(entry.item?.app_id || '').trim().toUpperCase();
+                  if (coveredSerialsUpper.has(entry.serial.toUpperCase())) continue;
+                  if (appUp && matchedAppNumsUpper.has(appUp)) continue;
+                  unmatchedSerials.push(entry.serial);
+                }
+
+                const overlapTasks: Array<() => Promise<void>> = [];
+                for (let i = 0; i < unmatchedSerials.length; i += 150) {
+                  const chunk = unmatchedSerials.slice(i, i + 150);
+                  overlapTasks.push(async () => {
+                    const { data: rows, error } = await supabase
+                      .from('national_portal_applications')
+                      .select('*')
+                      .overlaps('panel_serials', chunk);
+                    if (error) throw error;
+                    for (const r of rows || []) {
+                      matchedRowsById.set(String(r.id), r);
+                    }
+                  });
+                }
+                await runParallel(overlapTasks, 6);
+
+                // Group imported items by app_num (upper) for fast matching
+                const itemsByAppUpper = new Map<string, any[]>();
+                for (const entry of importedUpperMap.values()) {
+                  const appKey = String(entry.item?.app_id || '').trim().toUpperCase();
+                  if (!appKey) continue;
+                  const list = itemsByAppUpper.get(appKey) || [];
+                  list.push(entry);
+                  itemsByAppUpper.set(appKey, list);
+                }
+
+                const nowIso = new Date().toISOString();
+                const upsertPayloads: Array<{ row: any; panelsAdded: number }> = [];
+
+                for (const row of matchedRowsById.values()) {
+                  const rowSerialsUpper = new Set<string>(
+                    (Array.isArray(row.panel_serials) ? row.panel_serials : [])
+                      .map((s: any) => String(s || '').trim().toUpperCase())
+                      .filter(Boolean)
+                  );
+                  const rowAppUpper = String(row.app_num || '').trim().toUpperCase();
+
+                  const matchedEntriesMap = new Map<string, { serial: string; meta: any }>();
+                  if (rowAppUpper && itemsByAppUpper.has(rowAppUpper)) {
+                    for (const entry of itemsByAppUpper.get(rowAppUpper)!) {
+                      matchedEntriesMap.set(entry.serial, { serial: entry.serial, meta: entry.meta });
+                    }
+                  }
+                  for (const sUp of rowSerialsUpper) {
+                    const entry = importedUpperMap.get(sUp);
+                    if (entry) {
+                      matchedEntriesMap.set(entry.serial, { serial: entry.serial, meta: entry.meta });
+                    }
+                  }
+
+                  if (matchedEntriesMap.size === 0) continue;
+
+                  const nextRaw =
+                    row.raw_details && typeof row.raw_details === 'object' ? { ...row.raw_details } : {};
+                  const nextChains =
+                    nextRaw.dcrChains && typeof nextRaw.dcrChains === 'object' ? { ...nextRaw.dcrChains } : {};
+
+                  let firstMfr = '';
+                  for (const { serial, meta } of matchedEntriesMap.values()) {
+                    if (!firstMfr && meta.mfr) firstMfr = meta.mfr;
+                    nextChains[serial] = {
+                      serial,
+                      app_id: meta.app || row.app_num || '',
+                      raw_chain: meta.raw_chain || '',
+                      hops: meta.hops || [],
+                      mfr: meta.mfr || '',
+                      status: meta.status || '',
+                      imported_at: nowIso,
+                    };
+                  }
+                  nextRaw.dcrChains = nextChains;
+
+                  upsertPayloads.push({
+                    row: {
+                      ...row,
+                      raw_details: nextRaw,
+                      has_dcr: true,
+                      ...(firstMfr && !row.module_mfr ? { module_mfr: firstMfr } : {}),
+                      updated_at: nowIso,
+                    },
+                    panelsAdded: matchedEntriesMap.size,
+                  });
+                }
+
+                // Batch upsert 100 rows per request (4 concurrent batches)
+                const upsertTasks: Array<() => Promise<void>> = [];
+                for (let i = 0; i < upsertPayloads.length; i += 100) {
+                  const slice = upsertPayloads.slice(i, i + 100);
+                  const rowsBatch = slice.map((p) => p.row);
+                  const panelsInBatch = slice.reduce((acc, p) => acc + p.panelsAdded, 0);
+                  upsertTasks.push(async () => {
+                    const { data: upData, error: upErr } = await supabase
+                      .from('national_portal_applications')
+                      .upsert(rowsBatch, { onConflict: 'id' })
+                      .select('id');
+                    if (upErr) {
+                      if (!supabaseError) supabaseError = upErr.message;
+                    } else if (upData && upData.length > 0) {
+                      supabaseUpdatedApps += upData.length;
+                      supabaseLinkedPanels += panelsInBatch;
+                    }
+                  });
+                }
+                await runParallel(upsertTasks, 4);
+
+                if (upsertPayloads.length > 0 && supabaseUpdatedApps === 0 && !supabaseError) {
+                  supabaseError =
+                    'Supabase RLS blocked writes (0 rows updated). Check SUPABASE_SERVICE_ROLE_KEY in .env.';
+                }
+              } catch (sbErr: any) {
+                supabaseError = sbErr?.message || String(sbErr);
+              }
+            }
+
+            res.setHeader('Content-Type', 'application/json');
+            res.end(
+              JSON.stringify({
+                success: true,
+                addedSerials,
+                updatedSerials,
+                mappedSNumbers,
+                totalSerials: master.dcr_serials_list.length,
+                supabaseUpdatedApps,
+                supabaseLinkedPanels,
+                supabaseError,
+              })
+            );
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
       });
     },
   };
@@ -142,9 +497,7 @@ function nationalPortalImportPlugin(): Plugin {
             // body: { records: RawPortalRecord[] }
             const rawRecords: any[] = Array.isArray(body.records) ? body.records : [];
 
-            const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://rlwcqmlspvddfscyngfw.supabase.co';
-            const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsd2NxbWxzcHZkZGZzY3luZ2Z3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDYyNTcyMSwiZXhwIjoyMDkwMjAxNzIxfQ.8xDUtgktqSVGRC97z6OqCJuGF6lKRA00ZwDrmP6TW5U';
-            const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+            const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
             let added = 0, updated = 0, skipped = 0;
             const dbRows = rawRecords.map((d: any) => {
@@ -206,9 +559,9 @@ function nationalPortalImportPlugin(): Plugin {
             let prospectsUpdated = 0;
             let customersUpdated = 0;
 
-            if (SUPABASE_URL && SERVICE_KEY && rawRecords.length > 0) {
+            if (SUPABASE_URL && SUPABASE_SERVICE_KEY && rawRecords.length > 0) {
               try {
-                const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+                const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
                 // Map of SC -> National Portal Record for deep field-level enrichment
                 const scToRecord = new Map<string, any>();

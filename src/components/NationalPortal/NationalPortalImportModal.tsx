@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   X,
   Upload,
@@ -220,9 +220,9 @@ export default function NationalPortalImportModal({ existingIds, onClose, onImpo
     setImportError(null);
   };
 
-  const okRecords = parsedRecords.filter((r) => r.status === 'ok');
-  const duplicateRecords = parsedRecords.filter((r) => r.status === 'duplicate');
-  const errorRecords = parsedRecords.filter((r) => r.status === 'error');
+  const okRecords = useMemo(() => parsedRecords.filter((r) => r.status === 'ok'), [parsedRecords]);
+  const duplicateRecords = useMemo(() => parsedRecords.filter((r) => r.status === 'duplicate'), [parsedRecords]);
+  const errorRecords = useMemo(() => parsedRecords.filter((r) => r.status === 'error'), [parsedRecords]);
 
   const handleImport = async () => {
     // Import both new AND updated (duplicates) records directly to Supabase
@@ -335,7 +335,7 @@ export default function NationalPortalImportModal({ existingIds, onClose, onImpo
           {parsedRecords.length > 0 && !result && (
             <div className="border border-gray-200 rounded-xl overflow-hidden">
               <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
-                {parsedRecords.map((rec, i) => (
+                {parsedRecords.slice(0, 100).map((rec, i) => (
                   <div key={i} className={`flex items-center gap-3 px-4 py-2.5 text-xs ${
                     rec.status === 'error' ? 'bg-red-50' : rec.status === 'duplicate' ? 'bg-amber-50' : 'bg-white'
                   }`}>
@@ -384,6 +384,11 @@ export default function NationalPortalImportModal({ existingIds, onClose, onImpo
                   </div>
                 ))}
               </div>
+              {parsedRecords.length > 100 && (
+                <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-[11px] text-gray-500 text-center">
+                  Previewing first 100 of <strong>{parsedRecords.length.toLocaleString('en-IN')}</strong> records — all {parsedRecords.length.toLocaleString('en-IN')} records will be imported.
+                </div>
+              )}
             </div>
           )}
 
